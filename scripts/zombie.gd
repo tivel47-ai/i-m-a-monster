@@ -1,4 +1,4 @@
-extends Node2D
+extends CharacterBody2D
 
 @export var move_speed: float = 100.0
 
@@ -7,6 +7,7 @@ var target_position: Vector2
 var has_target: bool = false
 
 @onready var input_area: Area2D = $Area2D
+@onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 
 
 func set_selected(value: bool) -> void:
@@ -63,18 +64,32 @@ func _unhandled_input(event: InputEvent) -> void:
 			set_selected(_is_mouse_over_zombie())
 		elif is_selected and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			target_position = get_global_mouse_position()
+			navigation_agent.target_position = target_position
 			has_target = true
 			queue_redraw()
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if not has_target:
 		return
 
-	global_position = global_position.move_toward(
-		target_position,
-		move_speed * delta
-	)
-	if global_position.is_equal_approx(target_position):
+	if NavigationServer2D.map_get_iteration_id(
+		navigation_agent.get_navigation_map()
+	) == 0:
+		velocity = Vector2.ZERO
+		return
+
+	var next_path_position := navigation_agent.get_next_path_position()
+	if navigation_agent.is_navigation_finished():
 		has_target = false
+		velocity = Vector2.ZERO
+		queue_redraw()
+		return
+
+	velocity = global_position.direction_to(next_path_position) * move_speed
+	move_and_slide()
+
+	if navigation_agent.is_navigation_finished():
+		has_target = false
+		velocity = Vector2.ZERO
 	queue_redraw()
