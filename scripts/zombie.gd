@@ -14,6 +14,19 @@ func set_selected(value: bool) -> void:
 	queue_redraw()
 
 
+func _is_mouse_over_zombie() -> bool:
+	var query := PhysicsPointQueryParameters2D.new()
+	query.position = get_global_mouse_position()
+	query.collision_mask = input_area.collision_layer
+	query.collide_with_areas = true
+	query.collide_with_bodies = false
+
+	for result in get_world_2d().direct_space_state.intersect_point(query):
+		if result["collider"] == input_area:
+			return true
+	return false
+
+
 func _draw() -> void:
 	if is_selected:
 		draw_arc(
@@ -26,20 +39,32 @@ func _draw() -> void:
 			2.0
 		)
 
-
-func _ready() -> void:
-	input_area.input_pickable = true
-	input_area.input_event.connect(_on_input_event)
+	if has_target:
+		var marker_position := to_local(target_position)
+		var marker_color := Color(0.3, 0.9, 1.0)
+		draw_arc(marker_position, 10.0, 0.0, TAU, 24, marker_color, 2.0)
+		draw_line(
+			marker_position + Vector2(-14.0, 0.0),
+			marker_position + Vector2(14.0, 0.0),
+			marker_color,
+			2.0
+		)
+		draw_line(
+			marker_position + Vector2(0.0, -14.0),
+			marker_position + Vector2(0.0, 14.0),
+			marker_color,
+			2.0
+		)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not is_selected:
-		return
-
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			set_selected(_is_mouse_over_zombie())
+		elif is_selected and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			target_position = get_global_mouse_position()
 			has_target = true
+			queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
@@ -52,13 +77,4 @@ func _physics_process(delta: float) -> void:
 	)
 	if global_position.is_equal_approx(target_position):
 		has_target = false
-
-
-func _on_input_event(
-	_viewport: Viewport,
-	event: InputEvent,
-	_shape_idx: int
-) -> void:
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			set_selected(not is_selected)
+	queue_redraw()
