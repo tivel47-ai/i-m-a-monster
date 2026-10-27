@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://dheq7yk5t4w73"]
+
+[ext_resource type="Script" uid="uid://c63m78v1cyobd" path="res://scripts/zombie.gd" id="1_1vlb3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nnlx6"]
+size = Vector2(32, 40)
+
+[node name="Zombie" type="Node2D" unique_id=1210245640]
+script = ExtResource("1_1vlb3")
+
+[node name="Polygon2D" type="Polygon2D" parent="." unique_id=527684303]
+color = Color(0.32156864, 0.4, 0.2901961, 1)
+polygon = PackedVector2Array(0, -16, 10, -8, 10, 8, 0, 16, -10, 8, -10, -8)
+
+[node name="Area2D" type="Area2D" parent="." unique_id=957533439]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=605439550]
+shape = SubResource("RectangleShape2D_nnlx6")
