@@ -1,6 +1,10 @@
 extends Node2D
 
+@export var move_speed: float = 100.0
+
 var is_selected: bool = false
+var target_position: Vector2
+var has_target: bool = false
 
 @onready var input_area: Area2D = $Area2D
 
@@ -26,6 +30,28 @@ func _draw() -> void:
 func _ready() -> void:
 	input_area.input_pickable = true
 	input_area.input_event.connect(_on_input_event)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not is_selected:
+		return
+
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			target_position = get_global_mouse_position()
+			has_target = true
+
+
+func _physics_process(delta: float) -> void:
+	if not has_target:
+		return
+
+	global_position = global_position.move_toward(
+		target_position,
+		move_speed * delta
+	)
+	if global_position.is_equal_approx(target_position):
+		has_target = false
 
 
 func _on_input_event(
