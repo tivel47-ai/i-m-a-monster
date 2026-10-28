@@ -4,7 +4,7 @@
 size = Vector2(12, 24)
 
 [node name="Villager" type="StaticBody2D"]
-collision_layer = 1
+collision_layer = 8
 collision_mask = 2
 
 [node name="Polygon2D" type="Polygon2D" parent="."]

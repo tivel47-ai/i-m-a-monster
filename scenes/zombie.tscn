@@ -8,9 +8,12 @@ size = Vector2(32, 40)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(20, 32)
 
+[sub_resource type="CircleShape2D" id="CircleShape2D_aggro"]
+radius = 250.0
+
 [node name="Zombie" type="CharacterBody2D" unique_id=1210245640]
 collision_layer = 2
-collision_mask = 1
+collision_mask = 9
 motion_mode = 1
 script = ExtResource("1_1vlb3")
 
@@ -28,6 +31,13 @@ collision_mask = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D" unique_id=605439550]
 shape = SubResource("RectangleShape2D_nnlx6")
 
+[node name="AggroArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 8
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AggroArea"]
+shape = SubResource("CircleShape2D_aggro")
+
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
 radius = 12.0
 navigation_layers = 1
@@ -35,3 +45,6 @@ path_desired_distance = 6.0
 simplify_path = true
 path_postprocessing = 0
 target_desired_distance = 8.0
+
+[connection signal="body_entered" from="AggroArea" to="." method="_on_aggro_area_body_entered"]
+[connection signal="body_exited" from="AggroArea" to="." method="_on_aggro_area_body_exited"]

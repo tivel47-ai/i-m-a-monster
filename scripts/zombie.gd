@@ -1,10 +1,16 @@
 extends CharacterBody2D
 
+const VILLAGER_COLLISION_LAYER := 8
+const VILLAGER_APPROACH_DISTANCE := 44.0
+
 @export var move_speed: float = 100.0
 
 var is_selected: bool = false
 var target_position: Vector2
 var has_target: bool = false
+var has_player_order: bool = false
+var aggro_target: Node2D
+var aggro_candidates: Array[Node2D] = []
 
 @onready var input_area: Area2D = $Area2D
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
@@ -40,7 +46,7 @@ func _draw() -> void:
 			2.0
 		)
 
-	if has_target:
+	if has_player_order:
 		var marker_position := to_local(target_position)
 		var marker_color := Color(0.3, 0.9, 1.0)
 		draw_arc(marker_position, 10.0, 0.0, TAU, 24, marker_color, 2.0)
@@ -63,13 +69,75 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			set_selected(_is_mouse_over_zombie())
 		elif is_selected and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			aggro_target = null
 			target_position = get_global_mouse_position()
-			navigation_agent.target_position = target_position
+			has_player_order = true
 			has_target = true
+			navigation_agent.target_position = target_position
 			queue_redraw()
 
 
+func _on_aggro_area_body_entered(body: Node2D) -> void:
+	if not body is PhysicsBody2D:
+		return
+	var physics_body := body as PhysicsBody2D
+	if (physics_body.collision_layer & VILLAGER_COLLISION_LAYER) == 0:
+		return
+	if not aggro_candidates.has(body):
+		aggro_candidates.append(body)
+
+
+func _on_aggro_area_body_exited(body: Node2D) -> void:
+	aggro_candidates.erase(body)
+	if body == aggro_target:
+		aggro_target = null
+		has_target = false
+		velocity = Vector2.ZERO
+
+
+func _update_aggro_target() -> void:
+	if has_player_order:
+		return
+
+	if aggro_target != null:
+		if is_instance_valid(aggro_target) and _has_line_of_sight(aggro_target):
+			return
+		aggro_target = null
+		has_target = false
+		velocity = Vector2.ZERO
+
+	var closest_visible_target: Node2D
+	var closest_distance_squared := INF
+	for candidate in aggro_candidates:
+		if not is_instance_valid(candidate) or not _has_line_of_sight(candidate):
+			continue
+
+		var distance_squared := global_position.distance_squared_to(candidate.global_position)
+		if distance_squared < closest_distance_squared:
+			closest_distance_squared = distance_squared
+			closest_visible_target = candidate
+
+	if closest_visible_target == null:
+		return
+
+	aggro_target = closest_visible_target
+	var direction_to_zombie := aggro_target.global_position.direction_to(global_position)
+	navigation_agent.target_position = (
+		aggro_target.global_position
+		+ direction_to_zombie * VILLAGER_APPROACH_DISTANCE
+	)
+	has_target = true
+
+
+func _has_line_of_sight(target: Node2D) -> bool:
+	var query := PhysicsRayQueryParameters2D.create(global_position, target.global_position)
+	query.collision_mask = 1
+	query.exclude = [get_rid()]
+	return get_world_2d().direct_space_state.intersect_ray(query).is_empty()
+
+
 func _physics_process(_delta: float) -> void:
+	_update_aggro_target()
 	if not has_target:
 		return
 
@@ -83,6 +151,8 @@ func _physics_process(_delta: float) -> void:
 	if navigation_agent.is_navigation_finished():
 		has_target = false
 		velocity = Vector2.ZERO
+		if aggro_target == null:
+			has_player_order = false
 		queue_redraw()
 		return
 
@@ -92,4 +162,6 @@ func _physics_process(_delta: float) -> void:
 	if navigation_agent.is_navigation_finished():
 		has_target = false
 		velocity = Vector2.ZERO
+		if aggro_target == null:
+			has_player_order = false
 	queue_redraw()
