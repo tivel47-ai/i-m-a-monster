@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://bk4fq2d6r61u7"]
 
 [ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="1_6ulkd"]
+[ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="2_villager"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_obstacle"]
 size = Vector2(120, 180)
@@ -41,3 +42,6 @@ shape = SubResource("RectangleShape2D_obstacle")
 
 [node name="Zombie" parent="." unique_id=1210245640 instance=ExtResource("1_6ulkd")]
 position = Vector2(635, 327)
+
+[node name="Villager" parent="." instance=ExtResource("2_villager")]
+position = Vector2(1100, 360)
