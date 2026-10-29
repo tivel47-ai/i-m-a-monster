@@ -164,6 +164,40 @@ func issue_player_move_order(destination: Vector2) -> void:
 	if is_dead:
 		return
 
+	_prepare_for_player_order()
+	has_target = true
+	target_position = destination
+	navigation_agent.target_position = destination
+	queue_redraw()
+
+
+func issue_player_area_move_order(destination: Vector2) -> void:
+	if is_dead:
+		return
+
+	_prepare_for_player_order()
+	has_target = true
+	target_position = destination
+	navigation_agent.target_position = destination
+	queue_redraw()
+
+
+func issue_player_area_hold_order() -> void:
+	if is_dead:
+		return
+
+	_prepare_for_player_order()
+	has_target = false
+	has_player_order = false
+	aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
+	target_position = global_position
+	navigation_agent.target_position = global_position
+	navigation_agent.velocity = Vector2.ZERO
+	velocity = Vector2.ZERO
+	queue_redraw()
+
+
+func _prepare_for_player_order() -> void:
 	_cancel_crowd_displacement()
 	if (
 		aggro_target != null
@@ -173,12 +207,8 @@ func issue_player_move_order(destination: Vector2) -> void:
 		aggro_target.call("leave_encounter", self)
 
 	aggro_target = null
-	has_target = true
 	has_player_order = true
 	aggro_reacquire_delay = 0.0
-	target_position = destination
-	navigation_agent.target_position = destination
-	queue_redraw()
 
 
 func on_encounter_ended(villager: Node) -> void:
