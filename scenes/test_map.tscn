@@ -13,6 +13,14 @@ polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Arr
 outlines = Array[PackedVector2Array]([PackedVector2Array(24, 24, 1256, 24, 1256, 696, 24, 696), PackedVector2Array(760, 250, 760, 470, 920, 470, 920, 250)])
 agent_radius = 12.0
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_selection"]
+bg_color = Color(0.25, 0.8, 1, 0.12)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.45, 0.85, 1, 0.95)
+
 [node name="test_map" type="Node2D" unique_id=574965085]
 script = ExtResource("1_map")
 
@@ -79,3 +87,8 @@ text = "Прогресс: 0%"
 [node name="Status" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
 mouse_filter = 2
 text = "Цель: заразить 80% жителей"
+
+[node name="SelectionRect" type="Panel" parent="CanvasLayer"]
+visible = false
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_selection")

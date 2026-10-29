@@ -13,7 +13,6 @@ var has_player_order: bool = false
 var aggro_target: Node2D
 var aggro_candidates: Array[Node2D] = []
 
-@onready var input_area: Area2D = $Area2D
 @onready var zombie_visual: Polygon2D = $Polygon2D
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 
@@ -21,19 +20,6 @@ var aggro_candidates: Array[Node2D] = []
 func set_selected(value: bool) -> void:
 	is_selected = value
 	queue_redraw()
-
-
-func _is_mouse_over_zombie() -> bool:
-	var query := PhysicsPointQueryParameters2D.new()
-	query.position = get_global_mouse_position()
-	query.collision_mask = input_area.collision_layer
-	query.collide_with_areas = true
-	query.collide_with_bodies = false
-
-	for result in get_world_2d().direct_space_state.intersect_point(query):
-		if result["collider"] == input_area:
-			return true
-	return false
 
 
 func _draw() -> void:
@@ -67,18 +53,20 @@ func _draw() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			set_selected(_is_mouse_over_zombie())
-		elif is_selected and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			if aggro_target != null and aggro_target.has_method("cancel_encounter"):
-				aggro_target.call("cancel_encounter")
-			aggro_target = null
-			target_position = get_global_mouse_position()
-			has_player_order = true
-			has_target = true
-			navigation_agent.target_position = target_position
-			queue_redraw()
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_RIGHT
+		and event.pressed
+		and is_selected
+	):
+		if aggro_target != null and aggro_target.has_method("cancel_encounter"):
+			aggro_target.call("cancel_encounter")
+		aggro_target = null
+		target_position = get_global_mouse_position()
+		has_player_order = true
+		has_target = true
+		navigation_agent.target_position = target_position
+		queue_redraw()
 
 
 func _on_aggro_area_body_entered(body: Node2D) -> void:
