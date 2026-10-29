@@ -53,8 +53,23 @@ shape = SubResource("RectangleShape2D_obstacle")
 [node name="Zombie" parent="." unique_id=1210245640 instance=ExtResource("1_6ulkd")]
 position = Vector2(635, 327)
 
+[node name="Zombie2" parent="." instance=ExtResource("1_6ulkd")]
+position = Vector2(610, 190)
+
+[node name="Zombie3" parent="." instance=ExtResource("1_6ulkd")]
+position = Vector2(610, 530)
+
 [node name="Villager" parent="." instance=ExtResource("2_villager")]
 position = Vector2(1100, 360)
+
+[node name="Villager2" parent="." instance=ExtResource("2_villager")]
+position = Vector2(700, 150)
+
+[node name="Villager3" parent="." instance=ExtResource("2_villager")]
+position = Vector2(700, 570)
+
+[node name="Villager4" parent="." instance=ExtResource("2_villager")]
+position = Vector2(200, 360)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 

@@ -3,6 +3,7 @@ extends Node2D
 const TARGET_PERCENT := 80
 const SELECTION_DRAG_THRESHOLD := 8.0
 const PLAYER_SELECTION_LAYER := 4
+const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
 
 enum MissionState {
 	ACTIVE,
@@ -10,6 +11,7 @@ enum MissionState {
 }
 
 var villagers: Array[Node] = []
+var converted_resident_ids: Dictionary = {}
 var total_residents: int = 0
 var infected_residents: int = 0
 var mission_state: MissionState = MissionState.ACTIVE
@@ -38,12 +40,26 @@ func _ready() -> void:
 		var error := resident.connect("converted", _on_resident_converted)
 		if error != OK:
 			push_error("Could not connect resident conversion signal: %s" % error_string(error))
+		elif resident.call("is_converted"):
+			converted_resident_ids[resident.get_instance_id()] = true
 
 	total_residents = villagers.size()
 	_refresh_mission_progress()
 
 
 func _input(event: InputEvent) -> void:
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_RIGHT
+		and event.pressed
+	):
+		var destination := _screen_to_world(event.position)
+		for unit in get_tree().get_nodes_in_group("player_units"):
+			if unit.is_selected:
+				unit.issue_player_move_order(destination)
+		get_viewport().set_input_as_handled()
+		return
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			selection_in_progress = true
@@ -69,6 +85,7 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and selection_in_progress:
 		selection_current_screen = event.position
 		_update_marquee_state()
+
 
 func _update_marquee_state() -> void:
 	if not marquee_active:
@@ -165,17 +182,25 @@ func _apply_selection(selected_units: Array[Node]) -> void:
 
 
 func _on_resident_converted(resident: Node) -> void:
-	if not villagers.has(resident):
+	if not is_instance_valid(resident) or not villagers.has(resident):
 		return
 
+	var resident_id := resident.get_instance_id()
+	if converted_resident_ids.has(resident_id):
+		return
+
+	converted_resident_ids[resident_id] = true
 	_refresh_mission_progress()
+
+	var new_zombie := ZOMBIE_SCENE.instantiate()
+	new_zombie.position = to_local(resident.global_position)
+	add_child(new_zombie)
+	new_zombie.get_node("Polygon2D").color = resident.get_node("Polygon2D").color
+	resident.queue_free()
 
 
 func _refresh_mission_progress() -> void:
-	infected_residents = 0
-	for resident in villagers:
-		if is_instance_valid(resident) and resident.call("is_converted"):
-			infected_residents += 1
+	infected_residents = converted_resident_ids.size()
 
 	var uninfected_residents := total_residents - infected_residents
 	var progress_percent := 0

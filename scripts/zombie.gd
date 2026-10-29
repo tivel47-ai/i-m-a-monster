@@ -3,6 +3,7 @@ extends CharacterBody2D
 const VILLAGER_COLLISION_LAYER := 8
 const VILLAGER_APPROACH_DISTANCE := 12.0
 const INFECTION_DISTANCE := 24.0
+const AGGRO_REACQUIRE_DELAY_SECONDS := 0.3
 
 @export var move_speed: float = 100.0
 
@@ -10,6 +11,7 @@ var is_selected: bool = false
 var target_position: Vector2
 var has_target: bool = false
 var has_player_order: bool = false
+var aggro_reacquire_delay: float = 0.0
 var aggro_target: Node2D
 var aggro_candidates: Array[Node2D] = []
 
@@ -52,21 +54,22 @@ func _draw() -> void:
 		)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func issue_player_move_order(destination: Vector2) -> void:
 	if (
-		event is InputEventMouseButton
-		and event.button_index == MOUSE_BUTTON_RIGHT
-		and event.pressed
-		and is_selected
+		aggro_target != null
+		and is_instance_valid(aggro_target)
+		and aggro_target.has_method("is_encounter_owner")
+		and aggro_target.call("is_encounter_owner", self)
 	):
-		if aggro_target != null and aggro_target.has_method("cancel_encounter"):
-			aggro_target.call("cancel_encounter")
-		aggro_target = null
-		target_position = get_global_mouse_position()
-		has_player_order = true
-		has_target = true
-		navigation_agent.target_position = target_position
-		queue_redraw()
+		aggro_target.call("cancel_encounter")
+
+	aggro_target = null
+	has_target = true
+	has_player_order = true
+	aggro_reacquire_delay = 0.0
+	target_position = destination
+	navigation_agent.target_position = destination
+	queue_redraw()
 
 
 func _on_aggro_area_body_entered(body: Node2D) -> void:
@@ -89,31 +92,47 @@ func _on_aggro_area_body_exited(body: Node2D) -> void:
 		velocity = Vector2.ZERO
 
 
-func _update_aggro_target() -> void:
+func _update_aggro_target(delta: float) -> void:
 	if has_player_order:
+		return
+	if aggro_reacquire_delay > 0.0:
+		aggro_reacquire_delay = maxf(aggro_reacquire_delay - delta, 0.0)
 		return
 
 	if aggro_target != null:
 		if is_instance_valid(aggro_target) and _has_line_of_sight(aggro_target):
 			if aggro_target.call("is_in_collision"):
-				has_target = false
-				velocity = Vector2.ZERO
-				return
+				if aggro_target.call("is_encounter_owner", self):
+					has_target = false
+					velocity = Vector2.ZERO
+					return
 
-			if aggro_target.call("is_available_for_infection"):
 				if global_position.distance_to(aggro_target.global_position) <= INFECTION_DISTANCE:
-					if aggro_target.call("begin_encounter", zombie_visual.color):
-						has_target = false
-						velocity = Vector2.ZERO
+					has_target = false
+					velocity = Vector2.ZERO
 					return
 
 				if not has_target:
 					_set_aggro_destination()
 				return
+			elif aggro_target.call("is_available_for_infection"):
+				if global_position.distance_to(aggro_target.global_position) <= INFECTION_DISTANCE:
+					if aggro_target.call("begin_encounter", zombie_visual.color, self):
+						has_target = false
+						velocity = Vector2.ZERO
+						return
 
-			aggro_target = null
-			has_target = false
-			velocity = Vector2.ZERO
+					aggro_target = null
+					has_target = false
+					velocity = Vector2.ZERO
+				else:
+					if not has_target:
+						_set_aggro_destination()
+					return
+			else:
+				aggro_target = null
+				has_target = false
+				velocity = Vector2.ZERO
 		else:
 			aggro_target = null
 			has_target = false
@@ -139,7 +158,7 @@ func _update_aggro_target() -> void:
 
 	aggro_target = closest_visible_target
 	if global_position.distance_to(aggro_target.global_position) <= INFECTION_DISTANCE:
-		if aggro_target.call("begin_encounter", zombie_visual.color):
+		if aggro_target.call("begin_encounter", zombie_visual.color, self):
 			has_target = false
 			velocity = Vector2.ZERO
 		return
@@ -165,8 +184,8 @@ func _has_line_of_sight(target: Node2D) -> bool:
 	return get_world_2d().direct_space_state.intersect_ray(query).is_empty()
 
 
-func _physics_process(_delta: float) -> void:
-	_update_aggro_target()
+func _physics_process(delta: float) -> void:
+	_update_aggro_target(delta)
 	if not has_target:
 		return
 
@@ -180,8 +199,9 @@ func _physics_process(_delta: float) -> void:
 	if navigation_agent.is_navigation_finished():
 		has_target = false
 		velocity = Vector2.ZERO
-		if aggro_target == null:
+		if aggro_target == null and has_player_order:
 			has_player_order = false
+			aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
 		queue_redraw()
 		return
 
@@ -191,6 +211,7 @@ func _physics_process(_delta: float) -> void:
 	if navigation_agent.is_navigation_finished():
 		has_target = false
 		velocity = Vector2.ZERO
-		if aggro_target == null:
+		if aggro_target == null and has_player_order:
 			has_player_order = false
+			aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
 	queue_redraw()
