@@ -4,12 +4,17 @@ const VILLAGER_COLLISION_LAYER := 8
 const VILLAGER_APPROACH_DISTANCE := 12.0
 const INFECTION_DISTANCE := 32.0
 const AGGRO_REACQUIRE_DELAY_SECONDS := 0.3
+const CROWD_PUSH_CLEARANCE := 48.0
 
 @export var move_speed: float = 100.0
 @export var max_health: float = 120.0
 @export var attack_damage: float = 20.0
 @export var attack_interval: float = 1.0
 @export_range(0.0, 1.0, 0.01) var infection_chance: float = 0.15
+@export var crowd_push_distance: float = 24.0
+@export var crowd_push_speed: float = 60.0
+@export var crowd_return_delay: float = 0.75
+@export var crowd_return_speed: float = 35.0
 
 var is_selected: bool = false
 var current_health: float
@@ -20,6 +25,13 @@ var has_player_order: bool = false
 var aggro_reacquire_delay: float = 0.0
 var aggro_target: Node2D
 var aggro_candidates: Array[Node2D] = []
+var crowd_rest_position: Vector2
+var crowd_is_displaced: bool = false
+var crowd_is_returning: bool = false
+var crowd_return_delay_remaining: float = 0.0
+var crowd_pusher: Node2D
+var crowd_default_navigation_radius: float
+var crowd_default_target_desired_distance: float
 
 @onready var zombie_visual: Polygon2D = $Polygon2D
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
@@ -29,6 +41,8 @@ var aggro_candidates: Array[Node2D] = []
 
 func _ready() -> void:
 	current_health = maxf(max_health, 0.0)
+	crowd_default_navigation_radius = navigation_agent.radius
+	crowd_default_target_desired_distance = navigation_agent.target_desired_distance
 	var attack_timer := Timer.new()
 	attack_timer.name = "EncounterAttackTimer"
 	attack_timer.wait_time = maxf(attack_interval, 0.01)
@@ -124,6 +138,8 @@ func _die() -> void:
 	aggro_target = null
 
 	remove_from_group("player_units")
+	crowd_is_displaced = false
+	crowd_is_returning = false
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
@@ -148,6 +164,7 @@ func issue_player_move_order(destination: Vector2) -> void:
 	if is_dead:
 		return
 
+	_cancel_crowd_displacement()
 	if (
 		aggro_target != null
 		and is_instance_valid(aggro_target)
@@ -308,6 +325,7 @@ func _set_aggro_destination() -> void:
 	if aggro_target == null or not is_instance_valid(aggro_target):
 		return
 
+	_cancel_crowd_displacement()
 	var direction_to_zombie := aggro_target.global_position.direction_to(global_position)
 	navigation_agent.target_position = (
 		aggro_target.global_position
@@ -328,6 +346,19 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_update_aggro_target(delta)
+	if aggro_target != null:
+		_cancel_crowd_displacement()
+	elif crowd_is_displaced and not has_target and not has_player_order:
+		if _crowd_pusher_is_nearby():
+			crowd_return_delay_remaining = maxf(crowd_return_delay, 0.0)
+		elif crowd_return_delay_remaining > 0.0:
+			crowd_return_delay_remaining = maxf(crowd_return_delay_remaining - delta, 0.0)
+		else:
+			crowd_is_returning = true
+			navigation_agent.target_desired_distance = 1.0
+			has_target = true
+			navigation_agent.target_position = crowd_rest_position
+
 	if not has_target:
 		navigation_agent.velocity = Vector2.ZERO
 		velocity = Vector2.ZERO
@@ -345,8 +376,65 @@ func _physics_process(delta: float) -> void:
 		_finish_movement_target()
 		return
 
-	navigation_agent.velocity = global_position.direction_to(next_path_position) * move_speed
+	var desired_direction := global_position.direction_to(next_path_position)
+	_push_blocking_idle_zombies(desired_direction)
+	if has_player_order and _is_waiting_for_crowd_to_yield(desired_direction):
+		navigation_agent.velocity = Vector2.ZERO
+		velocity = Vector2.ZERO
+		return
+
+	var desired_speed := move_speed
+	if crowd_is_displaced:
+		desired_speed = minf(
+			move_speed,
+			crowd_return_speed if crowd_is_returning else crowd_push_speed
+		)
+	navigation_agent.velocity = desired_direction * desired_speed
 	queue_redraw()
+
+
+func _push_blocking_idle_zombies(direction: Vector2) -> void:
+	if not has_player_order:
+		return
+
+	for unit in get_tree().get_nodes_in_group("player_units"):
+		if unit == self or not unit.has_method("_receive_crowd_push"):
+			continue
+
+		var offset: Vector2 = unit.global_position - global_position
+		var forward_distance := offset.dot(direction)
+		var lateral_distance := absf(offset.cross(direction))
+		var push_trigger_distance := maxf(
+			crowd_push_distance + navigation_agent.radius + 20.0,
+			navigation_agent.neighbor_distance
+		)
+		if (
+			forward_distance > 0.0
+			and forward_distance <= push_trigger_distance
+			and lateral_distance <= 20.0
+		):
+			unit.call("_receive_crowd_push", direction, global_position, self)
+
+
+func _is_waiting_for_crowd_to_yield(direction: Vector2) -> bool:
+	var push_trigger_distance := maxf(
+		crowd_push_distance + navigation_agent.radius + 20.0,
+		navigation_agent.neighbor_distance
+	)
+	for unit in get_tree().get_nodes_in_group("player_units"):
+		if unit == self or not unit.crowd_is_displaced:
+			continue
+
+		var offset: Vector2 = unit.global_position - global_position
+		var forward_distance := offset.dot(direction)
+		var lateral_distance := absf(offset.cross(direction))
+		if (
+			forward_distance > -20.0
+			and forward_distance <= push_trigger_distance
+			and lateral_distance < CROWD_PUSH_CLEARANCE - 8.0
+		):
+			return true
+	return false
 
 
 func _on_navigation_agent_velocity_computed(safe_velocity: Vector2) -> void:
@@ -356,14 +444,97 @@ func _on_navigation_agent_velocity_computed(safe_velocity: Vector2) -> void:
 
 	velocity = safe_velocity
 	move_and_slide()
+	_push_crowd_zombies_from_collisions()
 	if navigation_agent.is_navigation_finished():
 		_finish_movement_target()
+
+
+func _push_crowd_zombies_from_collisions() -> void:
+	if not has_player_order:
+		return
+
+	for collision_index in range(get_slide_collision_count()):
+		var collision := get_slide_collision(collision_index)
+		var other := collision.get_collider() as Node
+		if (
+			other == null
+			or not other.is_in_group("player_units")
+			or not other.has_method("_receive_crowd_push")
+		):
+			continue
+
+		other.call("_receive_crowd_push", -collision.get_normal(), global_position, self)
+
+
+func _receive_crowd_push(
+	direction: Vector2, pusher_position: Vector2, pusher: Node2D
+) -> void:
+	if (
+		is_dead
+		or has_player_order
+		or aggro_target != null
+		or has_target and not crowd_is_displaced
+		or not get_node("EncounterAttackTimer").is_stopped()
+		or crowd_is_displaced
+	):
+		return
+
+	var movement_direction := direction.normalized()
+	if movement_direction.is_zero_approx():
+		return
+	var side_direction := movement_direction.orthogonal()
+	var side_offset := (global_position - pusher_position).dot(side_direction)
+	var side_sign := signf(side_offset)
+	if is_zero_approx(side_sign):
+		side_sign = 1.0 if get_instance_id() % 2 == 0 else -1.0
+	var push_direction := side_direction * side_sign
+	var push_distance := maxf(
+		crowd_push_distance,
+		CROWD_PUSH_CLEARANCE - absf(side_offset)
+	)
+
+	if not crowd_is_displaced:
+		crowd_rest_position = global_position
+	crowd_is_displaced = true
+	crowd_is_returning = false
+	crowd_return_delay_remaining = 0.0
+	crowd_pusher = pusher
+	navigation_agent.radius = 0.0
+	has_target = true
+	navigation_agent.target_position = (
+		crowd_rest_position + push_direction * maxf(push_distance, 1.0)
+	)
+
+
+func _crowd_pusher_is_nearby() -> bool:
+	return (
+		crowd_pusher != null
+		and is_instance_valid(crowd_pusher)
+		and not crowd_pusher.is_dead
+		and crowd_pusher.has_player_order
+		and crowd_pusher.global_position.distance_to(crowd_rest_position)
+		<= crowd_push_distance + CROWD_PUSH_CLEARANCE
+	)
+
+
+func _cancel_crowd_displacement() -> void:
+	crowd_is_displaced = false
+	crowd_is_returning = false
+	crowd_return_delay_remaining = 0.0
+	crowd_pusher = null
+	navigation_agent.radius = crowd_default_navigation_radius
+	navigation_agent.target_desired_distance = crowd_default_target_desired_distance
 
 
 func _finish_movement_target() -> void:
 	has_target = false
 	navigation_agent.velocity = Vector2.ZERO
 	velocity = Vector2.ZERO
+	if crowd_is_displaced:
+		if crowd_is_returning:
+			_cancel_crowd_displacement()
+		else:
+			crowd_return_delay_remaining = maxf(crowd_return_delay, 0.0)
 	if aggro_target == null and has_player_order:
 		has_player_order = false
 		aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
