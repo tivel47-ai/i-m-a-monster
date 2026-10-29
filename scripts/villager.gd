@@ -1,5 +1,7 @@
 extends StaticBody2D
 
+signal converted(villager: Node)
+
 enum InfectionState {
 	AVAILABLE,
 	IN_COLLISION,
@@ -21,6 +23,10 @@ func is_available_for_infection() -> bool:
 
 func is_in_collision() -> bool:
 	return infection_state == InfectionState.IN_COLLISION
+
+
+func is_converted() -> bool:
+	return infection_state == InfectionState.CONVERTED
 
 
 func begin_encounter(result_color: Color) -> bool:
@@ -47,3 +53,4 @@ func _on_collision_timer_timeout() -> void:
 
 	infection_state = InfectionState.CONVERTED
 	polygon.color = converted_color
+	converted.emit(self)

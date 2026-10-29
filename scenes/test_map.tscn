@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://bk4fq2d6r61u7"]
 
+[ext_resource type="Script" path="res://scripts/test_map.gd" id="1_map"]
 [ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="1_6ulkd"]
 [ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="2_villager"]
 
@@ -13,6 +14,7 @@ outlines = Array[PackedVector2Array]([PackedVector2Array(24, 24, 1256, 24, 1256,
 agent_radius = 12.0
 
 [node name="test_map" type="Node2D" unique_id=574965085]
+script = ExtResource("1_map")
 
 [node name="ColorRect" type="ColorRect" parent="." unique_id=1996086548]
 anchors_preset = 15
@@ -45,3 +47,35 @@ position = Vector2(635, 327)
 
 [node name="Villager" parent="." instance=ExtResource("2_villager")]
 position = Vector2(1100, 360)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="MissionPanel" type="PanelContainer" parent="CanvasLayer"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 340.0
+offset_bottom = 176.0
+mouse_filter = 2
+
+[node name="MissionInfo" type="VBoxContainer" parent="CanvasLayer/MissionPanel"]
+mouse_filter = 2
+
+[node name="Residents" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
+mouse_filter = 2
+text = "Жители: 0 / 0"
+
+[node name="Infected" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
+mouse_filter = 2
+text = "Заражено: 0"
+
+[node name="Uninfected" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
+mouse_filter = 2
+text = "Незаражено: 0"
+
+[node name="Progress" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
+mouse_filter = 2
+text = "Прогресс: 0%"
+
+[node name="Status" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
+mouse_filter = 2
+text = "Цель: заразить 80% жителей"
