@@ -21,6 +21,18 @@ script = ExtResource("1_1vlb3")
 color = Color(0.32156864, 0.4, 0.2901961, 1)
 polygon = PackedVector2Array(0, -16, 10, -8, 10, 8, 0, 16, -10, 8, -10, -8)
 
+[node name="DeathMarkerA" type="Line2D" parent="."]
+visible = false
+points = PackedVector2Array(-8, -8, 8, 8)
+width = 3.0
+default_color = Color(1, 0, 0, 1)
+
+[node name="DeathMarkerB" type="Line2D" parent="."]
+visible = false
+points = PackedVector2Array(-8, 8, 8, -8)
+width = 3.0
+default_color = Color(1, 0, 0, 1)
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_body")
 

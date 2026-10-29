@@ -14,10 +14,22 @@ script = ExtResource("1_villager")
 color = Color(0.9, 0.9, 0.84, 1)
 polygon = PackedVector2Array(0, -12, 6, -7, 6, 7, 0, 12, -6, 7, -6, -7)
 
+[node name="DeathMarkerA" type="Line2D" parent="."]
+visible = false
+points = PackedVector2Array(-7, -7, 7, 7)
+width = 2.5
+default_color = Color(1, 0, 0, 1)
+
+[node name="DeathMarkerB" type="Line2D" parent="."]
+visible = false
+points = PackedVector2Array(-7, 7, 7, -7)
+width = 2.5
+default_color = Color(1, 0, 0, 1)
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_body")
 
-[node name="CollisionTimer" type="Timer" parent="."]
+[node name="TransformationTimer" type="Timer" parent="."]
 one_shot = true
 
-[connection signal="timeout" from="CollisionTimer" to="." method="_on_collision_timer_timeout"]
+[connection signal="timeout" from="TransformationTimer" to="." method="_on_transformation_timer_timeout"]

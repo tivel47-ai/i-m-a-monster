@@ -1,17 +1,17 @@
 [gd_scene format=3 uid="uid://bk4fq2d6r61u7"]
 
-[ext_resource type="Script" path="res://scripts/test_map.gd" id="1_map"]
 [ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="1_6ulkd"]
+[ext_resource type="Script" uid="uid://dkqm3e22tn4dj" path="res://scripts/test_map.gd" id="1_map"]
 [ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="2_villager"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_obstacle"]
-size = Vector2(120, 180)
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_test_map"]
 vertices = PackedVector2Array(932, 482, 1244, 684, 36, 684, 748, 482, 1244, 36, 932, 238, 36, 36, 748, 238)
 polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 1, 0, 5), PackedInt32Array(6, 4, 5, 7), PackedInt32Array(3, 2, 6, 7)])
 outlines = Array[PackedVector2Array]([PackedVector2Array(24, 24, 1256, 24, 1256, 696, 24, 696), PackedVector2Array(760, 250, 760, 470, 920, 470, 920, 250)])
 agent_radius = 12.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_obstacle"]
+size = Vector2(120, 180)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_selection"]
 bg_color = Color(0.25, 0.8, 1, 0.12)
@@ -35,75 +35,82 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.13725491, 0.16470589, 0.13725491, 1)
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=382708044]
 navigation_polygon = SubResource("NavigationPolygon_test_map")
 
-[node name="Obstacle" type="StaticBody2D" parent="."]
+[node name="Obstacle" type="StaticBody2D" parent="." unique_id=931224023]
 position = Vector2(840, 360)
-collision_layer = 1
 collision_mask = 2
 
-[node name="Polygon2D" type="Polygon2D" parent="Obstacle"]
+[node name="Polygon2D" type="Polygon2D" parent="Obstacle" unique_id=1362154942]
 color = Color(0.28, 0.24, 0.2, 1)
 polygon = PackedVector2Array(-60, -90, 60, -90, 60, 90, -60, 90)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacle"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Obstacle" unique_id=1014473758]
 shape = SubResource("RectangleShape2D_obstacle")
 
 [node name="Zombie" parent="." unique_id=1210245640 instance=ExtResource("1_6ulkd")]
 position = Vector2(635, 327)
+collision_mask = 11
 
-[node name="Zombie2" parent="." instance=ExtResource("1_6ulkd")]
+[node name="Zombie2" parent="." unique_id=1811643929 instance=ExtResource("1_6ulkd")]
 position = Vector2(610, 190)
+collision_mask = 11
 
-[node name="Zombie3" parent="." instance=ExtResource("1_6ulkd")]
+[node name="Zombie3" parent="." unique_id=602772676 instance=ExtResource("1_6ulkd")]
 position = Vector2(610, 530)
+collision_mask = 11
 
-[node name="Villager" parent="." instance=ExtResource("2_villager")]
+[node name="Villager" parent="." unique_id=407241791 instance=ExtResource("2_villager")]
 position = Vector2(1100, 360)
 
-[node name="Villager2" parent="." instance=ExtResource("2_villager")]
+[node name="Villager2" parent="." unique_id=1874255612 instance=ExtResource("2_villager")]
 position = Vector2(700, 150)
 
-[node name="Villager3" parent="." instance=ExtResource("2_villager")]
+[node name="Villager3" parent="." unique_id=2029063017 instance=ExtResource("2_villager")]
 position = Vector2(700, 570)
 
-[node name="Villager4" parent="." instance=ExtResource("2_villager")]
+[node name="Villager4" parent="." unique_id=1191871272 instance=ExtResource("2_villager")]
 position = Vector2(200, 360)
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1042008688]
 
-[node name="MissionPanel" type="PanelContainer" parent="CanvasLayer"]
+[node name="MissionPanel" type="PanelContainer" parent="CanvasLayer" unique_id=1951434403]
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 340.0
 offset_bottom = 176.0
 mouse_filter = 2
 
-[node name="MissionInfo" type="VBoxContainer" parent="CanvasLayer/MissionPanel"]
+[node name="MissionInfo" type="VBoxContainer" parent="CanvasLayer/MissionPanel" unique_id=984267347]
+layout_mode = 2
 mouse_filter = 2
 
-[node name="Residents" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
-mouse_filter = 2
+[node name="Residents" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo" unique_id=1208281181]
+layout_mode = 2
 text = "Жители: 0 / 0"
 
-[node name="Infected" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
-mouse_filter = 2
+[node name="Infected" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo" unique_id=43236414]
+layout_mode = 2
 text = "Заражено: 0"
 
-[node name="Uninfected" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
-mouse_filter = 2
+[node name="Uninfected" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo" unique_id=1257441631]
+layout_mode = 2
 text = "Незаражено: 0"
 
-[node name="Progress" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
-mouse_filter = 2
+[node name="Killed" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
+layout_mode = 2
+text = "Убито: 0"
+
+[node name="Progress" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo" unique_id=2111063095]
+layout_mode = 2
 text = "Прогресс: 0%"
 
-[node name="Status" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
-mouse_filter = 2
-text = "Цель: заразить 80% жителей"
+[node name="Status" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo" unique_id=478836091]
+layout_mode = 2
+text = "Цель: заразить или уничтожить 80% жителей"
 
-[node name="SelectionRect" type="Panel" parent="CanvasLayer"]
+[node name="SelectionRect" type="Panel" parent="CanvasLayer" unique_id=668744120]
 visible = false
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_selection")

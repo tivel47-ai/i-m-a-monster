@@ -12,8 +12,10 @@ enum MissionState {
 
 var villagers: Array[Node] = []
 var converted_resident_ids: Dictionary = {}
+var dead_resident_ids: Dictionary = {}
 var total_residents: int = 0
 var infected_residents: int = 0
+var killed_residents: int = 0
 var mission_state: MissionState = MissionState.ACTIVE
 var selection_in_progress: bool = false
 var marquee_active: bool = false
@@ -22,6 +24,7 @@ var selection_current_screen: Vector2
 
 @onready var residents_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Residents
 @onready var infected_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Infected
+@onready var killed_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Killed
 @onready var uninfected_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Uninfected
 @onready var progress_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Progress
 @onready var status_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Status
@@ -35,13 +38,22 @@ func _ready() -> void:
 		villagers.append(resident)
 		if not resident.has_signal("converted"):
 			push_error("Mission resident is missing the converted signal: %s" % resident.get_path())
-			continue
+		else:
+			var converted_error := resident.connect("converted", _on_resident_converted)
+			if converted_error != OK:
+				push_error("Could not connect resident conversion signal: %s" % error_string(converted_error))
 
-		var error := resident.connect("converted", _on_resident_converted)
-		if error != OK:
-			push_error("Could not connect resident conversion signal: %s" % error_string(error))
-		elif resident.call("is_converted"):
+		if not resident.has_signal("died"):
+			push_error("Mission resident is missing the died signal: %s" % resident.get_path())
+		else:
+			var died_error := resident.connect("died", _on_resident_died)
+			if died_error != OK:
+				push_error("Could not connect resident death signal: %s" % error_string(died_error))
+
+		if resident.call("is_converted"):
 			converted_resident_ids[resident.get_instance_id()] = true
+		elif resident.has_method("is_dead") and resident.call("is_dead"):
+			dead_resident_ids[resident.get_instance_id()] = true
 
 	total_residents = villagers.size()
 	_refresh_mission_progress()
@@ -186,7 +198,7 @@ func _on_resident_converted(resident: Node) -> void:
 		return
 
 	var resident_id := resident.get_instance_id()
-	if converted_resident_ids.has(resident_id):
+	if converted_resident_ids.has(resident_id) or dead_resident_ids.has(resident_id):
 		return
 
 	converted_resident_ids[resident_id] = true
@@ -199,30 +211,45 @@ func _on_resident_converted(resident: Node) -> void:
 	resident.queue_free()
 
 
+func _on_resident_died(resident: Node) -> void:
+	if not is_instance_valid(resident) or not villagers.has(resident):
+		return
+
+	var resident_id := resident.get_instance_id()
+	if converted_resident_ids.has(resident_id) or dead_resident_ids.has(resident_id):
+		return
+
+	dead_resident_ids[resident_id] = true
+	_refresh_mission_progress()
+
+
 func _refresh_mission_progress() -> void:
 	infected_residents = converted_resident_ids.size()
+	killed_residents = dead_resident_ids.size()
+	var completed_residents := infected_residents + killed_residents
 
-	var uninfected_residents := total_residents - infected_residents
+	var unaccounted_residents := total_residents - completed_residents
 	var progress_percent := 0
-	var required_infections := 0
+	var required_residents := 0
 	if total_residents > 0:
-		progress_percent = roundi(float(infected_residents * 100) / total_residents)
-		required_infections = ceili(float(total_residents * TARGET_PERCENT) / 100.0)
+		progress_percent = roundi(float(completed_residents * 100) / total_residents)
+		required_residents = ceili(float(total_residents * TARGET_PERCENT) / 100.0)
 
-	residents_label.text = "Жители: %d / %d" % [infected_residents, total_residents]
+	residents_label.text = "Заражено/убито: %d / %d" % [completed_residents, total_residents]
 	infected_label.text = "Заражено: %d" % infected_residents
-	uninfected_label.text = "Незаражено: %d" % uninfected_residents
+	killed_label.text = "Убито: %d" % killed_residents
+	uninfected_label.text = "Осталось: %d" % unaccounted_residents
 	progress_label.text = "Прогресс: %d%%" % progress_percent
 
 	if total_residents == 0:
 		status_label.text = "Цель невозможна: жителей нет."
 	elif mission_state == MissionState.WON:
 		status_label.text = "ПОБЕДА! Цель миссии выполнена"
-	elif infected_residents >= required_infections:
+	elif completed_residents >= required_residents:
 		mission_state = MissionState.WON
 		status_label.text = "ПОБЕДА! Цель миссии выполнена"
 	else:
-		status_label.text = "Цель: заразить %d%% жителей (%d осталось)" % [
+		status_label.text = "Цель: заразить или уничтожить %d%% жителей (%d осталось)" % [
 			TARGET_PERCENT,
-			maxi(required_infections - infected_residents, 0)
+			maxi(required_residents - completed_residents, 0)
 		]
