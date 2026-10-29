@@ -15,11 +15,12 @@ radius = 250.0
 collision_layer = 2
 collision_mask = 11
 motion_mode = 1
+z_index = 1
 script = ExtResource("1_1vlb3")
 
 [node name="Polygon2D" type="Polygon2D" parent="." unique_id=527684303]
 color = Color(0.32156864, 0.4, 0.2901961, 1)
-polygon = PackedVector2Array(0, -16, 10, -8, 10, 8, 0, 16, -10, 8, -10, -8)
+polygon = PackedVector2Array(-10, -16, 10, -16, 10, 16, -10, 16)
 
 [node name="DeathMarkerA" type="Line2D" parent="."]
 visible = false
@@ -51,12 +52,17 @@ collision_mask = 8
 shape = SubResource("CircleShape2D_aggro")
 
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
-radius = 12.0
+avoidance_enabled = true
+neighbor_distance = 80.0
+max_neighbors = 16
+time_horizon_agents = 1.0
+radius = 19.0
 navigation_layers = 1
 path_desired_distance = 6.0
 simplify_path = true
 path_postprocessing = 0
 target_desired_distance = 8.0
 
+[connection signal="velocity_computed" from="NavigationAgent2D" to="." method="_on_navigation_agent_velocity_computed"]
 [connection signal="body_entered" from="AggroArea" to="." method="_on_aggro_area_body_entered"]
 [connection signal="body_exited" from="AggroArea" to="." method="_on_aggro_area_body_exited"]

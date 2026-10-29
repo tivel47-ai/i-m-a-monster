@@ -8,11 +8,12 @@ size = Vector2(12, 24)
 [node name="Villager" type="StaticBody2D"]
 collision_layer = 8
 collision_mask = 2
+z_index = 1
 script = ExtResource("1_villager")
 
 [node name="Polygon2D" type="Polygon2D" parent="."]
 color = Color(0.9, 0.9, 0.84, 1)
-polygon = PackedVector2Array(0, -12, 6, -7, 6, 7, 0, 12, -6, 7, -6, -7)
+polygon = PackedVector2Array(-6, -12, 6, -12, 6, 12, -6, 12)
 
 [node name="DeathMarkerA" type="Line2D" parent="."]
 visible = false

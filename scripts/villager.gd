@@ -122,6 +122,7 @@ func _die() -> void:
 	current_health = 0.0
 	transformation_timer.stop()
 	_end_encounter()
+	z_index = 0
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
@@ -219,6 +220,9 @@ func _on_transformation_timer_timeout() -> void:
 
 
 func _draw() -> void:
+	if infection_state == InfectionState.DEAD:
+		return
+
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
 	var health_rect := Rect2(-9.0, -25.0, 18.0, 4.0)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)

@@ -2,7 +2,7 @@ extends CharacterBody2D
 
 const VILLAGER_COLLISION_LAYER := 8
 const VILLAGER_APPROACH_DISTANCE := 12.0
-const INFECTION_DISTANCE := 24.0
+const INFECTION_DISTANCE := 32.0
 const AGGRO_REACQUIRE_DELAY_SECONDS := 0.3
 
 @export var move_speed: float = 100.0
@@ -46,6 +46,9 @@ func set_selected(value: bool) -> void:
 
 
 func _draw() -> void:
+	if is_dead:
+		return
+
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
 	var health_rect := Rect2(-12.0, -34.0, 24.0, 4.0)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
@@ -129,6 +132,9 @@ func _die() -> void:
 	$AggroArea.set_deferred("monitoring", false)
 	$AggroArea.set_deferred("monitorable", false)
 	navigation_agent.navigation_layers = 0
+	navigation_agent.velocity = Vector2.ZERO
+	navigation_agent.avoidance_enabled = false
+	z_index = 0
 	death_marker_a.show()
 	death_marker_b.show()
 	queue_redraw()
@@ -323,31 +329,42 @@ func _physics_process(delta: float) -> void:
 
 	_update_aggro_target(delta)
 	if not has_target:
+		navigation_agent.velocity = Vector2.ZERO
+		velocity = Vector2.ZERO
 		return
 
 	if NavigationServer2D.map_get_iteration_id(
 		navigation_agent.get_navigation_map()
 	) == 0:
+		navigation_agent.velocity = Vector2.ZERO
 		velocity = Vector2.ZERO
 		return
 
 	var next_path_position := navigation_agent.get_next_path_position()
 	if navigation_agent.is_navigation_finished():
-		has_target = false
-		velocity = Vector2.ZERO
-		if aggro_target == null and has_player_order:
-			has_player_order = false
-			aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
-		queue_redraw()
+		_finish_movement_target()
 		return
 
-	velocity = global_position.direction_to(next_path_position) * move_speed
-	move_and_slide()
+	navigation_agent.velocity = global_position.direction_to(next_path_position) * move_speed
+	queue_redraw()
 
-	if navigation_agent.is_navigation_finished():
-		has_target = false
+
+func _on_navigation_agent_velocity_computed(safe_velocity: Vector2) -> void:
+	if is_dead or not has_target:
 		velocity = Vector2.ZERO
-		if aggro_target == null and has_player_order:
-			has_player_order = false
-			aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
+		return
+
+	velocity = safe_velocity
+	move_and_slide()
+	if navigation_agent.is_navigation_finished():
+		_finish_movement_target()
+
+
+func _finish_movement_target() -> void:
+	has_target = false
+	navigation_agent.velocity = Vector2.ZERO
+	velocity = Vector2.ZERO
+	if aggro_target == null and has_player_order:
+		has_player_order = false
+		aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
 	queue_redraw()
