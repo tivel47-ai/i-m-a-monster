@@ -99,7 +99,8 @@ func run() -> void:
 			if was_moving[index] and not resident.has_destination:
 				if resident.position.distance_to(destinations[index]) <= resident.arrival_tolerance:
 					arrivals[index] += 1
-				waits_valid = waits_valid and resident.wait_remaining >= 2.0 and resident.wait_remaining <= 5.0
+				var duration: Vector2 = resident._activity_duration(resident.current_activity)
+				waits_valid = waits_valid and resident.wait_remaining >= duration.x and resident.wait_remaining <= duration.y
 			elif not was_moving[index] and resident.has_destination:
 				departures[index] += 1
 				stable = stable and points.has(resident.destination)
@@ -114,7 +115,7 @@ func run() -> void:
 			"Resident %d repeats movement/wait loop (arrivals %d, departures %d)" % [index, arrivals[index], departures[index]])
 	check(safe, "Four residents never overlap buildings during 100 simulated seconds")
 	check(stable, "Destinations remain stable on routes; waiting residents stay still")
-	check(waits_valid, "Normal waits remain within 2-5 seconds")
+	check(waits_valid, "Normal waits match the selected activity duration")
 	await clear_map()
 	await check_obstacle_and_retry()
 	await check_chase_and_interruptions()
@@ -189,6 +190,7 @@ func check_chase_and_interruptions() -> void:
 	var encounter_position: Vector2 = resident.position
 	await frames(20)
 	check(not resident.has_destination and resident.velocity == Vector2.ZERO
+		and resident.current_activity == resident.Activity.NONE and not resident.is_performing_activity
 		and resident.position.is_equal_approx(encounter_position), "Combat immediately suspends civilian movement")
 	# Multiple participants retain ownership until the final participant leaves.
 	var second = load("res://scenes/zombie.tscn").instantiate()

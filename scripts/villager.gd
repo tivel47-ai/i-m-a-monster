@@ -13,6 +13,8 @@ enum InfectionState {
 	DEAD,
 }
 
+enum Activity { NONE = -1, HOME, WORK, SOCIAL, WANDER }
+
 @export var max_health: float = 100.0
 @export var attack_damage: float = 15.0
 @export var attack_interval: float = 1.0
@@ -23,6 +25,22 @@ enum InfectionState {
 @export var wait_duration_min: float = 2.0
 @export var wait_duration_max: float = 5.0
 @export var arrival_tolerance: float = 4.0
+
+@export_group("Peaceful activities")
+@export_enum("Villager", "Peasant", "Craftsman") var civilian_profile: String = "Villager"
+@export var home_point_path: NodePath
+@export var work_point_path: NodePath
+@export var home_weight: float = 25.0
+@export var work_weight: float = 45.0
+@export var social_weight: float = 20.0
+@export var wander_weight: float = 10.0
+@export var home_duration: Vector2 = Vector2(4.0, 8.0)
+@export var work_duration: Vector2 = Vector2(6.0, 12.0)
+@export var social_duration: Vector2 = Vector2(3.0, 6.0)
+@export var wander_duration: Vector2 = Vector2(2.0, 4.0)
+
+var current_activity: Activity = Activity.NONE
+var is_performing_activity: bool = false
 
 var has_destination: bool = false
 var destination: Vector2
@@ -68,7 +86,7 @@ func _physics_process(delta: float) -> void:
 			_choose_destination(navigation_map)
 		return
 	if global_position.distance_to(destination) <= navigation_agent.target_desired_distance:
-		_begin_wait()
+		_begin_wait(true)
 		return
 	if global_position.distance_squared_to(progress_position) >= 4.0:
 		progress_position = global_position
@@ -90,44 +108,102 @@ func _choose_destination(navigation_map: RID) -> void:
 	if points == null:
 		_begin_wait()
 		return
-	var candidates := points.get_children()
-	candidates.shuffle()
-	for candidate in candidates:
-		if not candidate is Marker2D:
+	var options: Array[Dictionary] = []
+	var total_weight := 0.0
+	for activity in [Activity.HOME, Activity.WORK, Activity.SOCIAL, Activity.WANDER]:
+		var weight := _activity_weight(activity)
+		if weight <= 0.0:
 			continue
-		var point: Vector2 = candidate.global_position
-		if global_position.distance_to(point) <= maxf(arrival_tolerance, 0.5):
-			continue
-		if NavigationServer2D.map_get_closest_point(navigation_map, point).distance_to(point) > 1.0:
-			continue
-		var query := PhysicsShapeQueryParameters2D.new()
-		query.shape = $CollisionShape2D.shape
-		query.transform = Transform2D(0.0, point)
-		query.collision_mask = 1
-		if not get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty():
-			continue
-		var path := NavigationServer2D.map_get_path(navigation_map, global_position, point, true, navigation_agent.navigation_layers)
-		if path.is_empty() or path[-1].distance_to(point) > 1.0:
-			continue
-		destination = point
-		navigation_agent.target_position = point
-		has_destination = true
-		progress_position = global_position
-		stalled_seconds = 0.0
+		var candidates: Array[Marker2D] = []
+		for candidate in _activity_points(activity, points):
+			if _is_destination_valid(candidate.global_position, navigation_map):
+				candidates.append(candidate)
+		if not candidates.is_empty():
+			options.append({"activity": activity, "weight": weight, "points": candidates})
+			total_weight += weight
+	if options.is_empty():
+		_begin_wait()
 		return
-	_begin_wait()
+	var roll := randf() * total_weight
+	var selected: Dictionary = options[-1]
+	for option in options:
+		roll -= float(option["weight"])
+		if roll < 0.0:
+			selected = option
+			break
+	current_activity = selected["activity"]
+	is_performing_activity = false
+	var candidates: Array = selected["points"]
+	destination = candidates.pick_random().global_position
+	navigation_agent.target_position = destination
+	has_destination = true
+	progress_position = global_position
+	stalled_seconds = 0.0
+
+
+func _activity_points(activity: Activity, points: Node) -> Array[Marker2D]:
+	var result: Array[Marker2D] = []
+	if activity == Activity.HOME or activity == Activity.WORK:
+		var path := home_point_path if activity == Activity.HOME else work_point_path
+		var marker := get_node_or_null(path) if not path.is_empty() else null
+		if marker is Marker2D:
+			result.append(marker)
+	else:
+		for marker in points.get_children():
+			if marker is Marker2D and (activity == Activity.WANDER or marker.is_in_group("civilian_social_points")):
+				result.append(marker)
+	return result
+
+
+func _activity_weight(activity: Activity) -> float:
+	match activity:
+		Activity.HOME: return maxf(home_weight, 0.0)
+		Activity.WORK: return maxf(work_weight, 0.0)
+		Activity.SOCIAL: return maxf(social_weight, 0.0)
+		Activity.WANDER: return maxf(wander_weight, 0.0)
+	return 0.0
+
+
+func _activity_duration(activity: Activity) -> Vector2:
+	match activity:
+		Activity.HOME: return home_duration
+		Activity.WORK: return work_duration
+		Activity.SOCIAL: return social_duration
+		Activity.WANDER: return wander_duration
+	return Vector2(wait_duration_min, wait_duration_max)
+
+
+func _is_destination_valid(point: Vector2, navigation_map: RID) -> bool:
+	if global_position.distance_to(point) <= maxf(arrival_tolerance, 0.5):
+		return false
+	if NavigationServer2D.map_get_closest_point(navigation_map, point).distance_to(point) > 1.0:
+		return false
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = $CollisionShape2D.shape
+	query.transform = Transform2D(0.0, point)
+	query.collision_mask = 1
+	if not get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty():
+		return false
+	var path := NavigationServer2D.map_get_path(navigation_map, global_position, point, true, navigation_agent.navigation_layers)
+	return not path.is_empty() and path[-1].distance_to(point) <= 1.0
 
 
 func _stop_movement() -> void:
 	has_destination = false
+	current_activity = Activity.NONE
+	is_performing_activity = false
 	velocity = Vector2.ZERO
 	navigation_agent.velocity = Vector2.ZERO
 
 
-func _begin_wait() -> void:
+func _begin_wait(arrived: bool = false) -> void:
+	var activity := current_activity if arrived else Activity.NONE
 	_stop_movement()
-	var minimum := maxf(wait_duration_min, 0.0)
-	wait_remaining = randf_range(minimum, maxf(wait_duration_max, minimum))
+	current_activity = activity
+	is_performing_activity = activity != Activity.NONE
+	var duration := _activity_duration(activity)
+	var minimum := maxf(duration.x, 0.0)
+	wait_remaining = randf_range(minimum, maxf(duration.y, minimum))
 
 
 func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
