@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scripts/test_map.gd" id="1_map"]
 [ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="2_villager"]
 [ext_resource type="NavigationPolygon" path="res://scenes/village_navigation.tres" id="4_navigation"]
+[ext_resource type="Script" path="res://scripts/camera_controller.gd" id="5_camera"]
 [sub_resource type="RectangleShape2D" id="Shape_HouseNW"]
 size = Vector2(110, 90)
 
@@ -113,6 +114,10 @@ border_color = Color(0.45, 0.85, 1, 0.95)
 
 [node name="test_map" type="Node2D"]
 script = ExtResource("1_map")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+anchor_mode = 0
+script = ExtResource("5_camera")
 
 [node name="Ground" type="Polygon2D" parent="."]
 color = Color(0.19, 0.23, 0.18, 1)
