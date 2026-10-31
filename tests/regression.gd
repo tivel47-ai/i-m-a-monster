@@ -26,23 +26,23 @@ func run() -> void:
 		resident.position = Vector2(1100, 600)
 	var units = get_nodes_in_group("player_units")
 	for i in range(units.size()):
-		units[i].position = Vector2(150 + i * 60, 200)
+		units[i].position = Vector2(150 + i * 60, 130)
 	await frames(5)
 	var zombie = units[0]
-	check(not zombie._can_yield_to(Vector2(840, 360)), "Reject yield inside obstacle")
+	check(not zombie._can_yield_to(Vector2(330, 245)), "Reject yield inside house")
 	check(not zombie._can_yield_to(Vector2(-100, -100)), "Reject yield outside navigation")
-	zombie.position = Vector2(840, 210)
+	zombie.position = Vector2(330, 165)
 	await frames(3)
-	zombie._receive_crowd_push(Vector2.RIGHT, Vector2(800, 210), units[1])
+	zombie._receive_crowd_push(Vector2.RIGHT, Vector2(290, 165), units[1])
 	check(zombie.crowd_is_displaced and zombie._can_yield_to(zombie.navigation_agent.target_position), "Yield chooses a reachable free side beside wall")
 	await frames(300)
 	check(not zombie.crowd_is_displaced, "Yield completes and restores idle position")
-	zombie.position = Vector2(150, 200)
+	zombie.position = Vector2(150, 130)
 	await frames(3)
 	zombie.issue_player_move_order(Vector2(-100, 200))
 	await frames(600)
 	check(not zombie.has_player_order and not zombie.last_move_reached, "Unreachable destination reports failure")
-	zombie.issue_player_move_order(Vector2(200, 100))
+	zombie.issue_player_move_order(Vector2(240, 350))
 	await frames(600)
 	check(not zombie.has_player_order and zombie.last_move_reached, "Reachable destination reports success")
 	zombie.move_speed = 0.0
@@ -52,7 +52,7 @@ func run() -> void:
 	zombie.move_speed = 100.0
 	for unit in units:
 		unit.set_selected(true)
-	map._issue_point_move_order(Vector2(400, 300))
+	map._issue_point_move_order(Vector2(430, 360))
 	var destinations: Array[Vector2] = []
 	for unit in units:
 		check(not destinations.has(unit.target_position), "Group receives distinct destinations")
@@ -70,6 +70,8 @@ func run() -> void:
 	check(zombie.is_selected, "Marquee uses captured camera transform")
 	root.canvas_transform = Transform2D.IDENTITY
 	var resident = map.villagers[0]
+	zombie.position = resident.position + Vector2(-24, 0)
+	await frames(3)
 	zombie.aggro_target = resident
 	resident.begin_encounter(Color.GREEN, zombie)
 	zombie.infection_chance = 0.0
