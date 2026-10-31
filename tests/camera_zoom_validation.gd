@@ -25,6 +25,8 @@ func run() -> void:
 	await frames(5)
 	camera.set_process(false)
 	check(root.canvas_transform.is_equal_approx(Transform2D.IDENTITY), "Initial view unchanged at 1280 x 720")
+	# Isolate center-based zoom from the intentional Stage 3 edge corrections.
+	camera.map_bounds = Rect2(-10000, -10000, 20000, 20000)
 	var units := get_nodes_in_group("player_units")
 	for unit in units + map.villagers:
 		unit.set_physics_process(false)
@@ -38,7 +40,7 @@ func run() -> void:
 	var center := center_world()
 	for cursor in [Vector2(10, 10), Vector2(1270, 710), Vector2(640, 360)]:
 		wheel(MOUSE_BUTTON_WHEEL_UP, cursor)
-		check(is_equal_approx(camera.zoom.x, 1.1) and camera.zoom.is_equal_approx(Vector2.ONE * 1.1), "Wheel up applies uniform discrete step")
+		check(is_equal_approx(camera.zoom.x, 1.15) and camera.zoom.is_equal_approx(Vector2.ONE * 1.15), "Wheel up applies uniform discrete step of 0.15")
 		check(center_world().is_equal_approx(center) and camera.position.is_equal_approx(origin), "Zoom stays at viewport center independent of cursor")
 		wheel(MOUSE_BUTTON_WHEEL_DOWN, cursor)
 		check(camera.zoom.is_equal_approx(Vector2.ONE), "Wheel down reverses step")

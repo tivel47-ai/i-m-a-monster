@@ -1,10 +1,11 @@
 [gd_scene format=3 uid="uid://bk4fq2d6r61u7"]
 
-[ext_resource type="PackedScene" path="res://scenes/zombie.tscn" id="1_6ulkd"]
-[ext_resource type="Script" path="res://scripts/test_map.gd" id="1_map"]
+[ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="1_6ulkd"]
+[ext_resource type="Script" uid="uid://dkqm3e22tn4dj" path="res://scripts/test_map.gd" id="1_map"]
 [ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="2_villager"]
 [ext_resource type="NavigationPolygon" path="res://scenes/village_navigation.tres" id="4_navigation"]
-[ext_resource type="Script" path="res://scripts/camera_controller.gd" id="5_camera"]
+[ext_resource type="Script" uid="uid://w0xlc1ks717q" path="res://scripts/camera_controller.gd" id="5_camera"]
+
 [sub_resource type="RectangleShape2D" id="Shape_HouseNW"]
 size = Vector2(110, 90)
 
@@ -112,725 +113,676 @@ border_width_right = 1
 border_width_bottom = 1
 border_color = Color(0.45, 0.85, 1, 0.95)
 
-[node name="test_map" type="Node2D"]
+[node name="test_map" type="Node2D" unique_id=1458683801]
 script = ExtResource("1_map")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1936600462]
 position = Vector2(640, 360)
 script = ExtResource("5_camera")
+zoom_step = 0.15000000000000002
 
-[node name="Ground" type="Polygon2D" parent="."]
+[node name="Ground" type="Polygon2D" parent="." unique_id=429755403]
 color = Color(0.19, 0.23, 0.18, 1)
 polygon = PackedVector2Array(0, 0, 1280, 0, 1280, 720, 0, 720)
 
-[node name="Terrain" type="Node2D" parent="."]
+[node name="Terrain" type="Node2D" parent="." unique_id=702396853]
 
-[node name="WestStreet" type="Polygon2D" parent="Terrain"]
+[node name="WestStreet" type="Polygon2D" parent="Terrain" unique_id=1999054229]
 position = Vector2(50, 310)
-color = Color(0.34, 0.30, 0.24, 1)
+color = Color(0.34, 0.3, 0.24, 1)
 polygon = PackedVector2Array(0, 0, 570, 0, 570, 110, 0, 110)
 
-[node name="EastStreet" type="Polygon2D" parent="Terrain"]
+[node name="EastStreet" type="Polygon2D" parent="Terrain" unique_id=448511248]
 position = Vector2(850, 315)
-color = Color(0.34, 0.30, 0.24, 1)
+color = Color(0.34, 0.3, 0.24, 1)
 polygon = PackedVector2Array(0, 0, 380, 0, 380, 95, 0, 95)
 
-[node name="SouthStreet" type="Polygon2D" parent="Terrain"]
+[node name="SouthStreet" type="Polygon2D" parent="Terrain" unique_id=1134578487]
 position = Vector2(80, 565)
-color = Color(0.34, 0.30, 0.24, 1)
+color = Color(0.34, 0.3, 0.24, 1)
 polygon = PackedVector2Array(0, 0, 770, 0, 770, 70, 0, 70)
 
-[node name="SouthConnection" type="Polygon2D" parent="Terrain"]
+[node name="SouthConnection" type="Polygon2D" parent="Terrain" unique_id=405557981]
 position = Vector2(775, 395)
-color = Color(0.34, 0.30, 0.24, 1)
+color = Color(0.34, 0.3, 0.24, 1)
 polygon = PackedVector2Array(0, 0, 70, 0, 70, 210, 0, 210)
 
-[node name="ResidentialPassage" type="Polygon2D" parent="Terrain"]
+[node name="ResidentialPassage" type="Polygon2D" parent="Terrain" unique_id=308373776]
 position = Vector2(390, 125)
 color = Color(0.31, 0.28, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 65, 0, 65, 445, 0, 445)
 
-[node name="NorthLane" type="Polygon2D" parent="Terrain"]
+[node name="NorthLane" type="Polygon2D" parent="Terrain" unique_id=1618102799]
 position = Vector2(420, 115)
 color = Color(0.31, 0.28, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 800, 0, 800, 55, 0, 55)
 
-[node name="NorthConnection" type="Polygon2D" parent="Terrain"]
+[node name="NorthConnection" type="Polygon2D" parent="Terrain" unique_id=209427425]
 position = Vector2(790, 145)
 color = Color(0.31, 0.28, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 65, 0, 65, 165, 0, 165)
 
-[node name="ServiceLane" type="Polygon2D" parent="Terrain"]
+[node name="ServiceLane" type="Polygon2D" parent="Terrain" unique_id=1055319167]
 position = Vector2(1050, 145)
 color = Color(0.31, 0.28, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 70, 0, 70, 190, 0, 190)
 
-[node name="Square" type="Polygon2D" parent="Terrain"]
+[node name="Square" type="Polygon2D" parent="Terrain" unique_id=1703407963]
 position = Vector2(600, 290)
-color = Color(0.41, 0.40, 0.35, 1)
+color = Color(0.41, 0.4, 0.35, 1)
 polygon = PackedVector2Array(0, 0, 270, 0, 270, 140, 0, 140)
 
-[node name="WestField" type="Polygon2D" parent="Terrain"]
+[node name="WestField" type="Polygon2D" parent="Terrain" unique_id=1762365126]
 position = Vector2(80, 190)
 color = Color(0.34, 0.32, 0.16, 1)
 polygon = PackedVector2Array(0, 0, 145, 0, 145, 95, 0, 95)
 
-[node name="SouthGarden" type="Polygon2D" parent="Terrain"]
+[node name="SouthGarden" type="Polygon2D" parent="Terrain" unique_id=2095143972]
 position = Vector2(85, 455)
 color = Color(0.29, 0.34, 0.16, 1)
 polygon = PackedVector2Array(0, 0, 140, 0, 140, 75, 0, 75)
 
-[node name="NorthGarden" type="Polygon2D" parent="Terrain"]
+[node name="NorthGarden" type="Polygon2D" parent="Terrain" unique_id=1768027039]
 position = Vector2(900, 90)
 color = Color(0.29, 0.34, 0.16, 1)
 polygon = PackedVector2Array(0, 0, 280, 0, 280, 65, 0, 65)
 
-[node name="Furrow100" type="Polygon2D" parent="Terrain"]
+[node name="Furrow100" type="Polygon2D" parent="Terrain" unique_id=1707041850]
 position = Vector2(100, 198)
 color = Color(0.44, 0.39, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 5, 0, 5, 78, 0, 78)
 
-[node name="GardenRow100" type="Polygon2D" parent="Terrain"]
+[node name="GardenRow100" type="Polygon2D" parent="Terrain" unique_id=1698597296]
 position = Vector2(100, 464)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 7, 0, 7, 56, 0, 56)
 
-[node name="Furrow125" type="Polygon2D" parent="Terrain"]
+[node name="Furrow125" type="Polygon2D" parent="Terrain" unique_id=695707579]
 position = Vector2(125, 198)
 color = Color(0.44, 0.39, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 5, 0, 5, 78, 0, 78)
 
-[node name="GardenRow125" type="Polygon2D" parent="Terrain"]
+[node name="GardenRow125" type="Polygon2D" parent="Terrain" unique_id=847977931]
 position = Vector2(125, 464)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 7, 0, 7, 56, 0, 56)
 
-[node name="Furrow150" type="Polygon2D" parent="Terrain"]
+[node name="Furrow150" type="Polygon2D" parent="Terrain" unique_id=274118720]
 position = Vector2(150, 198)
 color = Color(0.44, 0.39, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 5, 0, 5, 78, 0, 78)
 
-[node name="GardenRow150" type="Polygon2D" parent="Terrain"]
+[node name="GardenRow150" type="Polygon2D" parent="Terrain" unique_id=670223849]
 position = Vector2(150, 464)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 7, 0, 7, 56, 0, 56)
 
-[node name="Furrow175" type="Polygon2D" parent="Terrain"]
+[node name="Furrow175" type="Polygon2D" parent="Terrain" unique_id=551768255]
 position = Vector2(175, 198)
 color = Color(0.44, 0.39, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 5, 0, 5, 78, 0, 78)
 
-[node name="GardenRow175" type="Polygon2D" parent="Terrain"]
+[node name="GardenRow175" type="Polygon2D" parent="Terrain" unique_id=1654658206]
 position = Vector2(175, 464)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 7, 0, 7, 56, 0, 56)
 
-[node name="Furrow200" type="Polygon2D" parent="Terrain"]
+[node name="Furrow200" type="Polygon2D" parent="Terrain" unique_id=438880288]
 position = Vector2(200, 198)
 color = Color(0.44, 0.39, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 5, 0, 5, 78, 0, 78)
 
-[node name="GardenRow200" type="Polygon2D" parent="Terrain"]
+[node name="GardenRow200" type="Polygon2D" parent="Terrain" unique_id=440297769]
 position = Vector2(200, 464)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 7, 0, 7, 56, 0, 56)
 
-[node name="NorthRow920" type="Polygon2D" parent="Terrain"]
+[node name="NorthRow920" type="Polygon2D" parent="Terrain" unique_id=1229981331]
 position = Vector2(920, 100)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 8, 0, 8, 44, 0, 44)
 
-[node name="NorthRow955" type="Polygon2D" parent="Terrain"]
+[node name="NorthRow955" type="Polygon2D" parent="Terrain" unique_id=1864212664]
 position = Vector2(955, 100)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 8, 0, 8, 44, 0, 44)
 
-[node name="NorthRow990" type="Polygon2D" parent="Terrain"]
+[node name="NorthRow990" type="Polygon2D" parent="Terrain" unique_id=2033560648]
 position = Vector2(990, 100)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 8, 0, 8, 44, 0, 44)
 
-[node name="NorthRow1025" type="Polygon2D" parent="Terrain"]
+[node name="NorthRow1025" type="Polygon2D" parent="Terrain" unique_id=48244345]
 position = Vector2(1025, 100)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 8, 0, 8, 44, 0, 44)
 
-[node name="NorthRow1060" type="Polygon2D" parent="Terrain"]
+[node name="NorthRow1060" type="Polygon2D" parent="Terrain" unique_id=1083055000]
 position = Vector2(1060, 100)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 8, 0, 8, 44, 0, 44)
 
-[node name="NorthRow1095" type="Polygon2D" parent="Terrain"]
+[node name="NorthRow1095" type="Polygon2D" parent="Terrain" unique_id=1761366355]
 position = Vector2(1095, 100)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 8, 0, 8, 44, 0, 44)
 
-[node name="NorthRow1130" type="Polygon2D" parent="Terrain"]
+[node name="NorthRow1130" type="Polygon2D" parent="Terrain" unique_id=1036169157]
 position = Vector2(1130, 100)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 8, 0, 8, 44, 0, 44)
 
-[node name="NorthRow1165" type="Polygon2D" parent="Terrain"]
+[node name="NorthRow1165" type="Polygon2D" parent="Terrain" unique_id=706016638]
 position = Vector2(1165, 100)
 color = Color(0.38, 0.43, 0.22, 1)
 polygon = PackedVector2Array(0, 0, 8, 0, 8, 44, 0, 44)
 
-[node name="WestLabel" type="Label" parent="Terrain"]
-offset_left = 80
-offset_top = 315
-mouse_filter = 2
+[node name="WestLabel" type="Label" parent="Terrain" unique_id=888982901]
+offset_left = 80.0
+offset_top = 315.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "1  ЖИЛАЯ УЛИЦА"
 
-[node name="EastLabel" type="Label" parent="Terrain"]
-offset_left = 1080
-offset_top = 318
-mouse_filter = 2
+[node name="EastLabel" type="Label" parent="Terrain" unique_id=1866826109]
+offset_left = 1080.0
+offset_top = 318.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "2  ХОЗДВОР"
 
-[node name="SouthLabel" type="Label" parent="Terrain"]
-offset_left = 290
-offset_top = 605
-mouse_filter = 2
+[node name="SouthLabel" type="Label" parent="Terrain" unique_id=1642795226]
+offset_left = 290.0
+offset_top = 605.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "3  ЮЖНЫЙ ОБХОД"
 
-[node name="SquareLabel" type="Label" parent="Terrain"]
-offset_left = 625
-offset_top = 405
-mouse_filter = 2
+[node name="SquareLabel" type="Label" parent="Terrain" unique_id=104228487]
+offset_left = 625.0
+offset_top = 405.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ПЛОЩАДЬ"
 
-[node name="FieldsLabel" type="Label" parent="Terrain"]
-offset_left = 85
-offset_top = 175
-mouse_filter = 2
+[node name="FieldsLabel" type="Label" parent="Terrain" unique_id=1119769264]
+offset_left = 85.0
+offset_top = 175.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ПОЛЕ"
 
-[node name="GardenLabel" type="Label" parent="Terrain"]
-offset_left = 90
-offset_top = 531
-mouse_filter = 2
+[node name="GardenLabel" type="Label" parent="Terrain" unique_id=575898024]
+offset_left = 90.0
+offset_top = 531.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ОГОРОД"
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=152935973]
 navigation_polygon = ExtResource("4_navigation")
 
-[node name="Solids" type="Node2D" parent="NavigationRegion2D"]
+[node name="Solids" type="Node2D" parent="NavigationRegion2D" unique_id=16542765]
 
-[node name="HouseNW" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="HouseNW" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=99988341 groups=["village_solids"]]
 position = Vector2(330, 245)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseNW"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseNW" unique_id=1016208795]
 color = Color(0.43, 0.32, 0.29, 1)
 polygon = PackedVector2Array(-55, -45, 55, -45, 55, 45, -55, 45)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseNW"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseNW" unique_id=846133485]
 shape = SubResource("Shape_HouseNW")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseNW"]
-offset_left = -49
-offset_top = -39
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseNW" unique_id=1428107061]
+offset_left = -49.0
+offset_top = -39.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ДОМ"
 
-[node name="HouseNE" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="HouseNE" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=730862415 groups=["village_solids"]]
 position = Vector2(510, 245)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseNE"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseNE" unique_id=1621174820]
 color = Color(0.43, 0.32, 0.29, 1)
 polygon = PackedVector2Array(-55, -45, 55, -45, 55, 45, -55, 45)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseNE"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseNE" unique_id=2120954596]
 shape = SubResource("Shape_HouseNE")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseNE"]
-offset_left = -49
-offset_top = -39
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseNE" unique_id=1092033760]
+offset_left = -49.0
+offset_top = -39.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ДОМ"
 
-[node name="HouseSW" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="HouseSW" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1042182742 groups=["village_solids"]]
 position = Vector2(330, 475)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseSW"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseSW" unique_id=609326601]
 color = Color(0.43, 0.32, 0.29, 1)
 polygon = PackedVector2Array(-55, -45, 55, -45, 55, 45, -55, 45)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseSW"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseSW" unique_id=1738757402]
 shape = SubResource("Shape_HouseSW")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseSW"]
-offset_left = -49
-offset_top = -39
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseSW" unique_id=1214881466]
+offset_left = -49.0
+offset_top = -39.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ДОМ"
 
-[node name="HouseSE" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="HouseSE" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=2047219448 groups=["village_solids"]]
 position = Vector2(510, 475)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseSE"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseSE" unique_id=1244174318]
 color = Color(0.43, 0.32, 0.29, 1)
 polygon = PackedVector2Array(-55, -45, 55, -45, 55, 45, -55, 45)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseSE"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseSE" unique_id=1829323922]
 shape = SubResource("Shape_HouseSE")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseSE"]
-offset_left = -49
-offset_top = -39
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseSE" unique_id=1159338457]
+offset_left = -49.0
+offset_top = -39.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ДОМ"
 
-[node name="HouseNorth" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="HouseNorth" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=985324313 groups=["village_solids"]]
 position = Vector2(700, 215)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseNorth"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseNorth" unique_id=820052601]
 color = Color(0.43, 0.32, 0.29, 1)
 polygon = PackedVector2Array(-60, -45, 60, -45, 60, 45, -60, 45)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseNorth"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseNorth" unique_id=994602756]
 shape = SubResource("Shape_HouseNorth")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseNorth"]
-offset_left = -54
-offset_top = -39
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseNorth" unique_id=1309005574]
+offset_left = -54.0
+offset_top = -39.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ДОМ"
 
-[node name="HouseSouth" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="HouseSouth" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=653619556 groups=["village_solids"]]
 position = Vector2(700, 505)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseSouth"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/HouseSouth" unique_id=2053815442]
 color = Color(0.43, 0.32, 0.29, 1)
 polygon = PackedVector2Array(-60, -45, 60, -45, 60, 45, -60, 45)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseSouth"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/HouseSouth" unique_id=462137047]
 shape = SubResource("Shape_HouseSouth")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseSouth"]
-offset_left = -54
-offset_top = -39
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/HouseSouth" unique_id=898762764]
+offset_left = -54.0
+offset_top = -39.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "ДОМ"
 
-[node name="Workshop" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="Workshop" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=701925009 groups=["village_solids"]]
 position = Vector2(970, 250)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Workshop"]
-color = Color(0.40, 0.37, 0.30, 1)
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Workshop" unique_id=390325197]
+color = Color(0.4, 0.37, 0.3, 1)
 polygon = PackedVector2Array(-60, -50, 60, -50, 60, 50, -60, 50)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Workshop"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Workshop" unique_id=1542146091]
 shape = SubResource("Shape_Workshop")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/Workshop"]
-offset_left = -54
-offset_top = -44
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/Workshop" unique_id=291440802]
+offset_left = -54.0
+offset_top = -44.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "МАСТЕРСКАЯ"
 
-[node name="Storage" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="Storage" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=263144995 groups=["village_solids"]]
 position = Vector2(1100, 465)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Storage"]
-color = Color(0.40, 0.37, 0.30, 1)
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Storage" unique_id=1283021343]
+color = Color(0.4, 0.37, 0.3, 1)
 polygon = PackedVector2Array(-60, -55, 60, -55, 60, 55, -60, 55)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Storage"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Storage" unique_id=2125021297]
 shape = SubResource("Shape_Storage")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/Storage"]
-offset_left = -54
-offset_top = -49
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/Storage" unique_id=211352225]
+offset_left = -54.0
+offset_top = -49.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "СКЛАД"
 
-[node name="Shed" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="Shed" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=2013424353 groups=["village_solids"]]
 position = Vector2(910, 490)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Shed"]
-color = Color(0.40, 0.37, 0.30, 1)
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Shed" unique_id=1605247401]
+color = Color(0.4, 0.37, 0.3, 1)
 polygon = PackedVector2Array(-40, -40, 40, -40, 40, 40, -40, 40)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Shed"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Shed" unique_id=208910583]
 shape = SubResource("Shape_Shed")
 
-[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/Shed"]
-offset_left = -34
-offset_top = -34
-mouse_filter = 2
+[node name="NameLabel" type="Label" parent="NavigationRegion2D/Solids/Shed" unique_id=1199308037]
+offset_left = -34.0
+offset_top = -34.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "САРАЙ"
 
-[node name="Well" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
+[node name="Well" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1767061228 groups=["village_solids"]]
 position = Vector2(730, 350)
-collision_layer = 1
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Well"]
-color = Color(0.30, 0.44, 0.48, 1)
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Well" unique_id=1007509435]
+color = Color(0.3, 0.44, 0.48, 1)
 polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Well"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Well" unique_id=817857362]
 shape = SubResource("Shape_Well")
 
-[node name="WellLabel" type="Label" parent="."]
-offset_left = 694
-offset_top = 369
-mouse_filter = 2
+[node name="Bell" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1207262845 groups=["village_solids"]]
+position = Vector2(844, 288)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Bell" unique_id=901076105]
+color = Color(0.63, 0.49, 0.23, 1)
+polygon = PackedVector2Array(-12, -16, 12, -16, 12, 16, -12, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Bell" unique_id=936889644]
+shape = SubResource("Shape_Bell")
+
+[node name="Wall" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=939629678 groups=["village_solids"]]
+position = Vector2(595, 220)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Wall" unique_id=966118089]
+color = Color(0.47, 0.48, 0.43, 1)
+polygon = PackedVector2Array(-6, -30, 6, -30, 6, 30, -6, 30)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Wall" unique_id=946013664]
+shape = SubResource("Shape_Wall")
+
+[node name="FieldFence" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=554048985 groups=["village_solids"]]
+position = Vector2(155, 160)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/FieldFence" unique_id=214191065]
+color = Color(0.49, 0.41, 0.28, 1)
+polygon = PackedVector2Array(-65, -4, 65, -4, 65, 4, -65, 4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/FieldFence" unique_id=1998075317]
+shape = SubResource("Shape_FieldFence")
+
+[node name="GardenFence" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=411884353 groups=["village_solids"]]
+position = Vector2(155, 445)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/GardenFence" unique_id=1926232397]
+color = Color(0.49, 0.41, 0.28, 1)
+polygon = PackedVector2Array(-65, -4, 65, -4, 65, 4, -65, 4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/GardenFence" unique_id=2048711787]
+shape = SubResource("Shape_GardenFence")
+
+[node name="NorthTree80" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=2004583716 groups=["village_solids"]]
+position = Vector2(80, 65)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree80" unique_id=1962356308]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree80" unique_id=1954831459]
+shape = SubResource("Shape_NorthTree80")
+
+[node name="NorthTree175" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=699397334 groups=["village_solids"]]
+position = Vector2(175, 65)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree175" unique_id=1126170030]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree175" unique_id=114798036]
+shape = SubResource("Shape_NorthTree175")
+
+[node name="NorthTree300" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=673686800 groups=["village_solids"]]
+position = Vector2(300, 65)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree300" unique_id=2112336842]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree300" unique_id=118430755]
+shape = SubResource("Shape_NorthTree300")
+
+[node name="NorthTree425" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1726783377 groups=["village_solids"]]
+position = Vector2(425, 65)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree425" unique_id=346978769]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree425" unique_id=1491565271]
+shape = SubResource("Shape_NorthTree425")
+
+[node name="NorthTree550" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=256778 groups=["village_solids"]]
+position = Vector2(550, 65)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree550" unique_id=1472420099]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree550" unique_id=1318497790]
+shape = SubResource("Shape_NorthTree550")
+
+[node name="NorthTree700" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=108646937 groups=["village_solids"]]
+position = Vector2(700, 65)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree700" unique_id=409841124]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree700" unique_id=466703951]
+shape = SubResource("Shape_NorthTree700")
+
+[node name="NorthTree825" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=162291505 groups=["village_solids"]]
+position = Vector2(825, 65)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree825" unique_id=164070072]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree825" unique_id=1975907895]
+shape = SubResource("Shape_NorthTree825")
+
+[node name="NorthTree1220" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=795301970 groups=["village_solids"]]
+position = Vector2(1220, 65)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree1220" unique_id=891387556]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree1220" unique_id=890654779]
+shape = SubResource("Shape_NorthTree1220")
+
+[node name="SouthTree80" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=2019816901 groups=["village_solids"]]
+position = Vector2(80, 667)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree80" unique_id=1778196237]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree80" unique_id=2068059293]
+shape = SubResource("Shape_SouthTree80")
+
+[node name="SouthTree200" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=2076717521 groups=["village_solids"]]
+position = Vector2(200, 667)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree200" unique_id=1020061339]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree200" unique_id=1314403095]
+shape = SubResource("Shape_SouthTree200")
+
+[node name="SouthTree330" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=2017671815 groups=["village_solids"]]
+position = Vector2(330, 667)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree330" unique_id=1309521423]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree330" unique_id=1461803228]
+shape = SubResource("Shape_SouthTree330")
+
+[node name="SouthTree460" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=718810662 groups=["village_solids"]]
+position = Vector2(460, 667)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree460" unique_id=1146637031]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree460" unique_id=660525618]
+shape = SubResource("Shape_SouthTree460")
+
+[node name="SouthTree930" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1663299602 groups=["village_solids"]]
+position = Vector2(930, 667)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree930" unique_id=29293314]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree930" unique_id=334300914]
+shape = SubResource("Shape_SouthTree930")
+
+[node name="SouthTree1050" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1166889701 groups=["village_solids"]]
+position = Vector2(1050, 667)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree1050" unique_id=994335325]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree1050" unique_id=1039754800]
+shape = SubResource("Shape_SouthTree1050")
+
+[node name="SouthTree1190" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1391471532 groups=["village_solids"]]
+position = Vector2(1190, 667)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree1190" unique_id=1415275572]
+color = Color(0.16, 0.31, 0.23, 1)
+polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree1190" unique_id=1021149400]
+shape = SubResource("Shape_SouthTree1190")
+
+[node name="NorthBoundary" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1173891131 groups=["village_solids"]]
+position = Vector2(640, 12)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthBoundary" unique_id=856220007]
+color = Color(0.1, 0.15, 0.12, 1)
+polygon = PackedVector2Array(-640, -12, 640, -12, 640, 12, -640, 12)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthBoundary" unique_id=1540100278]
+shape = SubResource("Shape_NorthBoundary")
+
+[node name="SouthBoundary" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=424103365 groups=["village_solids"]]
+position = Vector2(640, 708)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthBoundary" unique_id=1301116141]
+color = Color(0.1, 0.15, 0.12, 1)
+polygon = PackedVector2Array(-640, -12, 640, -12, 640, 12, -640, 12)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthBoundary" unique_id=1053468917]
+shape = SubResource("Shape_SouthBoundary")
+
+[node name="WestBoundary" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1952923993 groups=["village_solids"]]
+position = Vector2(12, 360)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/WestBoundary" unique_id=1676910164]
+color = Color(0.1, 0.15, 0.12, 1)
+polygon = PackedVector2Array(-12, -336, 12, -336, 12, 336, -12, 336)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/WestBoundary" unique_id=1128066062]
+shape = SubResource("Shape_WestBoundary")
+
+[node name="EastBoundary" type="StaticBody2D" parent="NavigationRegion2D/Solids" unique_id=1313434970 groups=["village_solids"]]
+position = Vector2(1268, 360)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/EastBoundary" unique_id=1572945563]
+color = Color(0.1, 0.15, 0.12, 1)
+polygon = PackedVector2Array(-12, -336, 12, -336, 12, 336, -12, 336)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/EastBoundary" unique_id=1879357855]
+shape = SubResource("Shape_EastBoundary")
+
+[node name="WellLabel" type="Label" parent="." unique_id=56511880]
+offset_left = 694.0
+offset_top = 369.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "КОЛОДЕЦ"
 
-[node name="Bell" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(844, 288)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Bell"]
-color = Color(0.63, 0.49, 0.23, 1)
-polygon = PackedVector2Array(-12, -16, 12, -16, 12, 16, -12, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Bell"]
-shape = SubResource("Shape_Bell")
-
-[node name="BellLabel" type="Label" parent="."]
-offset_left = 800
-offset_top = 251
-mouse_filter = 2
+[node name="BellLabel" type="Label" parent="." unique_id=563376688]
+offset_left = 800.0
+offset_top = 251.0
 theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "КОЛОКОЛ"
 
-[node name="Wall" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(595, 220)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/Wall"]
-color = Color(0.47, 0.48, 0.43, 1)
-polygon = PackedVector2Array(-6, -30, 6, -30, 6, 30, -6, 30)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/Wall"]
-shape = SubResource("Shape_Wall")
-
-[node name="FieldFence" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(155, 160)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/FieldFence"]
-color = Color(0.49, 0.41, 0.28, 1)
-polygon = PackedVector2Array(-65, -4, 65, -4, 65, 4, -65, 4)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/FieldFence"]
-shape = SubResource("Shape_FieldFence")
-
-[node name="GardenFence" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(155, 445)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/GardenFence"]
-color = Color(0.49, 0.41, 0.28, 1)
-polygon = PackedVector2Array(-65, -4, 65, -4, 65, 4, -65, 4)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/GardenFence"]
-shape = SubResource("Shape_GardenFence")
-
-[node name="NorthTree80" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(80, 65)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree80"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree80"]
-shape = SubResource("Shape_NorthTree80")
-
-[node name="NorthTree175" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(175, 65)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree175"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree175"]
-shape = SubResource("Shape_NorthTree175")
-
-[node name="NorthTree300" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(300, 65)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree300"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree300"]
-shape = SubResource("Shape_NorthTree300")
-
-[node name="NorthTree425" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(425, 65)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree425"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree425"]
-shape = SubResource("Shape_NorthTree425")
-
-[node name="NorthTree550" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(550, 65)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree550"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree550"]
-shape = SubResource("Shape_NorthTree550")
-
-[node name="NorthTree700" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(700, 65)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree700"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree700"]
-shape = SubResource("Shape_NorthTree700")
-
-[node name="NorthTree825" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(825, 65)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree825"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree825"]
-shape = SubResource("Shape_NorthTree825")
-
-[node name="NorthTree1220" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(1220, 65)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthTree1220"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthTree1220"]
-shape = SubResource("Shape_NorthTree1220")
-
-[node name="SouthTree80" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(80, 667)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree80"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree80"]
-shape = SubResource("Shape_SouthTree80")
-
-[node name="SouthTree200" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(200, 667)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree200"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree200"]
-shape = SubResource("Shape_SouthTree200")
-
-[node name="SouthTree330" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(330, 667)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree330"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree330"]
-shape = SubResource("Shape_SouthTree330")
-
-[node name="SouthTree460" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(460, 667)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree460"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree460"]
-shape = SubResource("Shape_SouthTree460")
-
-[node name="SouthTree930" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(930, 667)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree930"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree930"]
-shape = SubResource("Shape_SouthTree930")
-
-[node name="SouthTree1050" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(1050, 667)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree1050"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree1050"]
-shape = SubResource("Shape_SouthTree1050")
-
-[node name="SouthTree1190" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(1190, 667)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthTree1190"]
-color = Color(0.16, 0.31, 0.23, 1)
-polygon = PackedVector2Array(-18, -16, 18, -16, 18, 16, -18, 16)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthTree1190"]
-shape = SubResource("Shape_SouthTree1190")
-
-[node name="NorthBoundary" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(640, 12)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/NorthBoundary"]
-color = Color(0.10, 0.15, 0.12, 1)
-polygon = PackedVector2Array(-640, -12, 640, -12, 640, 12, -640, 12)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/NorthBoundary"]
-shape = SubResource("Shape_NorthBoundary")
-
-[node name="SouthBoundary" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(640, 708)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/SouthBoundary"]
-color = Color(0.10, 0.15, 0.12, 1)
-polygon = PackedVector2Array(-640, -12, 640, -12, 640, 12, -640, 12)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/SouthBoundary"]
-shape = SubResource("Shape_SouthBoundary")
-
-[node name="WestBoundary" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(12, 360)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/WestBoundary"]
-color = Color(0.10, 0.15, 0.12, 1)
-polygon = PackedVector2Array(-12, -336, 12, -336, 12, 336, -12, 336)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/WestBoundary"]
-shape = SubResource("Shape_WestBoundary")
-
-[node name="EastBoundary" type="StaticBody2D" parent="NavigationRegion2D/Solids" groups=["village_solids"]]
-position = Vector2(1268, 360)
-collision_layer = 1
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Solids/EastBoundary"]
-color = Color(0.10, 0.15, 0.12, 1)
-polygon = PackedVector2Array(-12, -336, 12, -336, 12, 336, -12, 336)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="NavigationRegion2D/Solids/EastBoundary"]
-shape = SubResource("Shape_EastBoundary")
-
-[node name="Zombie" parent="." instance=ExtResource("1_6ulkd")]
+[node name="Zombie" parent="." unique_id=183435595 instance=ExtResource("1_6ulkd")]
 position = Vector2(120, 340)
 
-[node name="Zombie2" parent="." instance=ExtResource("1_6ulkd")]
+[node name="Zombie2" parent="." unique_id=1432434582 instance=ExtResource("1_6ulkd")]
 position = Vector2(120, 390)
 
-[node name="Zombie3" parent="." instance=ExtResource("1_6ulkd")]
+[node name="Zombie3" parent="." unique_id=596515926 instance=ExtResource("1_6ulkd")]
 position = Vector2(170, 365)
 
-[node name="Villager" parent="." instance=ExtResource("2_villager")]
+[node name="Villager" parent="." unique_id=163433467 instance=ExtResource("2_villager")]
 position = Vector2(700, 290)
 
-[node name="Villager2" parent="." instance=ExtResource("2_villager")]
+[node name="Villager2" parent="." unique_id=167342374 instance=ExtResource("2_villager")]
 position = Vector2(1140, 270)
 
-[node name="Villager3" parent="." instance=ExtResource("2_villager")]
+[node name="Villager3" parent="." unique_id=659918057 instance=ExtResource("2_villager")]
 position = Vector2(865, 590)
 
-[node name="Villager4" parent="." instance=ExtResource("2_villager")]
+[node name="Villager4" parent="." unique_id=2116445893 instance=ExtResource("2_villager")]
 position = Vector2(570, 130)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1042008688]
@@ -858,7 +810,7 @@ text = "Заражено: 0"
 layout_mode = 2
 text = "Незаражено: 0"
 
-[node name="Killed" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo"]
+[node name="Killed" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo" unique_id=1199772613]
 layout_mode = 2
 text = "Убито: 0"
 

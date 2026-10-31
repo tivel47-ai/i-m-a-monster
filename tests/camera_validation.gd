@@ -55,6 +55,8 @@ func run() -> void:
 	await frames(5)
 	check(camera.is_current(), "Gameplay camera is active")
 	check(root.canvas_transform.is_equal_approx(Transform2D.IDENTITY), "Initial view preserves original coordinates")
+	# Isolate unrestricted Stage 1 movement; real map limits have their own suite.
+	camera.map_bounds = Rect2(-10000, -10000, 20000, 20000)
 	camera.set_process(false)
 	var codes := [KEY_W, KEY_A, KEY_S, KEY_D]
 	var actions := ["camera_up", "camera_left", "camera_down", "camera_right"]
