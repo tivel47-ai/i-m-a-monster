@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/villager.gd" id="1_villager"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
-size = Vector2(12, 24)
+size = Vector2(7.8, 15.6)
 
 [node name="Villager" type="StaticBody2D"]
 collision_layer = 8
@@ -13,18 +13,18 @@ script = ExtResource("1_villager")
 
 [node name="Polygon2D" type="Polygon2D" parent="."]
 color = Color(0.9, 0.9, 0.84, 1)
-polygon = PackedVector2Array(-6, -12, 6, -12, 6, 12, -6, 12)
+polygon = PackedVector2Array(-3.9, -7.8, 3.9, -7.8, 3.9, 7.8, -3.9, 7.8)
 
 [node name="DeathMarkerA" type="Line2D" parent="."]
 visible = false
-points = PackedVector2Array(-7, -7, 7, 7)
-width = 2.5
+points = PackedVector2Array(-4.55, -4.55, 4.55, 4.55)
+width = 1.625
 default_color = Color(1, 0, 0, 1)
 
 [node name="DeathMarkerB" type="Line2D" parent="."]
 visible = false
-points = PackedVector2Array(-7, 7, 7, -7)
-width = 2.5
+points = PackedVector2Array(-4.55, 4.55, 4.55, -4.55)
+width = 1.625
 default_color = Color(1, 0, 0, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

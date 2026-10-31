@@ -224,11 +224,11 @@ func _draw() -> void:
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
-	var health_rect := Rect2(-9.0, -25.0, 18.0, 4.0)
+	var health_rect := Rect2(-5.85, -16.25, 11.7, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
-		Rect2(health_rect.position + Vector2(1.0, 1.0), Vector2(16.0 * health_ratio, 2.0)),
+		Rect2(health_rect.position + Vector2(0.65, 0.65), Vector2(10.4 * health_ratio, 1.3)),
 		Color(0.9, 0.2, 0.2),
 		true
 	)
-	draw_rect(health_rect, Color(0.05, 0.05, 0.05), false, 1.0)
+	draw_rect(health_rect, Color(0.05, 0.05, 0.05), false, 0.65)

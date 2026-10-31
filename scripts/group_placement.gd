@@ -3,7 +3,8 @@ extends Node2D
 const AREA_ORDER_RADIUS := 100.0
 const AREA_POSITION_SAMPLE_COUNT := 384
 const AREA_GOLDEN_ANGLE := 2.399963229728653
-const AREA_COLLISION_PADDING := Vector2(4.0, 4.0)
+const AREA_COLLISION_PADDING := Vector2(2.6, 2.6)
+const ZOMBIE_BODY_SIZE := Vector2(13.0, 20.8)
 const NAVIGATION_POSITION_TOLERANCE := 16.0
 const NAVIGATION_PATH_ENDPOINT_TOLERANCE := 2.0
 
@@ -21,7 +22,7 @@ func _get_area_position_candidates(
 			excluded_rids.append((unit as CollisionObject2D).get_rid())
 
 	var collision_shape := RectangleShape2D.new()
-	collision_shape.size = Vector2(20.0, 32.0) + AREA_COLLISION_PADDING
+	collision_shape.size = ZOMBIE_BODY_SIZE + AREA_COLLISION_PADDING
 	var collision_query := PhysicsShapeQueryParameters2D.new()
 	collision_query.shape = collision_shape
 	collision_query.collision_mask = 11
@@ -113,7 +114,7 @@ func _is_separated_from_assigned_positions(
 	assigned_positions: Array[Vector2],
 	padding: Vector2
 ) -> bool:
-	var minimum_separation := Vector2(20.0, 32.0) + padding
+	var minimum_separation := ZOMBIE_BODY_SIZE + padding
 	for assigned_position in assigned_positions:
 		var offset := position - assigned_position
 		if (

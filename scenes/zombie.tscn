@@ -3,10 +3,10 @@
 [ext_resource type="Script" uid="uid://c63m78v1cyobd" path="res://scripts/zombie.gd" id="1_1vlb3"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_nnlx6"]
-size = Vector2(32, 40)
+size = Vector2(20.8, 26)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
-size = Vector2(20, 32)
+size = Vector2(13, 20.8)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_aggro"]
 radius = 250.0
@@ -20,18 +20,18 @@ script = ExtResource("1_1vlb3")
 
 [node name="Polygon2D" type="Polygon2D" parent="." unique_id=527684303]
 color = Color(0.32156864, 0.4, 0.2901961, 1)
-polygon = PackedVector2Array(-10, -16, 10, -16, 10, 16, -10, 16)
+polygon = PackedVector2Array(-6.5, -10.4, 6.5, -10.4, 6.5, 10.4, -6.5, 10.4)
 
 [node name="DeathMarkerA" type="Line2D" parent="."]
 visible = false
-points = PackedVector2Array(-8, -8, 8, 8)
-width = 3.0
+points = PackedVector2Array(-5.2, -5.2, 5.2, 5.2)
+width = 1.95
 default_color = Color(1, 0, 0, 1)
 
 [node name="DeathMarkerB" type="Line2D" parent="."]
 visible = false
-points = PackedVector2Array(-8, 8, 8, -8)
-width = 3.0
+points = PackedVector2Array(-5.2, 5.2, 5.2, -5.2)
+width = 1.95
 default_color = Color(1, 0, 0, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
@@ -56,7 +56,7 @@ avoidance_enabled = true
 neighbor_distance = 80.0
 max_neighbors = 16
 time_horizon_agents = 1.0
-radius = 19.0
+radius = 12.35
 navigation_layers = 1
 path_desired_distance = 6.0
 simplify_path = true

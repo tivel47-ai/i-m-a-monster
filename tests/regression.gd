@@ -29,6 +29,19 @@ func run() -> void:
 		units[i].position = Vector2(150 + i * 60, 130)
 	await frames(5)
 	var zombie = units[0]
+	var panel: PanelContainer = map.get_node("CanvasLayer/MissionPanel")
+	check(panel.size.x <= 251 and panel.size.y <= 90, "Mission panel remains compact: %s" % panel.size)
+	check(map.status_label.get_theme_font_size("font_size") == 8, "Mission text uses half-size font")
+	var original_status: String = map.status_label.text
+	map.status_label.text = original_status.repeat(4)
+	await frames(3)
+	check(panel.size.x <= 251 and map.status_label.get_line_count() > 2,
+		"Long objective wraps without widening panel")
+	check(map.status_label.size.y >= map.status_label.get_minimum_size().y,
+		"Long objective has sufficient height")
+	map.status_label.text = original_status
+	await frames(3)
+	check(panel.size.y <= 90, "Panel shrinks again after long objective is replaced")
 	check(not zombie._can_yield_to(Vector2(330, 245)), "Reject yield inside house")
 	check(not zombie._can_yield_to(Vector2(-100, -100)), "Reject yield outside navigation")
 	zombie.position = Vector2(330, 165)
@@ -84,11 +97,45 @@ func run() -> void:
 	resident.take_damage(1000.0)
 	await frames(180)
 	check(map.infected_residents == 1 and map.killed_residents == 0, "Transformation survives lethal damage and cancelled encounter")
+	var converted = get_nodes_in_group("player_units")[-1]
+	check(converted.get_node("CollisionShape2D").shape.size.is_equal_approx(Vector2(13, 20.8))
+		and is_equal_approx(converted.get_node("NavigationAgent2D").radius, 12.35),
+		"Converted zombie uses reduced body and avoidance radius")
 	var other = map.villagers[1]
 	other.take_damage(1000.0)
 	other.take_damage(1000.0)
 	check(map.killed_residents == 1, "Death counted once")
 	map.queue_free()
 	await frames(2)
+	for direction in [Vector2.LEFT, Vector2.UP, Vector2(-1, -1).normalized()]:
+		await check_melee_approach(direction)
 	print("Regression failures: ", failures)
 	quit(1 if failures else 0)
+
+
+func check_melee_approach(direction: Vector2) -> void:
+	map = load("res://scenes/test_map.tscn").instantiate()
+	root.add_child(map)
+	for unit in get_nodes_in_group("player_units"):
+		unit.queue_free()
+	for resident in map.villagers:
+		resident.queue_free()
+	await frames(2)
+	var resident = load("res://scenes/villager.tscn").instantiate()
+	resident.position = Vector2(800, 390)
+	map.add_child(resident)
+	var zombie = load("res://scenes/zombie.tscn").instantiate()
+	zombie.position = resident.position + direction * 30.0
+	map.add_child(zombie)
+	await frames(3)
+	check(not resident.is_in_collision(), "No melee from old interaction distance: %s" % direction)
+	await frames(45)
+	check(resident.is_encounter_owner(zombie), "Pursuit reaches melee range: %s" % direction)
+	var offset: Vector2 = zombie.position - resident.position
+	check(offset.length() <= 20.8, "Melee starts inside reduced range: %s" % direction)
+	var half_extents: Vector2 = (zombie.get_node("CollisionShape2D").shape.size
+		+ resident.get_node("CollisionShape2D").shape.size) * 0.5
+	check(absf(offset.x) > half_extents.x + 0.5 or absf(offset.y) > half_extents.y + 0.5,
+		"Melee preserves a visible gap between bodies: %s" % direction)
+	map.queue_free()
+	await frames(2)

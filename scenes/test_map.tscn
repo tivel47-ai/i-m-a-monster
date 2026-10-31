@@ -6,6 +6,20 @@
 [ext_resource type="NavigationPolygon" path="res://scenes/village_navigation.tres" id="4_navigation"]
 [ext_resource type="Script" uid="uid://w0xlc1ks717q" path="res://scripts/camera_controller.gd" id="5_camera"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
+content_margin_left = 3.0
+content_margin_top = 3.0
+content_margin_right = 3.0
+content_margin_bottom = 3.0
+bg_color = Color(0.08, 0.09, 0.08, 0.92)
+
+[sub_resource type="Theme" id="Theme_mission"]
+default_font_size = 8
+Label/colors/font_color = Color(1, 1, 1, 1)
+Label/constants/line_spacing = 0
+VBoxContainer/constants/separation = 2
+PanelContainer/styles/panel = SubResource("StyleBoxFlat_mission")
+
 [sub_resource type="RectangleShape2D" id="Shape_HouseNW"]
 size = Vector2(110, 90)
 
@@ -788,11 +802,13 @@ position = Vector2(570, 130)
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1042008688]
 
 [node name="MissionPanel" type="PanelContainer" parent="CanvasLayer" unique_id=1951434403]
-offset_left = 16.0
-offset_top = 16.0
-offset_right = 340.0
-offset_bottom = 176.0
+custom_minimum_size = Vector2(250, 80)
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 258.0
+offset_bottom = 88.0
 mouse_filter = 2
+theme = SubResource("Theme_mission")
 
 [node name="MissionInfo" type="VBoxContainer" parent="CanvasLayer/MissionPanel" unique_id=984267347]
 layout_mode = 2
@@ -821,8 +837,11 @@ text = "Прогресс: 0%"
 [node name="Status" type="Label" parent="CanvasLayer/MissionPanel/MissionInfo" unique_id=478836091]
 layout_mode = 2
 text = "Цель: заразить или уничтожить 80% жителей"
+autowrap_mode = 3
 
 [node name="SelectionRect" type="Panel" parent="CanvasLayer" unique_id=668744120]
 visible = false
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_selection")
+
+[connection signal="minimum_size_changed" from="CanvasLayer/MissionPanel" to="CanvasLayer/MissionPanel" method="reset_size"]

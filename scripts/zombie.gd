@@ -2,7 +2,8 @@ extends CharacterBody2D
 
 const VILLAGER_COLLISION_LAYER := 8
 const VILLAGER_APPROACH_DISTANCE := 12.0
-const INFECTION_DISTANCE := 32.0
+# Match the 65% character scale while keeping a visible melee gap.
+const INFECTION_DISTANCE := 20.8
 const AGGRO_REACQUIRE_DELAY_SECONDS := 0.3
 const CROWD_PUSH_CLEARANCE := 48.0
 const MOVEMENT_STALL_TIMEOUT := 3.0
@@ -71,24 +72,24 @@ func _draw() -> void:
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
-	var health_rect := Rect2(-12.0, -34.0, 24.0, 4.0)
+	var health_rect := Rect2(-7.8, -22.1, 15.6, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
-		Rect2(health_rect.position + Vector2(1.0, 1.0), Vector2(22.0 * health_ratio, 2.0)),
+		Rect2(health_rect.position + Vector2(0.65, 0.65), Vector2(14.3 * health_ratio, 1.3)),
 		Color(0.25, 0.85, 0.25),
 		true
 	)
-	draw_rect(health_rect, Color(0.05, 0.05, 0.05), false, 1.0)
+	draw_rect(health_rect, Color(0.05, 0.05, 0.05), false, 0.65)
 
 	if is_selected:
 		draw_arc(
 			Vector2.ZERO,
-			24.0,
+			15.6,
 			0.0,
 			TAU,
 			32,
 			Color.YELLOW,
-			2.0
+			1.3
 		)
 
 	if has_player_order:

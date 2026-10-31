@@ -23,7 +23,7 @@ func frames(count: int) -> void:
 func path_is_clear(path: PackedVector2Array) -> bool:
 	var query := PhysicsShapeQueryParameters2D.new()
 	var body := RectangleShape2D.new()
-	body.size = Vector2(20, 32)
+	body.size = map.get_node("Zombie/CollisionShape2D").shape.size
 	query.shape = body
 	query.collision_mask = 1
 	for index in range(1, path.size()):
@@ -74,7 +74,7 @@ func run() -> void:
 		all_connected = all_connected and not path.is_empty() and path[-1].distance_to(center) < 0.1
 		all_clear = all_clear and path_is_clear(path)
 	check(all_connected, "Every navigation polygon connects to square")
-	check(all_clear, "Paths to all polygon centers clear a 20 x 32 zombie body")
+	check(all_clear, "Paths to all polygon centers clear the current zombie body")
 	var zombie = units[0]
 	zombie.position = Vector2(330, 175)
 	var sight_target := Node2D.new()
