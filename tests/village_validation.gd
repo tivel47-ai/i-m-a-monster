@@ -39,6 +39,9 @@ func run() -> void:
 	var main := (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(main)
 	map = main.get_node("test_map")
+	# Isolate the original navigation routes from randomly roaming civilians.
+	for resident in map.villagers:
+		resident.autonomous_movement_enabled = false
 	await frames(5)
 	navigation_map = map.get_world_2d().navigation_map
 	check(NavigationServer2D.map_get_iteration_id(navigation_map) > 0, "Main scene loads with synchronized navigation")

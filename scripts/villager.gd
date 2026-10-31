@@ -1,4 +1,6 @@
-extends StaticBody2D
+extends CharacterBody2D
+
+const MOVEMENT_STALL_TIMEOUT := 3.0
 
 signal converted(villager: Node)
 signal died(villager: Node)
@@ -15,6 +17,18 @@ enum InfectionState {
 @export var attack_damage: float = 15.0
 @export var attack_interval: float = 1.0
 @export var transformation_duration: float = 2.0
+@export var autonomous_movement_enabled: bool = true
+@export var points_of_interest_path: NodePath
+@export var move_speed: float = 55.0
+@export var wait_duration_min: float = 2.0
+@export var wait_duration_max: float = 5.0
+@export var arrival_tolerance: float = 4.0
+
+var has_destination: bool = false
+var destination: Vector2
+var wait_remaining: float = 0.0
+var progress_position: Vector2
+var stalled_seconds: float = 0.0
 
 var infection_state: InfectionState = InfectionState.AVAILABLE
 var current_health: float
@@ -26,6 +40,7 @@ var encounter_participants: Array[Node2D] = []
 @onready var encounter_attack_timer: Timer = Timer.new()
 @onready var death_marker_a: Line2D = $DeathMarkerA
 @onready var death_marker_b: Line2D = $DeathMarkerB
+@onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 
 
 func _ready() -> void:
@@ -36,6 +51,91 @@ func _ready() -> void:
 	add_child(encounter_attack_timer)
 	if current_health == 0.0:
 		_die()
+
+
+func _physics_process(delta: float) -> void:
+	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE:
+		_stop_movement()
+		return
+	var navigation_map := navigation_agent.get_navigation_map()
+	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0:
+		return
+	navigation_agent.max_speed = maxf(move_speed, 0.0)
+	navigation_agent.target_desired_distance = maxf(arrival_tolerance, 0.5)
+	if not has_destination:
+		wait_remaining = maxf(wait_remaining - delta, 0.0)
+		if wait_remaining == 0.0:
+			_choose_destination(navigation_map)
+		return
+	if global_position.distance_to(destination) <= navigation_agent.target_desired_distance:
+		_begin_wait()
+		return
+	if global_position.distance_squared_to(progress_position) >= 4.0:
+		progress_position = global_position
+		stalled_seconds = 0.0
+	else:
+		stalled_seconds += delta
+	if stalled_seconds >= MOVEMENT_STALL_TIMEOUT:
+		_begin_wait()
+		return
+	var next_position := navigation_agent.get_next_path_position()
+	if navigation_agent.is_navigation_finished():
+		_begin_wait()
+		return
+	navigation_agent.velocity = global_position.direction_to(next_position) * maxf(move_speed, 0.0)
+
+
+func _choose_destination(navigation_map: RID) -> void:
+	var points := get_node_or_null(points_of_interest_path) if not points_of_interest_path.is_empty() else null
+	if points == null:
+		_begin_wait()
+		return
+	var candidates := points.get_children()
+	candidates.shuffle()
+	for candidate in candidates:
+		if not candidate is Marker2D:
+			continue
+		var point: Vector2 = candidate.global_position
+		if global_position.distance_to(point) <= maxf(arrival_tolerance, 0.5):
+			continue
+		if NavigationServer2D.map_get_closest_point(navigation_map, point).distance_to(point) > 1.0:
+			continue
+		var query := PhysicsShapeQueryParameters2D.new()
+		query.shape = $CollisionShape2D.shape
+		query.transform = Transform2D(0.0, point)
+		query.collision_mask = 1
+		if not get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty():
+			continue
+		var path := NavigationServer2D.map_get_path(navigation_map, global_position, point, true, navigation_agent.navigation_layers)
+		if path.is_empty() or path[-1].distance_to(point) > 1.0:
+			continue
+		destination = point
+		navigation_agent.target_position = point
+		has_destination = true
+		progress_position = global_position
+		stalled_seconds = 0.0
+		return
+	_begin_wait()
+
+
+func _stop_movement() -> void:
+	has_destination = false
+	velocity = Vector2.ZERO
+	navigation_agent.velocity = Vector2.ZERO
+
+
+func _begin_wait() -> void:
+	_stop_movement()
+	var minimum := maxf(wait_duration_min, 0.0)
+	wait_remaining = randf_range(minimum, maxf(wait_duration_max, minimum))
+
+
+func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
+	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE or not has_destination:
+		velocity = Vector2.ZERO
+		return
+	velocity = safe_velocity
+	move_and_slide()
 
 
 func is_available_for_infection() -> bool:
@@ -110,6 +210,7 @@ func _start_transformation() -> void:
 		return
 
 	infection_state = InfectionState.TRANSFORMING
+	_stop_movement()
 	transformation_timer.wait_time = maxf(transformation_duration, 0.01)
 	transformation_timer.start()
 
@@ -119,6 +220,8 @@ func _die() -> void:
 		return
 
 	infection_state = InfectionState.DEAD
+	_stop_movement()
+	navigation_agent.avoidance_enabled = false
 	current_health = 0.0
 	transformation_timer.stop()
 	_end_encounter()
@@ -149,6 +252,7 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 
 	if infection_state == InfectionState.AVAILABLE:
 		infection_state = InfectionState.IN_COLLISION
+		_begin_wait()
 		converted_color = result_color
 	if not encounter_participants.has(zombie):
 		encounter_participants.append(zombie)
@@ -211,6 +315,8 @@ func _on_transformation_timer_timeout() -> void:
 		return
 
 	infection_state = InfectionState.CONVERTED
+	_stop_movement()
+	navigation_agent.avoidance_enabled = false
 	_end_encounter()
 	collision_layer = 0
 	collision_mask = 0

@@ -778,6 +778,26 @@ theme_override_colors/font_color = Color(0.88, 0.86, 0.77, 1)
 theme_override_font_sizes/font_size = 13
 text = "КОЛОКОЛ"
 
+[node name="VillagePointsOfInterest" type="Node2D" parent="."]
+
+[node name="Square" type="Marker2D" parent="VillagePointsOfInterest"]
+position = Vector2(800, 390)
+
+[node name="WellApproach" type="Marker2D" parent="VillagePointsOfInterest"]
+position = Vector2(680, 350)
+
+[node name="FieldApproach" type="Marker2D" parent="VillagePointsOfInterest"]
+position = Vector2(180, 200)
+
+[node name="GardenApproach" type="Marker2D" parent="VillagePointsOfInterest"]
+position = Vector2(1060, 190)
+
+[node name="WorkshopApproach" type="Marker2D" parent="VillagePointsOfInterest"]
+position = Vector2(1040, 350)
+
+[node name="ResidentialStreet" type="Marker2D" parent="VillagePointsOfInterest"]
+position = Vector2(420, 360)
+
 [node name="Zombie" parent="." unique_id=183435595 instance=ExtResource("1_6ulkd")]
 position = Vector2(120, 340)
 
@@ -789,15 +809,19 @@ position = Vector2(170, 365)
 
 [node name="Villager" parent="." unique_id=163433467 instance=ExtResource("2_villager")]
 position = Vector2(700, 290)
+points_of_interest_path = NodePath("../VillagePointsOfInterest")
 
 [node name="Villager2" parent="." unique_id=167342374 instance=ExtResource("2_villager")]
 position = Vector2(1140, 270)
+points_of_interest_path = NodePath("../VillagePointsOfInterest")
 
 [node name="Villager3" parent="." unique_id=659918057 instance=ExtResource("2_villager")]
 position = Vector2(865, 590)
+points_of_interest_path = NodePath("../VillagePointsOfInterest")
 
 [node name="Villager4" parent="." unique_id=2116445893 instance=ExtResource("2_villager")]
 position = Vector2(570, 130)
+points_of_interest_path = NodePath("../VillagePointsOfInterest")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1042008688]
 

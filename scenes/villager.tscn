@@ -5,9 +5,10 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(7.8, 15.6)
 
-[node name="Villager" type="StaticBody2D"]
+[node name="Villager" type="CharacterBody2D"]
 collision_layer = 8
-collision_mask = 2
+collision_mask = 11
+motion_mode = 1
 z_index = 1
 script = ExtResource("1_villager")
 
@@ -33,4 +34,15 @@ shape = SubResource("RectangleShape2D_body")
 [node name="TransformationTimer" type="Timer" parent="."]
 one_shot = true
 
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+path_desired_distance = 4.0
+target_desired_distance = 4.0
+radius = 8.8
+neighbor_distance = 80.0
+max_neighbors = 8
+avoidance_enabled = true
+avoidance_layers = 2
+avoidance_mask = 2
+
+[connection signal="velocity_computed" from="NavigationAgent2D" to="." method="_on_navigation_velocity_computed"]
 [connection signal="timeout" from="TransformationTimer" to="." method="_on_transformation_timer_timeout"]

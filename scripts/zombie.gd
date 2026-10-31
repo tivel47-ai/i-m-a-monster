@@ -32,6 +32,7 @@ var has_target: bool = false
 var has_player_order: bool = false
 var aggro_reacquire_delay: float = 0.0
 var aggro_target: Node2D
+var aggro_destination_origin: Vector2
 var aggro_candidates: Array[Node2D] = []
 var crowd_rest_position: Vector2
 var crowd_is_displaced: bool = false
@@ -297,7 +298,7 @@ func _update_aggro_target(delta: float) -> void:
 						has_target = false
 					return
 
-				if not has_target:
+				if not has_target or aggro_destination_origin.distance_squared_to(aggro_target.global_position) >= 64.0:
 					_set_aggro_destination()
 				return
 			elif aggro_target.call("is_available_for_infection"):
@@ -312,7 +313,7 @@ func _update_aggro_target(delta: float) -> void:
 					has_target = false
 					velocity = Vector2.ZERO
 				else:
-					if not has_target:
+					if not has_target or aggro_destination_origin.distance_squared_to(aggro_target.global_position) >= 64.0:
 						_set_aggro_destination()
 					return
 			else:
@@ -367,6 +368,7 @@ func _set_aggro_destination() -> void:
 		return
 
 	_cancel_crowd_displacement()
+	aggro_destination_origin = aggro_target.global_position
 	var direction_to_zombie := aggro_target.global_position.direction_to(global_position)
 	navigation_agent.target_position = (
 		aggro_target.global_position

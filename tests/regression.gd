@@ -23,6 +23,8 @@ func run() -> void:
 	map = load("res://scenes/test_map.tscn").instantiate()
 	root.add_child(map)
 	for resident in map.villagers:
+		# Keep command/combat fixtures stationary; civilian movement has its own suite.
+		resident.autonomous_movement_enabled = false
 		resident.position = Vector2(1100, 600)
 	var units = get_nodes_in_group("player_units")
 	for i in range(units.size()):
