@@ -3,11 +3,12 @@
 [ext_resource type="Script" uid="uid://b26wut1us8anv" path="res://scripts/villager.gd" id="1_villager"]
 [ext_resource type="Script" uid="uid://buja65ni53xhl" path="res://scripts/villager_threat_detection.gd" id="2_threat_detection"]
 [ext_resource type="Script" uid="uid://bkkfjtbo3611f" path="res://scripts/villager_threat_reaction.gd" id="3_threat_reaction"]
+[ext_resource type="Script" path="res://scripts/villager_local_warning.gd" id="4_local_warning"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(7.8, 15.6)
 
-[node name="Villager" type="CharacterBody2D" unique_id=46541046]
+[node name="Villager" type="CharacterBody2D" unique_id=46541046 groups=["civilian_warning_receivers"]]
 z_index = 1
 collision_layer = 8
 collision_mask = 11
@@ -40,6 +41,9 @@ debug_enabled = true
 [node name="ThreatReaction" type="Node2D" parent="." unique_id=2011516138]
 script = ExtResource("3_threat_reaction")
 debug_enabled = true
+
+[node name="LocalWarning" type="Node2D" parent="."]
+script = ExtResource("4_local_warning")
 
 [node name="TransformationTimer" type="Timer" parent="." unique_id=1954849034]
 one_shot = true

@@ -43,6 +43,7 @@ var reassessment_remaining: float = 0.0
 var route_attempts: int = 0
 var freeze_used: bool = false
 var warning_sent: bool = false
+var report_based: bool = false
 var reaction_random := RandomNumberGenerator.new()
 
 @onready var villager = get_parent()
@@ -70,6 +71,10 @@ func recognize_threat(target: Node2D) -> void:
 	if not sensor._is_visible_target(target):
 		return
 	if episode_active:
+		# Personal recognition supersedes a static report without rerolling.
+		if report_based:
+			refresh_remaining = 0
+		report_based = false
 		episode_targets[target.get_instance_id()] = true
 		_consider_target(target)
 		return
@@ -81,6 +86,7 @@ func recognize_threat(target: Node2D) -> void:
 	threat_id = target.get_instance_id()
 	episode_targets = {threat_id: true}
 	episode_active = true
+	report_based = false
 	episode_elapsed = 0
 	safe_elapsed = 0
 	route_attempts = 0
@@ -90,13 +96,41 @@ func recognize_threat(target: Node2D) -> void:
 	_enter_reaction(choose_reaction())
 
 
+func respond_to_report(point: Vector2) -> void:
+	if not reactions_enabled or not villager.autonomous_movement_enabled or not villager.is_available_for_infection():
+		return
+	var direct: Node2D = villager.get_recognized_threat()
+	if is_instance_valid(direct) and sensor._is_visible_target(direct):
+		recognize_threat(direct)
+		return
+	if episode_active:
+		if report_based and point.distance_to(threat_position) >= maxf(threat_movement_threshold, 1):
+			threat_position = point
+			refresh_remaining = 0
+		return
+	villager._stop_movement()
+	episode_active = true
+	report_based = true
+	threat_target = null
+	threat_position = point
+	threat_id = 0
+	episode_targets.clear()
+	episode_elapsed = 0
+	safe_elapsed = 0
+	route_attempts = 0
+	freeze_used = false
+	warning_sent = true
+	reassessment_remaining = 0
+	_enter_reaction(Reaction.FLEEING)
+
+
 func update_response(delta: float) -> bool:
 	if not reactions_enabled:
 		cancel_response()
 		return false
 	cooldown_remaining = maxf(0, cooldown_remaining - delta)
 	var visible := _visible_threats()
-	if visible.is_empty():
+	if visible.is_empty() and not (report_based and villager.local_warning.has_report()):
 		safe_elapsed += delta
 	else:
 		safe_elapsed = 0
@@ -106,12 +140,18 @@ func update_response(delta: float) -> bool:
 		var recognized: Node2D = villager.get_recognized_threat()
 		if is_instance_valid(recognized):
 			recognize_threat(recognized)
+		if not episode_active and villager.local_warning.has_report():
+			respond_to_report(villager.local_warning.reported_position)
 		if not episode_active:
 			if reassessment_remaining > 0:
 				reassessment_remaining = maxf(0, reassessment_remaining - delta)
 				villager._stop_movement()
 				return reassessment_remaining > 0 and safe_elapsed < maxf(safety_timeout, 0.1)
 			return false
+	if report_based and not villager.local_warning.has_report():
+		cancel_response()
+		villager.wait_remaining = 0
+		return false
 	episode_elapsed += delta
 	if safe_elapsed >= maxf(safety_timeout, 0.1):
 		_finish_episode()
@@ -127,10 +167,11 @@ func update_response(delta: float) -> bool:
 		threat_target = null
 	refresh_remaining = maxf(0, refresh_remaining - delta)
 	if refresh_remaining == 0:
-		for candidate in visible:
-			_consider_target(candidate)
-		if is_instance_valid(threat_target) and sensor._is_visible_target(threat_target):
-			threat_position = threat_target.global_position
+		if not report_based:
+			for candidate in visible:
+				_consider_target(candidate)
+			if is_instance_valid(threat_target) and sensor._is_visible_target(threat_target):
+				threat_position = threat_target.global_position
 		if reaction_state in [Reaction.FLEEING, Reaction.SEEKING_SHELTER]:
 			if (not has_route and reaction_state == Reaction.FLEEING) or (has_route and villager.global_position.distance_to(route_destination) > maxf(villager.arrival_tolerance, 0.5) and (
 				threat_position.distance_to(route_threat_position) >= maxf(threat_movement_threshold, 1)
@@ -140,7 +181,7 @@ func update_response(delta: float) -> bool:
 	if reaction_state in [Reaction.WARNING, Reaction.FROZEN]:
 		action_remaining = maxf(0, action_remaining - delta)
 		if action_remaining == 0:
-			if reaction_state == Reaction.WARNING and not warning_sent:
+			if reaction_state == Reaction.WARNING and not warning_sent and not report_based:
 				warning_sent = true
 				warning_attempted.emit(threat_position)
 				if not villager.is_available_for_infection():
@@ -153,7 +194,7 @@ func update_response(delta: float) -> bool:
 			_stop_velocity()
 			if result == villager.NavigationResult.FAILED:
 				_enter_reaction(Reaction.FLEEING)
-			elif reaction_state == Reaction.FLEEING and not visible.is_empty():
+			elif reaction_state == Reaction.FLEEING and (not visible.is_empty() or (report_based and villager.local_warning.has_report())):
 				# Continue past this waypoint without waiting for the refresh interval.
 				route_attempts = 0
 				_plan_route()
@@ -284,6 +325,7 @@ func _finish_episode() -> void:
 
 func cancel_response() -> void:
 	episode_active = false
+	report_based = false
 	reaction_state = Reaction.NONE
 	has_route = false
 	threat_target = null

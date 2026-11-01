@@ -64,6 +64,7 @@ var encounter_participants: Array[Node2D] = []
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 @onready var threat_detection = $ThreatDetection
 @onready var threat_reaction = $ThreatReaction
+@onready var local_warning = $LocalWarning
 
 
 func _ready() -> void:
@@ -314,6 +315,7 @@ func _start_transformation() -> void:
 		return
 
 	infection_state = InfectionState.TRANSFORMING
+	local_warning.clear_report()
 	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
 	_stop_movement()
@@ -326,6 +328,7 @@ func _die() -> void:
 		return
 
 	infection_state = InfectionState.DEAD
+	local_warning.clear_report()
 	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
 	_stop_movement()
@@ -426,6 +429,7 @@ func _on_transformation_timer_timeout() -> void:
 		return
 
 	infection_state = InfectionState.CONVERTED
+	local_warning.clear_report()
 	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
 	_stop_movement()
