@@ -1,5 +1,7 @@
 extends Node2D
 
+signal mission_finished(outcome: String, summary: Dictionary)
+
 const TARGET_PERCENT := 80
 const SELECTION_DRAG_THRESHOLD := 8.0
 const PLAYER_SELECTION_LAYER := 4
@@ -11,6 +13,7 @@ const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
 enum MissionState {
 	ACTIVE,
 	WON,
+	LOST,
 }
 
 var villagers: Array[Node] = []
@@ -105,6 +108,33 @@ func _input(event: InputEvent) -> void:
 		_update_marquee_state()
 
 
+func cancel_selection() -> void:
+	selection_in_progress = false
+	marquee_active = false
+	selection_rect.hide()
+
+
+func _process(_delta: float) -> void:
+	if mission_state != MissionState.ACTIVE:
+		return
+	for unit in get_tree().get_nodes_in_group("player_units"):
+		if is_ancestor_of(unit) and not unit.is_dead:
+			return
+	# An ongoing conversion can still restore the player's army.
+	for resident in villagers:
+		if is_instance_valid(resident) and resident.infection_state == resident.InfectionState.TRANSFORMING:
+			return
+	mission_state = MissionState.LOST
+	status_label.text = "ПОРАЖЕНИЕ! Все зомби потеряны"
+	_emit_result()
+
+
+func _emit_result() -> void:
+	mission_finished.emit("victory" if mission_state == MissionState.WON else "defeat", {
+		"total": total_residents, "infected": infected_residents, "killed": killed_residents,
+	})
+
+
 func _update_marquee_state() -> void:
 	if not marquee_active:
 		marquee_active = (
@@ -129,6 +159,8 @@ func _update_marquee_state() -> void:
 
 
 func _select_unit_at_screen_position(screen_position: Vector2, screen_to_world: Transform2D) -> void:
+	if not can_process():
+		return
 	var query := PhysicsPointQueryParameters2D.new()
 	query.position = screen_to_world * screen_position
 	query.collision_mask = PLAYER_SELECTION_LAYER
@@ -146,6 +178,8 @@ func _select_unit_at_screen_position(screen_position: Vector2, screen_to_world: 
 
 
 func _select_units_in_marquee(start_screen: Vector2, end_screen: Vector2, screen_to_world: Transform2D) -> void:
+	if not can_process():
+		return
 	var world_corners := PackedVector2Array([
 		screen_to_world * start_screen,
 		screen_to_world * Vector2(end_screen.x, start_screen.y),
@@ -326,6 +360,7 @@ func _refresh_mission_progress() -> void:
 	elif completed_residents >= required_residents:
 		mission_state = MissionState.WON
 		status_label.text = "ПОБЕДА! Цель миссии выполнена"
+		_emit_result.call_deferred()
 	else:
 		status_label.text = "Цель: заразить или уничтожить %d%% жителей (%d осталось)" % [
 			TARGET_PERCENT,

@@ -36,15 +36,15 @@ func path_is_clear(path: PackedVector2Array) -> bool:
 	return true
 
 func run() -> void:
-	var main := (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var main := (load("res://scenes/test_map.tscn") as PackedScene).instantiate()
 	root.add_child(main)
-	map = main.get_node("test_map")
+	map = main
 	# Isolate the original navigation routes from randomly roaming civilians.
 	for resident in map.villagers:
 		resident.autonomous_movement_enabled = false
 	await frames(5)
 	navigation_map = map.get_world_2d().navigation_map
-	check(NavigationServer2D.map_get_iteration_id(navigation_map) > 0, "Main scene loads with synchronized navigation")
+	check(NavigationServer2D.map_get_iteration_id(navigation_map) > 0, "Mission map loads with synchronized navigation")
 	check(map.total_residents == 4 and map.mission_state == map.MissionState.ACTIVE, "Mission initializes with four residents")
 	var units := get_nodes_in_group("player_units")
 	for unit in units + map.villagers:

@@ -48,9 +48,9 @@ func screen(world: Vector2) -> Vector2:
 
 func run() -> void:
 	root.size = Vector2i(1280, 720)
-	var main := (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	var main := (load("res://scenes/test_map.tscn") as PackedScene).instantiate()
 	root.add_child(main)
-	map = main.get_node("test_map")
+	map = main
 	camera = map.get_node("Camera2D")
 	await frames(5)
 	check(camera.is_current(), "Gameplay camera is active")
