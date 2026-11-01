@@ -4,6 +4,7 @@ const MOVEMENT_STALL_TIMEOUT := 3.0
 
 signal converted(villager: Node)
 signal died(villager: Node)
+signal threat_recognized(zombie: Node2D)
 
 enum InfectionState {
 	AVAILABLE,
@@ -59,6 +60,7 @@ var encounter_participants: Array[Node2D] = []
 @onready var death_marker_a: Line2D = $DeathMarkerA
 @onready var death_marker_b: Line2D = $DeathMarkerB
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
+@onready var threat_detection = $ThreatDetection
 
 
 func _ready() -> void:
@@ -214,6 +216,15 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 	move_and_slide()
 
 
+func get_recognized_threat() -> Node2D:
+	return threat_detection.get_recognized_target()
+
+
+func _on_threat_recognized(zombie: Node2D) -> void:
+	if is_available_for_infection():
+		threat_recognized.emit(zombie)
+
+
 func is_available_for_infection() -> bool:
 	return infection_state == InfectionState.AVAILABLE and current_health > 0.0
 
@@ -286,6 +297,7 @@ func _start_transformation() -> void:
 		return
 
 	infection_state = InfectionState.TRANSFORMING
+	threat_detection.reset_awareness()
 	_stop_movement()
 	transformation_timer.wait_time = maxf(transformation_duration, 0.01)
 	transformation_timer.start()
@@ -296,6 +308,7 @@ func _die() -> void:
 		return
 
 	infection_state = InfectionState.DEAD
+	threat_detection.reset_awareness()
 	_stop_movement()
 	navigation_agent.avoidance_enabled = false
 	current_health = 0.0
@@ -328,6 +341,7 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 
 	if infection_state == InfectionState.AVAILABLE:
 		infection_state = InfectionState.IN_COLLISION
+		threat_detection.reset_awareness()
 		_begin_wait()
 		converted_color = result_color
 	if not encounter_participants.has(zombie):
@@ -391,6 +405,7 @@ func _on_transformation_timer_timeout() -> void:
 		return
 
 	infection_state = InfectionState.CONVERTED
+	threat_detection.reset_awareness()
 	_stop_movement()
 	navigation_agent.avoidance_enabled = false
 	_end_encounter()

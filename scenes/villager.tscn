@@ -1,48 +1,54 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://bt7e18e7p513v"]
 
-[ext_resource type="Script" path="res://scripts/villager.gd" id="1_villager"]
+[ext_resource type="Script" uid="uid://b26wut1us8anv" path="res://scripts/villager.gd" id="1_villager"]
+[ext_resource type="Script" uid="uid://buja65ni53xhl" path="res://scripts/villager_threat_detection.gd" id="2_threat_detection"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(7.8, 15.6)
 
-[node name="Villager" type="CharacterBody2D"]
+[node name="Villager" type="CharacterBody2D" unique_id=46541046]
+z_index = 1
 collision_layer = 8
 collision_mask = 11
 motion_mode = 1
-z_index = 1
 script = ExtResource("1_villager")
 
-[node name="Polygon2D" type="Polygon2D" parent="."]
+[node name="Polygon2D" type="Polygon2D" parent="." unique_id=1358113620]
 color = Color(0.9, 0.9, 0.84, 1)
 polygon = PackedVector2Array(-3.9, -7.8, 3.9, -7.8, 3.9, 7.8, -3.9, 7.8)
 
-[node name="DeathMarkerA" type="Line2D" parent="."]
+[node name="DeathMarkerA" type="Line2D" parent="." unique_id=718430434]
 visible = false
 points = PackedVector2Array(-4.55, -4.55, 4.55, 4.55)
 width = 1.625
 default_color = Color(1, 0, 0, 1)
 
-[node name="DeathMarkerB" type="Line2D" parent="."]
+[node name="DeathMarkerB" type="Line2D" parent="." unique_id=2045222314]
 visible = false
 points = PackedVector2Array(-4.55, 4.55, 4.55, -4.55)
 width = 1.625
 default_color = Color(1, 0, 0, 1)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1696335288]
 shape = SubResource("RectangleShape2D_body")
 
-[node name="TransformationTimer" type="Timer" parent="."]
+[node name="ThreatDetection" type="Node2D" parent="." unique_id=1966160298]
+script = ExtResource("2_threat_detection")
+debug_enabled = true
+
+[node name="TransformationTimer" type="Timer" parent="." unique_id=1954849034]
 one_shot = true
 
-[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=1367694905]
 path_desired_distance = 4.0
 target_desired_distance = 4.0
+avoidance_enabled = true
 radius = 8.8
 neighbor_distance = 80.0
 max_neighbors = 8
-avoidance_enabled = true
 avoidance_layers = 2
 avoidance_mask = 2
 
-[connection signal="velocity_computed" from="NavigationAgent2D" to="." method="_on_navigation_velocity_computed"]
+[connection signal="threat_recognized" from="ThreatDetection" to="." method="_on_threat_recognized"]
 [connection signal="timeout" from="TransformationTimer" to="." method="_on_transformation_timer_timeout"]
+[connection signal="velocity_computed" from="NavigationAgent2D" to="." method="_on_navigation_velocity_computed"]
