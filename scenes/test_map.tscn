@@ -795,13 +795,13 @@ position = Vector2(1060, 190)
 [node name="WorkshopApproach" type="Marker2D" parent="VillagePointsOfInterest"]
 position = Vector2(1040, 350)
 
-[node name="ResidentialStreet" type="Marker2D" parent="VillagePointsOfInterest"]
+[node name="ResidentialStreet" type="Marker2D" parent="VillagePointsOfInterest" groups=["civilian_shelter_points"]]
 position = Vector2(420, 360)
 
-[node name="HomeNorthApproach" type="Marker2D" parent="VillagePointsOfInterest"]
+[node name="HomeNorthApproach" type="Marker2D" parent="VillagePointsOfInterest" groups=["civilian_shelter_points"]]
 position = Vector2(500, 170)
 
-[node name="HomeSouthApproach" type="Marker2D" parent="VillagePointsOfInterest"]
+[node name="HomeSouthApproach" type="Marker2D" parent="VillagePointsOfInterest" groups=["civilian_shelter_points"]]
 position = Vector2(500, 590)
 
 [node name="Zombie" parent="." unique_id=183435595 instance=ExtResource("1_6ulkd")]

@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b26wut1us8anv" path="res://scripts/villager.gd" id="1_villager"]
 [ext_resource type="Script" uid="uid://buja65ni53xhl" path="res://scripts/villager_threat_detection.gd" id="2_threat_detection"]
+[ext_resource type="Script" uid="uid://bkkfjtbo3611f" path="res://scripts/villager_threat_reaction.gd" id="3_threat_reaction"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(7.8, 15.6)
@@ -36,6 +37,10 @@ shape = SubResource("RectangleShape2D_body")
 script = ExtResource("2_threat_detection")
 debug_enabled = true
 
+[node name="ThreatReaction" type="Node2D" parent="." unique_id=2011516138]
+script = ExtResource("3_threat_reaction")
+debug_enabled = true
+
 [node name="TransformationTimer" type="Timer" parent="." unique_id=1954849034]
 one_shot = true
 
@@ -50,5 +55,6 @@ avoidance_layers = 2
 avoidance_mask = 2
 
 [connection signal="threat_recognized" from="ThreatDetection" to="." method="_on_threat_recognized"]
+[connection signal="warning_attempted" from="ThreatReaction" to="." method="_on_warning_attempted"]
 [connection signal="timeout" from="TransformationTimer" to="." method="_on_transformation_timer_timeout"]
 [connection signal="velocity_computed" from="NavigationAgent2D" to="." method="_on_navigation_velocity_computed"]

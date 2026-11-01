@@ -5,6 +5,7 @@ const MOVEMENT_STALL_TIMEOUT := 3.0
 signal converted(villager: Node)
 signal died(villager: Node)
 signal threat_recognized(zombie: Node2D)
+signal warning_attempted(villager: Node2D, threat_position: Vector2)
 
 enum InfectionState {
 	AVAILABLE,
@@ -15,6 +16,7 @@ enum InfectionState {
 }
 
 enum Activity { NONE = -1, HOME, WORK, SOCIAL, WANDER }
+enum NavigationResult { MOVING, ARRIVED, FAILED }
 
 @export var max_health: float = 100.0
 @export var attack_damage: float = 15.0
@@ -61,6 +63,7 @@ var encounter_participants: Array[Node2D] = []
 @onready var death_marker_b: Line2D = $DeathMarkerB
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 @onready var threat_detection = $ThreatDetection
+@onready var threat_reaction = $ThreatReaction
 
 
 func _ready() -> void:
@@ -75,34 +78,41 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE:
+		threat_reaction.cancel_response()
 		_stop_movement()
 		return
 	var navigation_map := navigation_agent.get_navigation_map()
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0:
 		return
-	navigation_agent.max_speed = maxf(move_speed, 0.0)
-	navigation_agent.target_desired_distance = maxf(arrival_tolerance, 0.5)
+	if threat_reaction.update_response(delta):
+		return
 	if not has_destination:
 		wait_remaining = maxf(wait_remaining - delta, 0.0)
 		if wait_remaining == 0.0:
 			_choose_destination(navigation_map)
 		return
-	if global_position.distance_to(destination) <= navigation_agent.target_desired_distance:
-		_begin_wait(true)
-		return
+	var result := _advance_navigation(destination, move_speed, delta)
+	if result != NavigationResult.MOVING:
+		_begin_wait(result == NavigationResult.ARRIVED)
+
+
+func _advance_navigation(goal: Vector2, speed: float, delta: float) -> NavigationResult:
+	navigation_agent.max_speed = maxf(speed, 0.0)
+	navigation_agent.target_desired_distance = maxf(arrival_tolerance, 0.5)
+	if global_position.distance_to(goal) <= navigation_agent.target_desired_distance:
+		return NavigationResult.ARRIVED
 	if global_position.distance_squared_to(progress_position) >= 4.0:
 		progress_position = global_position
 		stalled_seconds = 0.0
 	else:
 		stalled_seconds += delta
 	if stalled_seconds >= MOVEMENT_STALL_TIMEOUT:
-		_begin_wait()
-		return
+		return NavigationResult.FAILED
 	var next_position := navigation_agent.get_next_path_position()
 	if navigation_agent.is_navigation_finished():
-		_begin_wait()
-		return
-	navigation_agent.velocity = global_position.direction_to(next_position) * maxf(move_speed, 0.0)
+		return NavigationResult.FAILED
+	navigation_agent.velocity = global_position.direction_to(next_position) * maxf(speed, 0.0)
+	return NavigationResult.MOVING
 
 
 func _choose_destination(navigation_map: RID) -> void:
@@ -209,7 +219,7 @@ func _begin_wait(arrived: bool = false) -> void:
 
 
 func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
-	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE or not has_destination:
+	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE or not (has_destination or threat_reaction.has_route):
 		velocity = Vector2.ZERO
 		return
 	velocity = safe_velocity
@@ -222,7 +232,13 @@ func get_recognized_threat() -> Node2D:
 
 func _on_threat_recognized(zombie: Node2D) -> void:
 	if is_available_for_infection():
+		threat_reaction.recognize_threat(zombie)
 		threat_recognized.emit(zombie)
+
+
+func _on_warning_attempted(threat_position: Vector2) -> void:
+	if is_available_for_infection():
+		warning_attempted.emit(self, threat_position)
 
 
 func is_available_for_infection() -> bool:
@@ -260,6 +276,7 @@ func take_damage(amount: float) -> void:
 	if not is_alive() or current_health <= 0.0 or amount <= 0.0:
 		return
 
+	threat_reaction.interrupt_warning()
 	current_health = maxf(current_health - amount, 0.0)
 	queue_redraw()
 	if current_health > 0.0:
@@ -297,6 +314,7 @@ func _start_transformation() -> void:
 		return
 
 	infection_state = InfectionState.TRANSFORMING
+	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
 	_stop_movement()
 	transformation_timer.wait_time = maxf(transformation_duration, 0.01)
@@ -308,6 +326,7 @@ func _die() -> void:
 		return
 
 	infection_state = InfectionState.DEAD
+	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
 	_stop_movement()
 	navigation_agent.avoidance_enabled = false
@@ -341,6 +360,7 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 
 	if infection_state == InfectionState.AVAILABLE:
 		infection_state = InfectionState.IN_COLLISION
+		threat_reaction.cancel_response()
 		threat_detection.reset_awareness()
 		_begin_wait()
 		converted_color = result_color
@@ -371,6 +391,7 @@ func leave_encounter(zombie: Node2D) -> void:
 		encounter_attack_timer.stop()
 	if encounter_participants.is_empty() and infection_state == InfectionState.IN_COLLISION:
 		infection_state = InfectionState.AVAILABLE
+		threat_reaction.request_reassessment()
 	elif encounter_participants.is_empty() and infection_state == InfectionState.TRANSFORMING:
 		collision_layer = 0
 		collision_mask = 0
@@ -405,6 +426,7 @@ func _on_transformation_timer_timeout() -> void:
 		return
 
 	infection_state = InfectionState.CONVERTED
+	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
 	_stop_movement()
 	navigation_agent.avoidance_enabled = false

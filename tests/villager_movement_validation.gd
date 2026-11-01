@@ -26,6 +26,9 @@ func frames(count: int) -> void:
 func load_peaceful_map() -> void:
 	map = load("res://scenes/test_map.tscn").instantiate()
 	root.add_child(map)
+	# Earlier stage fixtures isolate movement/perception from Stage 1.4 responses.
+	for resident in map.villagers:
+		resident.get_node("ThreatReaction").reactions_enabled = false
 	for zombie in get_nodes_in_group("player_units"):
 		zombie.queue_free()
 	await frames(3)

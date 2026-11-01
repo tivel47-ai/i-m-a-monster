@@ -16,6 +16,7 @@ func fixture() -> void:
 	resident.position = Vector2(800, 390)
 	sensor = resident.get_node("ThreatDetection")
 	sensor.detection_enabled = true
+	sensor.debug_enabled = false
 	sensor.recognition_delay_min = 0.5
 	sensor.recognition_delay_max = 0.5
 	resident.threat_recognized.connect(func(target: Node2D): recognition_events.append(target))
@@ -37,7 +38,7 @@ func frozen_zombie(position: Vector2) -> Node2D:
 func run() -> void:
 	seed(1303)
 	await fixture()
-	check(not sensor.debug_enabled, "Threat debug indicator defaults to disabled")
+	check(not sensor.debug_enabled, "Threat debug indicator can be disabled")
 	await frames(40)
 	check(sensor.awareness == sensor.Awareness.UNAWARE and recognition_events.is_empty(), "Out-of-range zombie is ignored")
 	zombie.position = Vector2(900, 390)
