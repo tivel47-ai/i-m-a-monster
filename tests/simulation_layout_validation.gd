@@ -120,56 +120,15 @@ func run() -> void:
 				if building.has_node("Door") and endpoint.distance_to(building.get_node("Door").to_global(Vector2(0,4)))<=6: connected = true
 			if not connected: dangling.append(str(road.name)+" "+str(endpoint))
 	check(dangling.is_empty(),"Every road end joins another road, square, door, field or map entrance: "+str(dangling))
-	var personal_points: Array[Vector2] = []
-	var shared_goals := 0
-	var min_goal_spacing := INF
-	var unreachable: Array[String] = []
-	var route_paths: Array[NodePath] = []
-	for resident in map.villagers:
-		var routes: Node = resident.get_node(resident.points_of_interest_path)
-		route_paths.append(routes.get_path())
-		check(routes.get_child_count()==5 and routes.get_node("Home")==resident.get_node(resident.home_point_path) and routes.get_node("Work")==resident.get_node(resident.work_point_path),"Personal HOME/WORK and three social/walk alternatives: "+str(resident.name))
-		for point in routes.get_children():
-			if not point is Marker2D: continue
-			var path := path_to(Vector2(1520,947),point.global_position)
-			if path.is_empty() or path[-1].distance_to(point.global_position)>1 or not clear_path(path): unreachable.append(str(point.get_path()))
-			for other in personal_points: min_goal_spacing = minf(min_goal_spacing,point.global_position.distance_to(other))
-			if personal_points.has(point.global_position): shared_goals+=1
-			personal_points.append(point.global_position)
-	check(shared_goals==0 and min_goal_spacing>=35.5,"Individual activity destinations have no shared endpoints and at least 36-unit spacing; duplicates="+str(shared_goals)+", min="+str(min_goal_spacing))
-	check(route_paths.size()==30 and personal_points.size()==150 and unreachable.is_empty(),"All 150 individual destinations connect to the square with body clearance: "+str(unreachable))
-	# Observe genuine peaceful AI; no destination or movement behavior is mocked.
-	var origins: Array[Vector2] = []
-	var travelled: Array[float] = []
-	var arrivals := {}
-	for resident in map.villagers:
-		resident.autonomous_movement_enabled = true
-		origins.append(resident.position)
-		travelled.append(0.0)
-	var peak_neighbours := 0
-	var peak_waiting := 0
-	var overlaps := false
-	for tick in range(360):
-		await frames(30)
-		for i in range(map.villagers.size()):
-			var resident: Node2D = map.villagers[i]
-			travelled[i] = maxf(travelled[i],resident.position.distance_to(origins[i]))
-			if resident.is_performing_activity: arrivals[i] = true
-			overlaps = overlaps or not body_clear(resident.position,resident.get_node("CollisionShape2D").shape)
-			var nearby := 0
-			var waiting := 0
-			for other in map.villagers:
-				if resident.position.distance_to(other.position)<40:
-					nearby+=1
-					if other.is_performing_activity: waiting+=1
-			peak_neighbours = maxi(peak_neighbours,nearby)
-			peak_waiting = maxi(peak_waiting,waiting)
-	var active := 0
-	for distance in travelled:
-		if distance>40: active+=1
-	print("Peaceful distribution (180 seconds): active=",active," arrivals=",arrivals.size()," peak within radius 40=",peak_neighbours," waiting=",peak_waiting)
-	check(active==30 and arrivals.size()==30 and not overlaps,"All thirty NPCs travel and complete activities without crossing solids over 180 seconds")
-	check(peak_waiting<=3,"At most three stationary activity participants within radius 40 during observation; actual="+str(peak_waiting))
+	check(not map.has_node("ResidentRoutes"), "Obsolete per-resident movement marker containers are removed")
+	var zones := map.get_node("ActivityZones").get_children()
+	check(zones.size() < 75 and zones.size() > 30, "Activity territories are shared rather than 150 individual replacements")
+	for zone in zones:
+		var valid: bool = zone is ActivityZone2D and zone.has_valid_polygon()
+		if valid and not zone.location_path.is_empty(): valid = zone.get_node_or_null(zone.location_path) != null
+		check(valid, "Authored activity polygon and location are valid: " + str(zone.name))
+	# Zone dynamics and complete activity transitions are validated separately by
+	# simulation_zones_validation; layout checks retain all geography assertions above.
 	map.queue_free()
 	await frames(3)
 	print("Simulation layout validation failures: ",failures)

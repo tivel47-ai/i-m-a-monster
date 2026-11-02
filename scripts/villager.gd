@@ -46,6 +46,12 @@ enum NavigationResult { MOVING, ARRIVED, FAILED }
 @export_group("Activity zones")
 ## Explicit assignments only; empty keeps the existing marker-based behavior.
 @export var activity_zone_paths: Array[NodePath] = []
+## Functional shelter markers may remain available without serving peaceful AI.
+@export var marker_activity_fallback_enabled: bool = true
+@export var preferred_district: StringName
+@export_range(1, 10, 0.1) var district_zone_preference: float = 3.0
+## Zero disables distance preference; otherwise this is the distance falloff scale.
+@export_range(0, 3000, 10) var nearby_zone_distance: float = 0.0
 ## X: radius factor, Y: pause-duration factor, Z: movement-probability factor.
 @export var home_local_rules: Vector3 = Vector3(0.65, 1.5, 0.6)
 @export var work_local_rules: Vector3 = Vector3(0.5, 2.0, 0.4)
@@ -80,6 +86,7 @@ var encounter_participants: Array[Node2D] = []
 @onready var threat_detection = $ThreatDetection
 @onready var threat_reaction = $ThreatReaction
 @onready var local_warning = $LocalWarning
+@onready var guard_patrol = get_node_or_null("GuardPatrol")
 
 
 func _ready() -> void:
@@ -102,6 +109,8 @@ func _physics_process(delta: float) -> void:
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0:
 		return
 	if threat_reaction.update_response(delta):
+		return
+	if guard_patrol!=null and guard_patrol.update_patrol(delta):
 		return
 	if _using_zone:
 		if not is_instance_valid(current_zone) or not current_zone.allows_resident(self) or not current_zone.has_valid_polygon():
@@ -157,7 +166,7 @@ func _choose_destination(navigation_map: RID) -> void:
 			if not sample.is_empty():
 				candidates.append({"point": sample[0], "zone": zone})
 		# Prefer assigned zones; unavailable assignments retain safe marker fallback.
-		if candidates.is_empty():
+		if candidates.is_empty() and marker_activity_fallback_enabled:
 			for candidate in _activity_points(activity, points):
 				if _is_destination_valid(candidate.global_position, navigation_map):
 					candidates.append({"point": candidate.global_position, "zone": null})
@@ -177,13 +186,36 @@ func _choose_destination(navigation_map: RID) -> void:
 	current_activity = selected["activity"]
 	is_performing_activity = false
 	var candidates: Array = selected["points"]
-	var target: Dictionary = candidates.pick_random()
+	var target := _choose_activity_target(candidates)
 	current_zone = target["zone"]
 	_using_zone = current_zone != null
 	wait_remaining = 0.0
 	local_wait_remaining = 0.0
 	_last_local_origin = Vector2.INF
 	_set_peaceful_destination(target["point"])
+
+
+func _zone_preference_weight(zone: ActivityZone2D) -> float:
+	var weight := 1.0
+	if not preferred_district.is_empty() and zone.district_id == preferred_district:
+		weight *= maxf(district_zone_preference, 1.0)
+	if nearby_zone_distance > 0.0:
+		weight /= 1.0 + global_position.distance_to(zone.global_position) / nearby_zone_distance
+	return weight
+
+
+func _choose_activity_target(candidates: Array) -> Dictionary:
+	# Neutral assignments retain Stage 2's uniform choice and random sequence.
+	if preferred_district.is_empty() and nearby_zone_distance <= 0.0:
+		return candidates.pick_random()
+	var total := 0.0
+	for candidate in candidates:
+		total += _zone_preference_weight(candidate["zone"]) if candidate["zone"] != null else 1.0
+	var roll := randf() * total
+	for candidate in candidates:
+		roll -= _zone_preference_weight(candidate["zone"]) if candidate["zone"] != null else 1.0
+		if roll < 0.0: return candidate
+	return candidates[-1]
 
 
 func _activity_points(activity: Activity, points: Node) -> Array[Marker2D]:
@@ -238,6 +270,7 @@ func _is_destination_valid(point: Vector2, navigation_map: RID) -> bool:
 
 
 func _stop_movement() -> void:
+	if guard_patrol!=null: guard_patrol.cancel_patrol()
 	if _using_zone:
 		wait_remaining = 0.0
 	_using_zone = false
@@ -292,7 +325,7 @@ func _zone_reservations(zone: ActivityZone2D) -> PackedVector2Array:
 	for resident in get_tree().get_nodes_in_group("activity_zone_residents"):
 		if resident == self or resident.is_queued_for_deletion() or resident.get_world_2d() != get_world_2d():
 			continue
-		if resident.current_zone == zone and resident.has_destination and resident.is_available_for_infection():
+		if is_instance_valid(resident.current_zone) and resident.has_destination and resident.is_available_for_infection() and zone.contains_world_point(resident.destination):
 			positions.append(resident.destination)
 	return positions
 
@@ -316,6 +349,10 @@ func _update_zone_activity(delta: float) -> void:
 	if wait_remaining == 0.0:
 		_stop_movement()
 		return
+	_advance_local_zone_cycle(delta)
+
+
+func _advance_local_zone_cycle(delta: float) -> void:
 	if has_destination:
 		var result := _advance_navigation(destination, _zone_local_speed(), delta)
 		if result != NavigationResult.MOVING:

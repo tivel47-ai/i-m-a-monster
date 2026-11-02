@@ -58,9 +58,9 @@ func run() -> void:
 	var valid_configuration := true
 	for resident in map.villagers:
 		roles[resident.get_meta("village_role")] += 1
-		valid_configuration = valid_configuration and resident.get_node_or_null(resident.home_point_path)!=null and resident.get_node_or_null(resident.work_point_path)!=null and resident.get_node_or_null(resident.points_of_interest_path)!=null
-	check(roles=={"peasant":19,"artisan":5,"guard":5,"priest":1},"Role allocation is 19 / 5 / 5 / 1 (guards and priest use civilian AI)")
-	check(valid_configuration,"Every NPC has persistent home/work/interest references")
+		valid_configuration = valid_configuration and resident.get_node_or_null(resident.home_point_path) is Marker2D and resident.get_node_or_null(resident.points_of_interest_path)!=null and not resident.activity_zone_paths.is_empty() and not resident.marker_activity_fallback_enabled
+	check(roles=={"peasant":19,"artisan":5,"guard":5,"priest":1},"Role allocation is 19 / 5 / 5 / 1 (guards have peaceful patrols, priest uses civilian AI)")
+	check(valid_configuration,"Every NPC has zone assignments and preserved functional shelter references")
 	var types := {"small":0,"large":0,"square":0,"L":0,"farmhouse":0}
 	for house in get_nodes_in_group("simulation_houses"):
 		types[house.get_meta("building_type")] += 1
@@ -172,7 +172,7 @@ func run() -> void:
 		distinct.append(unit.target_position)
 	await frames(700)
 	for unit in units: check(unit.last_move_reached and unit.position.x>2820,"Real group member reaches far bank: %s -> %s, order=%s"%[unit.position,unit.target_position,unit.has_player_order])
-	# Peaceful observation: all 30 resume unmodified AI, away from zombies.
+	# Peaceful observation: civilians resume activities; guards patrol or remain on duty.
 	reset_units(Vector2(100,100))
 	var origins: Array[Vector2] = []
 	var travelled: Array[float] = []
@@ -190,10 +190,20 @@ func run() -> void:
 			travelled[i] = maxf(travelled[i],origins[i].distance_to(resident.position))
 			if resident.is_performing_activity: arrivals[i]=true
 			no_wall_crossing = no_wall_crossing and body_clear(resident.position,resident.get_node("CollisionShape2D").shape)
-	var active := 0
-	for distance in travelled:
-		if distance>30: active+=1
-	check(active==30,"All thirty NPCs actually travel in 60 seconds of peaceful simulation: "+str(active))
+	var moving_civilians := 0
+	var moving_guards := 0
+	var stationed_guards := 0
+	for i in range(map.villagers.size()):
+		var resident: Node = map.villagers[i]
+		if resident.guard_patrol == null:
+			if travelled[i]>30: moving_civilians+=1
+		elif travelled[i]>30:
+			moving_guards+=1
+		elif resident.guard_patrol.state==resident.guard_patrol.State.POST and resident.guard_patrol.is_near_post():
+			stationed_guards+=1
+		else:
+			print("Inactive guard: ",resident.name," state=",resident.guard_patrol.state," distance=",travelled[i])
+	check(moving_civilians==25 and moving_guards>=4 and moving_guards+stationed_guards==5,"All 25 civilians and at least four guards actually travel in 60 seconds; remaining guard must be on post duty: civilians=%s patrol=%s stationed=%s"%[moving_civilians,moving_guards,stationed_guards])
 	check(arrivals.size()>15 and no_wall_crossing,"Peaceful activity arrivals and no static-obstacle overlap; arrivals="+str(arrivals.size()))
 	# Existing mission threshold and idempotent counts on larger population.
 	for i in range(23): map._on_resident_died(map.villagers[i])

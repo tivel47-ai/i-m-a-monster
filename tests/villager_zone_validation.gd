@@ -424,6 +424,9 @@ func check_shared_zone() -> void:
 				for other in map.villagers:
 					if actor != other: valid = valid and actor.position.distance_to(other.position) >= 7.0
 	for index in range(4):
+		if arrivals[index]<3:
+			var observed = map.villagers[index]
+			print("CROWD RETRY STATE ",index," position=",observed.position," closest=",NavigationServer2D.map_get_closest_point(observed.navigation_agent.get_navigation_map(),observed.position)," wait=",observed.wait_remaining," goal=",observed.destination," zone=",observed.current_zone," performing=",observed.is_performing_activity," moving=",observed.has_destination)
 		check(travelled[index] > 100 and waits[index] > 60 and local_routes[index] >= 3 and arrivals[index] >= 3,
 			"Shared-zone resident %d keeps walking, resting and restarting activities over 120 seconds: travel %.1f, routes %d, arrivals %d" % [index, travelled[index], local_routes[index], arrivals[index]])
 	check(valid and separated, "Four real residents share one zone without leaving it during activities, crossing solids, overlapping centers or reserving clustered endpoints")

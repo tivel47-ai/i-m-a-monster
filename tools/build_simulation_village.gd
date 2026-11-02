@@ -31,9 +31,27 @@ var trees: Node2D
 var homes: Array[Vector2] = []
 var street_lines: Array[PackedVector2Array] = []
 var npc_preferences: Dictionary = {}
-var activity_positions: Array[Vector2] = []
+var zones: Dictionary = {}
+var zone_preferences: Dictionary = {}
+var alert_preferences: Dictionary = {}
+var zone_root: Node2D
+var patrol_root: Node2D
+var patrol_preferences: Dictionary = {}
+var _nav_outlines: Array[PackedVector2Array] = []
+var output_path := OUTPUT
+var preferences_source := OUTPUT
+var rebake_navigation := false
+var reset_zone_geometry := false
+var reset_road_geometry := false
+var road_preferences: Dictionary = {}
 
 func _initialize() -> void:
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--output="): output_path = argument.trim_prefix("--output=")
+		if argument.begins_with("--preferences-source="): preferences_source = argument.trim_prefix("--preferences-source=")
+		rebake_navigation = rebake_navigation or argument == "--rebake-navigation"
+		reset_zone_geometry = reset_zone_geometry or argument == "--reset-zone-geometry"
+		reset_road_geometry = reset_road_geometry or argument == "--reset-road-geometry"
 	call_deferred("build")
 
 func attach(parent: Node, child: Node, title: String) -> Node:
@@ -392,13 +410,19 @@ func build() -> void:
 	var bounds := container(region,"Boundaries")
 	for entry in [[Vector2(1500,6),Vector2(3000,12)],[Vector2(1500,1994),Vector2(3000,12)],[Vector2(6,1000),Vector2(12,1976)],[Vector2(2994,1000),Vector2(12,1976)]]:
 		solid(bounds,"Edge"+str(bounds.get_child_count()),entry[0],rectangle(entry[1]),Color("323d30"))
+	# Keep existing authored road edits while changing guard assignments.
+	for title in road_preferences:
+		var surface:=roads.get_node_or_null(title)
+		if surface!=null:
+			for key in road_preferences[title]: surface.set(key,road_preferences[title][key])
 	# Reuse the existing HUD and camera configuration, leaving the source intact.
 	var source := load("res://scenes/test_map.tscn").instantiate() as Node2D
 	var hud := source.get_node("CanvasLayer").duplicate()
 	attach(village,hud,"CanvasLayer")
 	assign_owners(hud)
-	var alert := load("res://scenes/village_alert.tscn").instantiate()
+	var alert: Node = load("res://scenes/village_alert.tscn").instantiate()
 	attach(village, alert, "VillageAlert")
+	for key in alert_preferences: alert.set(key, alert_preferences[key])
 	var camera := source.get_node("Camera2D").duplicate() as Camera2D
 	attach(village,camera,"Camera2D")
 	camera.position = Vector2(650,1000)
@@ -407,28 +431,36 @@ func build() -> void:
 	camera.zoom = Vector2.ONE
 	source.placement.free() # Source was inspected off-tree, so _ready never owns it.
 	source.free()
-	# Bake only static layer-1 descendants, using the established clearance.
-	var navigation := NavigationPolygon.new()
-	navigation.agent_radius = 26.0
-	navigation.parsed_geometry_type = NavigationPolygon.PARSED_GEOMETRY_STATIC_COLLIDERS
-	navigation.parsed_collision_mask = 1
-	navigation.add_outline(PackedVector2Array([Vector2(12,12),Vector2(2988,12),Vector2(2988,1988),Vector2(12,1988)]))
+	# Reuse the accepted mesh unless an explicit geometry bake was requested.
+	var navigation: NavigationPolygon
+	var needs_bake := rebake_navigation or not ResourceLoader.exists(NAVIGATION)
+	if needs_bake:
+		navigation = NavigationPolygon.new()
+		navigation.agent_radius = 26.0
+		navigation.parsed_geometry_type = NavigationPolygon.PARSED_GEOMETRY_STATIC_COLLIDERS
+		navigation.parsed_collision_mask = 1
+		navigation.add_outline(PackedVector2Array([Vector2(12,12),Vector2(2988,12),Vector2(2988,1988),Vector2(12,1988)]))
+	else:
+		navigation = load(NAVIGATION)
 	region.navigation_polygon = navigation
-	# No map _ready/AI needs to execute during authoring.
 	root.add_child(village)
-	region.bake_navigation_polygon(false)
-	if navigation.get_polygon_count()==0:
-		push_error("Mission 1 navigation bake failed")
+	if needs_bake: region.bake_navigation_polygon(false)
+	if navigation.get_polygon_count() == 0:
+		push_error("Mission 1 navigation is empty")
 		quit(1)
 		return
+	build_activity_zones()
+	build_guard_routes()
 	populate()
-	var error := ResourceSaver.save(navigation,NAVIGATION)
-	navigation.take_over_path(NAVIGATION)
+	var error := OK
+	if needs_bake:
+		error = ResourceSaver.save(navigation, NAVIGATION)
+		navigation.take_over_path(NAVIGATION)
 	village.set_script(load("res://scripts/test_map.gd"))
 	var packed := PackedScene.new()
 	if error == OK: error = packed.pack(village)
-	if error == OK: error = ResourceSaver.save(packed,OUTPUT)
-	print("Mission 1 build: ",error_string(error),"; navigation polygons: ",navigation.get_polygon_count())
+	if error == OK: error = ResourceSaver.save(packed,output_path)
+	print("Mission 1 build: ",error_string(error),"; navigation polygons: ",navigation.get_polygon_count(), "; activity zones: ", zones.size())
 	village.placement.free()
 	village.set_script(null)
 	village.queue_free()
@@ -439,53 +471,191 @@ func assign_owners(parent: Node) -> void:
 		child.owner = village
 		assign_owners(child)
 
+func exported_values(node: Node) -> Dictionary:
+	var values := {}
+	for property in node.get_property_list():
+		if property.usage & PROPERTY_USAGE_SCRIPT_VARIABLE and property.usage & PROPERTY_USAGE_STORAGE and property.usage & PROPERTY_USAGE_EDITOR:
+			values[property.name] = node.get(property.name)
+	return values
+
 func read_npc_preferences() -> void:
-	# Preserve Inspector tweaks made after the first build, including debug flags.
-	if not ResourceLoader.exists(OUTPUT): return
-	var previous: Node2D = load(OUTPUT).instantiate()
+	if not ResourceLoader.exists(preferences_source): return
+	var previous: Node2D = load(preferences_source).instantiate()
 	for npc in previous.get_node("Villagers").get_children():
-		var preferences := {"color":npc.get_node("Polygon2D").color,"exports":{},"debug":{}}
-		for property in npc.get_property_list():
-			var property_name: String = property.name
-			if property.usage & PROPERTY_USAGE_SCRIPT_VARIABLE and property.usage & PROPERTY_USAGE_STORAGE and not property_name.ends_with("_path"):
-				preferences.exports[property_name] = npc.get(property_name)
-		for component in ["ThreatDetection","ThreatReaction","LocalWarning"]:
-			preferences.debug[component] = npc.get_node(component).debug_enabled
+		var values := exported_values(npc)
+		# Old routing paths are obsolete. New valid explicit assignments survive rebuilds.
+		for key in ["home_point_path", "work_point_path", "points_of_interest_path"]: values.erase(key)
+		if not previous.has_node("ActivityZones"):
+			for key in ["activity_zone_paths", "marker_activity_fallback_enabled", "preferred_district", "district_zone_preference", "nearby_zone_distance"]: values.erase(key)
+		var preferences := {"color":npc.get_node("Polygon2D").color,"exports":values,"components":{}}
+		for component in ["ThreatDetection","ThreatReaction","LocalWarning","GuardPatrol"]:
+			if npc.has_node(component): preferences.components[component] = exported_values(npc.get_node(component))
 		npc_preferences[str(npc.name)] = preferences
+	if previous.has_node("ActivityZones"):
+		for zone in previous.get_node("ActivityZones").get_children():
+			if not zone is ActivityZone2D: continue
+			var values := exported_values(zone)
+			if not reset_zone_geometry:
+				for key in ["polygon", "position", "rotation", "scale", "offset"]: values[key] = zone.get(key)
+			zone_preferences[str(zone.name)] = values
+	if not reset_road_geometry:
+		for surface in previous.get_node("Roads").get_children():
+			if surface is Polygon2D:
+				var values: Dictionary={}
+				for key in ["polygon","position","rotation","scale","offset","color","visible"]: values[key]=surface.get(key)
+				road_preferences[str(surface.name)]=values
+	if previous.has_node("GuardPatrolRoutes"):
+		for route in previous.get_node("GuardPatrolRoutes").get_children():
+			var values := exported_values(route)
+			for key in ["points","position","rotation","scale"]: values[key]=route.get(key)
+			patrol_preferences[str(route.name)]=values
+	alert_preferences = exported_values(previous.get_node("VillageAlert"))
 	previous.placement.free()
 	previous.free()
 
-func activity_spot(parent: Node2D, title: String, base: Vector2, social := false, shelter := false) -> Marker2D:
-	var mesh := region.navigation_polygon
-	var vertices := mesh.vertices
-	# Resolve only at authoring time. Static navmesh supplies 26-unit clearance;
-	# all personal endpoints are separated by at least 36 units across the map.
-	for attempt in range(1024):
-		var at := base+Vector2.from_angle(attempt*2.3999632297)*sqrt(float(attempt))*10.0
-		var available := true
-		for other in activity_positions:
-			if other.distance_to(at)<36.0:
-				available = false
-				break
-		if not available: continue
-		var on_mesh := false
-		for i in range(mesh.get_polygon_count()):
-			var outline := PackedVector2Array()
-			for index in mesh.get_polygon(i): outline.append(vertices[index])
-			if Geometry2D.is_point_in_polygon(at,outline):
-				on_mesh = true
-				break
-		if not on_mesh: continue
-		activity_positions.append(at)
-		var point := Marker2D.new()
-		point.position = at
-		attach(parent,point,title)
-		if social: point.add_to_group("civilian_social_points",true)
-		if shelter: point.add_to_group("civilian_shelter_points",true)
-		return point
-	push_error("No clear activity slot near "+str(base))
-	quit(1)
-	return null
+func activity_zone(title: String, activity: int, outline: PackedVector2Array, district: String, location: String = "", roles: PackedStringArray = PackedStringArray()) -> ActivityZone2D:
+	var zone := load("res://scenes/activity_zone_2d.tscn").instantiate() as ActivityZone2D
+	attach(zone_root, zone, title)
+	var center := Vector2.ZERO
+	for vertex in outline: center += vertex
+	center /= outline.size()
+	zone.position = center
+	var local := PackedVector2Array()
+	for vertex in outline: local.append(vertex - center)
+	zone.polygon = local
+	zone.activity = activity
+	zone.zone_id = StringName(title)
+	zone.district_id = StringName(district)
+	zone.allowed_roles = roles
+	if not location.is_empty(): zone.location_path = zone.get_path_to(village.get_node(location))
+	zone.add_to_group("village_activity_zones", true)
+	if zone_preferences.has(title):
+		for key in zone_preferences[title]: zone.set(key, zone_preferences[title][key])
+	zones[title] = zone
+	return zone
+
+func zone_box(title: String, activity: int, center: Vector2, size: Vector2, district: String, location: String = "", roles: PackedStringArray = PackedStringArray()) -> ActivityZone2D:
+	var outline := rectangle(size)
+	for i in range(outline.size()): outline[i] += center
+	return activity_zone(title, activity, outline, district, location, roles)
+
+func build_activity_zones() -> void:
+	zone_root = container(village, "ActivityZones")
+	var districts := ["northwest","northwest","northwest","center","northwest","center","south","farm","artisan","northwest","south","farm"]
+	for i in range(HOUSES.size()):
+		var data: Array = HOUSES[i]
+		var door_x: float = -data[3].x * 0.28 if data[1] == "L" else 0.0
+		var house: Node2D = region.get_node("Buildings/Residential/" + str(data[0]))
+		# Only exterior frontage, not a rectangle surrounding the solid house.
+		var frontage := rectangle(Vector2(160, 100))
+		for vertex in range(frontage.size()):
+			frontage[vertex] = house.to_global(frontage[vertex] + Vector2(door_x, data[3].y * 0.5 + 84))
+		var home := activity_zone("Home%02d" % (i+1), 0, frontage, districts[i], "NavigationRegion2D/Buildings/Residential/" + str(data[0]))
+		if i in [0,1,2,4,8,9,10]:
+			activity_zone("WorkHome" + str(i+1), 1, home.global_transform * home.polygon, districts[i], "NavigationRegion2D/Buildings/Residential/" + str(data[0]), PackedStringArray(["peasant"]))
+	for entry in [["FieldsWest","WestField"],["FieldsEast","EastField"],["Vegetables","Vegetables"]]:
+		var plot: Polygon2D = details.get_node(entry[1])
+		activity_zone("Work" + entry[0], 1, plot.global_transform * plot.polygon, "farm", "Environment/" + entry[1], PackedStringArray(["peasant"]))
+	zone_box("WorkFieldsSouth",1,Vector2(940,1870),Vector2(150,80),"farm","Environment/SouthField",PackedStringArray(["peasant"]))
+	zone_box("WorkBarn",1,Vector2(565,1325),Vector2(180,90),"farm","NavigationRegion2D/Buildings/Agricultural/Barn",PackedStringArray(["peasant"]))
+	zone_box("WorkFarmLane",1,Vector2(810,1730),Vector2(110,80),"farm","Environment/EastField",PackedStringArray(["peasant"]))
+	for index in [0,3,7]:
+		var garden: Polygon2D = details.get_node("Garden"+str(index))
+		activity_zone("WorkGarden"+str(index),1,garden.global_transform*garden.polygon,districts[index],"Environment/Garden"+str(index),PackedStringArray(["peasant"]))
+	zone_box("WorkWell",1,Vector2(1350,935),Vector2(110,100),"center","NavigationRegion2D/Buildings/Public/Well",PackedStringArray(["peasant"]))
+	zone_box("WorkSquare",1,Vector2(1510,965),Vector2(150,100),"center","Roads/Square",PackedStringArray(["peasant"]))
+	zone_box("WorkBell",1,Vector2(1660,945),Vector2(100,100),"center","NavigationRegion2D/Buildings/Public/AlarmBell",PackedStringArray(["peasant"]))
+	zone_box("WorkSouthRoad",1,Vector2(1540,1760),Vector2(160,70),"south","Roads/FarmLane0",PackedStringArray(["peasant"]))
+	for entry in [["SmithYard",Vector2(2205,838),Vector2(90,95),"Blacksmith"],["Carpenter",Vector2(2400,950),Vector2(140,70),"Carpenter"],["Weaver",Vector2(2180,1225),Vector2(160,90),"Weaver"],["Storage",Vector2(2440,1210),Vector2(150,90),"Storage"]]:
+		zone_box("Work"+entry[0],1,entry[1],entry[2],"artisan","NavigationRegion2D/Buildings/Workshops/"+entry[3],PackedStringArray(["artisan"]))
+	var guards := PackedStringArray(["guard"])
+	zone_box("HomeGuardPost",0,Vector2(2260,1660),Vector2(200,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost",guards)
+	zone_box("WorkGuardYard",1,Vector2(2260,1660),Vector2(200,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost",guards)
+	zone_box("WorkGuardRoad",1,Vector2(2305,1370),Vector2(130,70),"guard","NavigationRegion2D/Buildings/Public/GuardPost",guards)
+	var priest := PackedStringArray(["priest"])
+	zone_box("HomeChapel",0,Vector2(1405,595),Vector2(100,90),"church","NavigationRegion2D/Buildings/Public/Church",priest)
+	zone_box("WorkChurch",1,Vector2(1400,598),Vector2(110,95),"church","NavigationRegion2D/Buildings/Public/Church",priest)
+	zone_box("WorkCemetery",1,Vector2(1730,365),Vector2(350,70),"church","Environment/CemeteryYard",priest)
+	for entry in [["Northwest",Vector2(710,653),Vector2(90,105),"northwest","Roads/WestLane0"],["Square",Vector2(1530,965),Vector2(150,100),"center","Roads/Square"],["Well",Vector2(1380,970),Vector2(110,80),"center","NavigationRegion2D/Buildings/Public/Well"],["Farm",Vector2(735,1445),Vector2(120,100),"farm","Environment/EastField"],["Artisan",Vector2(2230,900),Vector2(120,100),"artisan","Environment/WorkYard"],["South",Vector2(1500,1635),Vector2(120,90),"south","Roads/FarmLane0"],["Tavern",Vector2(1710,1290),Vector2(180,60),"south","NavigationRegion2D/Buildings/Public/Tavern"],["Guard",Vector2(2230,1650),Vector2(140,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost"],["Church",Vector2(1540,530),Vector2(120,70),"church","NavigationRegion2D/Buildings/Public/Church"]]:
+		zone_box("Social"+entry[0],2,entry[1],entry[2],entry[3],entry[4],guards if entry[0] == "Guard" else PackedStringArray())
+	for entry in [["Northwest",Vector2(780,790),Vector2(70,160),"northwest"],["Center",Vector2(1540,1125),Vector2(100,110),"center"],["Farm",Vector2(505,1400),Vector2(130,100),"farm"],["Artisan",Vector2(2045,990),Vector2(70,120),"artisan"],["South",Vector2(1595,1745),Vector2(150,90),"south"],["Guard",Vector2(2155,1455),Vector2(110,110),"guard"],["Church",Vector2(1520,635),Vector2(90,100),"church"],["Cemetery",Vector2(1730,365),Vector2(350,70),"church"]]:
+		zone_box("Walk"+entry[0],3,entry[1],entry[2],entry[3],"",guards if entry[0] == "Guard" else (priest if entry[0] == "Cemetery" else PackedStringArray()))
+
+func road_section(title: String, start: Vector2, end: Vector2) -> PackedVector2Array:
+	var source: PackedVector2Array=village.get_node("Roads/"+title+"0").get_meta("centerline")
+	var a:=0
+	var b:=0
+	for i in range(source.size()):
+		if source[i].distance_squared_to(start)<source[a].distance_squared_to(start): a=i
+		if source[i].distance_squared_to(end)<source[b].distance_squared_to(end): b=i
+	var result:=PackedVector2Array()
+	var step:=1 if b>=a else -1
+	for i in range(a,b+step,step): result.append(source[i])
+	return result
+
+func road_navigation_point(point: Vector2) -> Vector2:
+	var best:=point
+	var distance:=INF
+	for outline in _nav_outlines:
+		if Geometry2D.is_point_in_polygon(point,outline): return point
+		for i in range(outline.size()):
+			var candidate:=Geometry2D.get_closest_point_to_segment(point,outline[i],outline[(i+1)%outline.size()])
+			if candidate.distance_squared_to(point)<distance:
+				distance=candidate.distance_squared_to(point)
+				best=candidate
+	return best
+
+func patrol_route(title: String, sections: Array) -> void:
+	var route:=GuardPatrolRoute2D.new()
+	attach(patrol_root,route,title)
+	var points:=PackedVector2Array()
+	var observations:=PackedInt32Array()
+	for section in sections:
+		var line: PackedVector2Array=section
+		for i in range(line.size()):
+			var start: Vector2=line[maxi(i-1,0)]
+			var count:=maxi(1,ceili(start.distance_to(line[i])/18.0))
+			for sample in range(1,count+1):
+				var at:=road_navigation_point(start.lerp(line[i],float(sample)/count))
+				if points.is_empty() or points[-1].distance_to(at)>=8: points.append(at)
+		observations.append(maxi(points.size()-1,0))
+	route.points=points
+	route.observation_indices=observations
+	if patrol_preferences.has(title):
+		for key in patrol_preferences[title]: route.set(key,patrol_preferences[title][key])
+
+func build_guard_routes() -> void:
+	patrol_root=container(village,"GuardPatrolRoutes")
+	var mesh:=region.navigation_polygon
+	for index in range(mesh.get_polygon_count()):
+		var outline:=PackedVector2Array()
+		for vertex in mesh.get_polygon(index): outline.append(mesh.vertices[vertex])
+		_nav_outlines.append(outline)
+	patrol_route("FarmCircuit",[
+		road_section("SouthBypass",Vector2(2060,1320),Vector2(430,1270)),
+		road_section("FarmLane",Vector2(430,1270),Vector2(1190,1730)),
+		road_section("SouthSquareLane",Vector2(1190,1730),Vector2(1430,1230)),
+		road_section("SouthBypass",Vector2(1430,1230),Vector2(2060,1320))])
+	patrol_route("NorthCircuit",[
+		road_section("ArtisanLink",Vector2(2060,1320),Vector2(1980,820)),
+		road_section("MainStreet",Vector2(1980,820),Vector2(790,960)),
+		road_section("NorthLane",Vector2(790,960),Vector2(2550,970)),
+		road_section("MainStreet",Vector2(2550,970),Vector2(1980,820)),
+		road_section("ArtisanLink",Vector2(1980,820),Vector2(2060,1320))])
+	patrol_route("BridgeCircuit",[
+		road_section("ArtisanLink",Vector2(2060,1320),Vector2(1980,820)),
+		road_section("MainStreet",Vector2(1980,820),Vector2(2910,1180)),
+		road_section("MainStreet",Vector2(2910,1180),Vector2(2550,970)),
+		road_section("NorthLane",Vector2(2550,970),Vector2(1400,580)),
+		road_section("ChurchLane",Vector2(1400,580),Vector2(1470,880)),
+		road_section("MainStreet",Vector2(1470,880),Vector2(1980,820)),
+		road_section("ArtisanLink",Vector2(1980,820),Vector2(2060,1320))])
+	var door: PackedVector2Array=village.get_node("Roads/GuardDoorPath0").get_meta("centerline")
+	var reversed_door:=door.duplicate()
+	reversed_door.reverse()
+	patrol_route("PostAccess",[
+		road_section("SouthBypass",Vector2(2060,1320),Vector2(2300,1350)),
+		road_section("FarmLane",Vector2(2300,1350),door[-1]),reversed_door])
 
 func build_river() -> void:
 	var river := container(region,"River")
@@ -522,14 +692,11 @@ func build_river() -> void:
 
 func populate() -> void:
 	var residents := container(village,"Villagers")
-	var routes := container(village,"ResidentRoutes")
 	var spawn_points := [Vector2(590,580),Vector2(790,760),Vector2(440,930),Vector2(1180,1180),Vector2(1040,555),Vector2(1860,805),Vector2(1875,1740),Vector2(790,1220),Vector2(1980,1190),Vector2(1190,1010),Vector2(1230,1550),Vector2(750,1710),Vector2(260,1510),Vector2(940,1540),Vector2(950,1850),Vector2(550,1430),Vector2(800,1750),Vector2(1510,955),Vector2(1410,940),Vector2(2230,805),Vector2(2420,910),Vector2(2180,1190),Vector2(2435,1180),Vector2(2130,860),Vector2(2160,1480),Vector2(2300,1380),Vector2(2060,1320),Vector2(1900,550),Vector2(1630,960),Vector2(1420,557)]
 	var peasant_jobs := ["Home1","Home2","Home3","Barn","Home5","Well","SouthRoad","Barn","Home9","Home10","Home11","FarmLane","FieldsWest","FieldsEast","FieldsSouth","Barn","Vegetables","Square","Bell"]
 	var peasant_districts := ["northwest","northwest","northwest","farm","northwest","center","south","farm","artisan","northwest","south","farm","farm","farm","farm","farm","farm","center","center"]
 	var home_districts := ["northwest","northwest","northwest","center","northwest","center","south","farm","artisan","northwest","south","farm"]
-	var meeting_places := {"northwest":Vector2(700,610),"center":Vector2(1510,985),"farm":Vector2(740,1460),"artisan":Vector2(2260,850),"south":Vector2(1510,1620),"guard":Vector2(2260,1640),"church":Vector2(1590,500)}
 	var artisan_jobs := ["SmithYard","Carpenter","Weaver","Storage","SmithYard"]
-	var guard_jobs := ["GuardYard","GuardRoad","Square","NorthRoad","GuardRoad"]
 	for i in range(30):
 		var npc := load("res://scenes/villager.tscn").instantiate(PackedScene.GEN_EDIT_STATE_INSTANCE) as CharacterBody2D
 		var role := "peasant" if i<19 else ("artisan" if i<24 else ("guard" if i<29 else "priest"))
@@ -550,31 +717,58 @@ func populate() -> void:
 		else:
 			# These roles have no dedicated AI yet; reuse normal activities.
 			npc.civilian_profile = "Villager"
-			job = guard_jobs[i-24] if i<29 else "Church"
+			job = "GuardYard" if i<29 else "Church"
 			district = "guard" if i<29 else "church"
 			npc.home_weight = 15
 			npc.work_weight = 65
 			npc.social_weight = 15
 			npc.wander_weight = 5
-		var route := container(routes,"Route%02d"%(i+1))
-		var home_base: Vector2 = homes[i%12]
-		activity_spot(route,"Home",home_base,false,true)
-		activity_spot(route,"Work",points.get_node(job).position)
-		activity_spot(route,"SocialA",meeting_places[district],true)
-		activity_spot(route,"SocialB",meeting_places[home_districts[i%12]],true)
-		activity_spot(route,"Walk",nearest_street(home_base))
-		npc.points_of_interest_path = NodePath("../../ResidentRoutes/"+str(route.name))
-		npc.home_point_path = NodePath(str(npc.points_of_interest_path)+"/Home")
-		npc.work_point_path = NodePath(str(npc.points_of_interest_path)+"/Work")
+		var assigned: Array[NodePath] = []
+		var home_title := "Home%02d" % (i%12+1) if i<24 else ("HomeGuardPost" if i<29 else "HomeChapel")
+		var work_title := "Work"+job
+		for title in [home_title, work_title]: assigned.append(npc.get_path_to(zones[title]))
+		if i in [0,3,7]: assigned.append(npc.get_path_to(zones["WorkGarden"+str(i)]))
+		if i>=24: assigned.append(npc.get_path_to(zones["WorkGuardRoad" if i<29 else "WorkCemetery"]))
+		for title in zones:
+			var zone: ActivityZone2D = zones[title]
+			if zone.activity == 2 and zone.allows_resident(npc): assigned.append(npc.get_path_to(zone))
+		var walking := ["Walk"+home_districts[i%12].capitalize(), "Walk"+district.capitalize(), "WalkCenter"] if i<24 else (["WalkGuard","WalkArtisan"] if i<29 else ["WalkChurch","WalkCemetery"])
+		for title in walking:
+			var path := npc.get_path_to(zones[title])
+			if not assigned.has(path): assigned.append(path)
+		npc.activity_zone_paths = assigned
+		npc.marker_activity_fallback_enabled = false
+		npc.preferred_district = StringName(home_districts[i%12] if i<24 else district)
+		npc.nearby_zone_distance = 650.0
+		npc.points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+		npc.home_point_path = NodePath("../../VillagePointsOfInterest/" + ("Home"+str(i%12+1) if i<24 else ("GuardYard" if i<29 else "Church")))
+		npc.work_point_path = NodePath()
+		npc.set_meta("residential_home", i%12+1)
+		npc.set_meta("work_site", job)
 		npc.set_meta("activity_district",district)
 		npc.get_node("Polygon2D").color = {"peasant":Color("b7ad87"),"artisan":Color("a68764"),"guard":Color("879ca0"),"priest":Color("c4bcac")}[role]
 		npc.get_node("ThreatDetection").debug_enabled = false
 		npc.get_node("ThreatReaction").debug_enabled = false
+		if role=="guard":
+			var patrol: Node=load("res://scripts/guard_patrol.gd").new()
+			attach(npc,patrol,"GuardPatrol")
+			var route_name: String=["NorthCircuit","FarmCircuit","BridgeCircuit","NorthCircuit","FarmCircuit"][i-24]
+			patrol.route_path=patrol.get_path_to(patrol_root.get_node(route_name))
+			patrol.post_access_path=patrol.get_path_to(patrol_root.get_node("PostAccess"))
+			patrol.post_zone_path=patrol.get_path_to(zones["HomeGuardPost"])
+			patrol.post_center_path=patrol.get_path_to(region.get_node("Buildings/Public/GuardPost"))
+			patrol.starts_on_duty=i==24
 		if npc_preferences.has(str(npc.name)):
 			var preferences: Dictionary = npc_preferences[str(npc.name)]
-			for property_name in preferences.exports: npc.set(property_name,preferences.exports[property_name])
+			for property_name in preferences.exports:
+				if property_name == "activity_zone_paths":
+					var valid := true
+					for path in preferences.exports[property_name]: valid = valid and npc.get_node_or_null(path) is ActivityZone2D
+					if not valid: continue
+				npc.set(property_name,preferences.exports[property_name])
 			npc.get_node("Polygon2D").color = preferences.color
-			for component in preferences.debug: npc.get_node(component).debug_enabled = preferences.debug[component]
+			for component in preferences.components:
+				for property_name in preferences.components[component]: npc.get_node(component).set(property_name, preferences.components[component][property_name])
 	var zombies := container(village,"Zombies")
 	for i in range(3):
 		var zombie := load("res://scenes/zombie.tscn").instantiate() as CharacterBody2D

@@ -7,7 +7,7 @@ enum Knowledge { NORMAL, WARNED, DIRECTLY_AWARE }
 @export var report_duration: float = 10.0
 @export var duplicate_distance: float = 32.0
 @export var duplicate_refresh_interval: float = 1.0
-@export var debug_enabled: bool = false
+@export var debug_enabled: bool = true
 
 var reported_position: Vector2
 var received_at: float = -1.0
