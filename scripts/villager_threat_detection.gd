@@ -8,7 +8,7 @@ enum Awareness { UNAWARE, RECOGNIZING, AWARE }
 @export var detection_radius: float = 150.0
 @export var recognition_delay_min: float = 0.5
 @export var recognition_delay_max: float = 1.0
-@export var debug_enabled: bool = false:
+@export var debug_enabled: bool = true:
 	set(value):
 		debug_enabled = value
 		queue_redraw()

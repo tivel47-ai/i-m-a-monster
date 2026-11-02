@@ -3,10 +3,17 @@ extends RefCounted
 # Content lives here; navigation does not depend on individual scene paths.
 const MISSIONS := {
 	"village": {
-		"name": "Первая деревня",
+		"name": "Тестовая карта",
 		"description": "Небольшая деревня с жилыми домами, площадью и хозяйственными постройками.",
 		"objectives": "Заразите или уничтожьте не менее 80% жителей деревни.",
 		"scene": "res://scenes/test_map.tscn",
+		"races": ["zombie"],
+	},
+	"mission_1": {
+		"name": "Миссия №1",
+		"description": "Большая живая деревня: жилые кварталы, часовня, поля, мастерские и пост стражи. Река на восточной окраине пересекается по деревянному мосту. 30 жителей на карте 3000 × 2000.",
+		"objectives": "Заразите или уничтожьте не менее 80% жителей деревни (24 из 30).",
+		"scene": "res://scenes/village_simulation_map.tscn",
 		"races": ["zombie"],
 	},
 }

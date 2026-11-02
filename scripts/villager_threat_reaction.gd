@@ -22,7 +22,7 @@ enum Reaction { NONE, FLEEING, SEEKING_SHELTER, WARNING, FROZEN }
 @export var threat_movement_threshold: float = 32.0
 ## Attempts per planning batch; later scheduled batches remain permitted.
 @export var max_route_attempts: int = 4
-@export var debug_enabled: bool = false
+@export var debug_enabled: bool = true
 
 var reaction_state: Reaction = Reaction.NONE
 var has_route: bool = false

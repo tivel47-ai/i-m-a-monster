@@ -58,7 +58,7 @@ func pointer_click(title: String) -> void:
 
 func launch() -> void:
 	click("Начать игру")
-	click("Первая деревня")
+	click("Тестовая карта")
 	click("Выбрать расу")
 	click("Зомби")
 	click("Начать миссию")
@@ -84,15 +84,16 @@ func run() -> void:
 	click("Начать игру")
 	await frames()
 	check(app.choose_race_button.disabled, "Choose Race disabled before mission selection")
+	check(app.mission_buttons.keys() == ["village", "mission_1"] and app.mission_buttons.village.text == "Тестовая карта", "Test map stays first, followed by Mission 1")
 	app._open_race_selection()
 	check(app.screen == app.Screen.MISSIONS, "Cannot advance without selecting mission")
 	app.mission_scroll.scroll_horizontal = 100
 	app.mission_scroll.scroll_vertical = 80
 	var scroll := Vector2i(app.mission_scroll.scroll_horizontal, app.mission_scroll.scroll_vertical)
-	pointer_click("Первая деревня")
+	pointer_click("Тестовая карта")
 	check(app.screen == app.Screen.MISSIONS and app.mission == null, "Selecting a mission stays on mission screen")
 	check(not app.choose_race_button.disabled and app.mission_buttons.village.button_pressed, "Selection enables next action and highlights list item")
-	check(app.mission_title.text == "Первая деревня" and "80%" in app.mission_objectives.text, "Right panel shows selected mission and objective")
+	check(app.mission_title.text == "Тестовая карта" and "80%" in app.mission_objectives.text, "Right panel shows selected mission and objective")
 	check(app.mission_preview.visible and not app.mission_preview.shapes.is_empty() and get_nodes_in_group("player_units").is_empty(), "Preview draws geometry without starting gameplay")
 	await frames()
 	check(app.mission_scroll.get_global_rect().end.x < app.mission_details.get_global_rect().position.x, "Mission list is left of details")
@@ -105,7 +106,7 @@ func run() -> void:
 	esc()
 	await frames()
 	check(app.selected_mission == "village" and scroll == Vector2i(app.mission_scroll.scroll_horizontal, app.mission_scroll.scroll_vertical), "Race Back retains mission and list position")
-	click("Первая деревня")
+	click("Тестовая карта")
 	click("Выбрать расу")
 	click("Начать миссию")
 	var first: Node = app.mission
@@ -165,7 +166,7 @@ func run() -> void:
 	click("К выбору миссии")
 	await frames()
 	check(app.screen == app.Screen.MISSIONS and not paused, "Results returns to mission selection")
-	click("Первая деревня")
+	click("Тестовая карта")
 	click("Выбрать расу")
 	click("Начать миссию")
 	await frames(5)
@@ -180,6 +181,27 @@ func run() -> void:
 	click("К выбору миссии")
 	await frames()
 	check(not paused and app.mission == null, "Defeat cleanup ready for retry")
+	click("Миссия №1")
+	check(app.selected_mission == "mission_1" and app.selected_race == "" and app.mission_preview.map_rect == Rect2(0,0,3000,2000), "New mission resets race and previews complete serialized map without AI")
+	click("Выбрать расу")
+	click("Зомби")
+	click("Начать миссию")
+	await frames(5)
+	check(app.mission.total_residents == 30 and get_nodes_in_group("player_units").size() == 3, "Mission 1 launches through the shared menu loader")
+	esc()
+	var new_positions := []
+	for resident in app.mission.villagers: new_positions.append(resident.position)
+	await frames(10)
+	var new_frozen := true
+	for i in range(30): new_frozen = new_frozen and app.mission.villagers[i].position == new_positions[i]
+	check(paused and new_frozen, "Mission 1 pauses all thirty residents through existing menu")
+	esc()
+	for i in range(24): app.mission._on_resident_died(app.mission.villagers[i])
+	await frames()
+	check(app.screen == app.Screen.RESULTS and "Миссия №1" in app.result_text.text and "Жителей: 30" in app.result_text.text and "Убито: 24" in app.result_text.text, "Mission 1 uses the existing 80 percent objective and results")
+	click("К выбору миссии")
+	await frames()
+	check(app.mission == null and get_nodes_in_group("player_units").is_empty(), "New map cleans up fully for mission switching and restart")
 	# Verify persistence without replacing an existing user's preferences.
 	var path: String = app.settings.PATH
 	var existed := FileAccess.file_exists(path)
