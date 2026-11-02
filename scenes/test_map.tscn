@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://bk4fq2d6r61u7"]
 
+[ext_resource type="PackedScene" path="res://scenes/village_alert.tscn" id="99_alert"]
 [ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="1_6ulkd"]
 [ext_resource type="Script" uid="uid://dkqm3e22tn4dj" path="res://scripts/test_map.gd" id="1_map"]
 [ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="2_villager"]
@@ -129,6 +130,8 @@ border_color = Color(0.45, 0.85, 1, 0.95)
 
 [node name="test_map" type="Node2D" unique_id=1458683801]
 script = ExtResource("1_map")
+
+[node name="VillageAlert" parent="." instance=ExtResource("99_alert")]
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1936600462]
 position = Vector2(640, 360)

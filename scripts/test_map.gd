@@ -63,6 +63,7 @@ func _ready() -> void:
 			dead_resident_ids[resident.get_instance_id()] = true
 
 	total_residents = villagers.size()
+	$VillageAlert.initialize(villagers)
 	_refresh_mission_progress()
 
 

@@ -397,6 +397,8 @@ func build() -> void:
 	var hud := source.get_node("CanvasLayer").duplicate()
 	attach(village,hud,"CanvasLayer")
 	assign_owners(hud)
+	var alert := load("res://scenes/village_alert.tscn").instantiate()
+	attach(village, alert, "VillageAlert")
 	var camera := source.get_node("Camera2D").duplicate() as Camera2D
 	attach(village,camera,"Camera2D")
 	camera.position = Vector2(650,1000)

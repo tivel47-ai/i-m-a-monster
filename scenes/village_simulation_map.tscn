@@ -1,11 +1,11 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://svrloe6sxvwm"]
 
-[ext_resource type="Script" path="res://scripts/test_map.gd" id="1_s80sv"]
+[ext_resource type="Script" uid="uid://dkqm3e22tn4dj" path="res://scripts/test_map.gd" id="1_s80sv"]
 [ext_resource type="NavigationPolygon" path="res://scenes/village_simulation_navigation.tres" id="2_mxr46"]
-[ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="3_e63ae"]
-[ext_resource type="PackedScene" path="res://scenes/zombie.tscn" id="4_q8hxt"]
-[ext_resource type="Script" path="res://scripts/camera_controller.gd" id="6_rq6e5"]
-[ext_resource type="Script" path="res://scripts/zombie.gd" id="6_s80sv"]
+[ext_resource type="PackedScene" uid="uid://bt7e18e7p513v" path="res://scenes/villager.tscn" id="3_e63ae"]
+[ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="4_q8hxt"]
+[ext_resource type="Script" uid="uid://w0xlc1ks717q" path="res://scripts/camera_controller.gd" id="6_rq6e5"]
+[ext_resource type="PackedScene" path="res://scenes/village_alert.tscn" id="99_alert"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -32,6 +32,9 @@ border_color = Color(0.45, 0.85, 1, 0.95)
 [node name="VillageSimulationMap" type="Node2D" unique_id=1825158031]
 script = ExtResource("1_s80sv")
 metadata/map_size = Vector2(3000, 2000)
+
+[node name="VillageAlert" parent="." unique_id=377519140 instance=ExtResource("99_alert")]
+debug_enabled = true
 
 [node name="Ground" type="Polygon2D" parent="." unique_id=563866942]
 position = Vector2(1500, 1000)
@@ -4800,7 +4803,7 @@ custom_minimum_size = Vector2(250, 80)
 offset_left = 8.0
 offset_top = 8.0
 offset_right = 258.0
-offset_bottom = 88.0
+offset_bottom = 96.0
 mouse_filter = 2
 theme = SubResource("Theme_mission")
 
@@ -5741,29 +5744,14 @@ position = Vector2(1782.1885, 927.76154)
 
 [node name="Zombies" type="Node2D" parent="." unique_id=844995288]
 
-[node name="Zombie1" type="CharacterBody2D" parent="Zombies" unique_id=1210245640 groups=["player_units"] instance=ExtResource("4_q8hxt")]
-z_index = 1
+[node name="Zombie1" parent="Zombies" unique_id=1210245640 instance=ExtResource("4_q8hxt")]
 position = Vector2(170, 900)
-collision_layer = 2
-collision_mask = 11
-motion_mode = 1
-script = ExtResource("6_s80sv")
 
-[node name="Zombie2" type="CharacterBody2D" parent="Zombies" unique_id=1711581056 groups=["player_units"] instance=ExtResource("4_q8hxt")]
-z_index = 1
+[node name="Zombie2" parent="Zombies" unique_id=1711581056 instance=ExtResource("4_q8hxt")]
 position = Vector2(170, 945)
-collision_layer = 2
-collision_mask = 11
-motion_mode = 1
-script = ExtResource("6_s80sv")
 
-[node name="Zombie3" type="CharacterBody2D" parent="Zombies" unique_id=2092227799 groups=["player_units"] instance=ExtResource("4_q8hxt")]
-z_index = 1
+[node name="Zombie3" parent="Zombies" unique_id=2092227799 instance=ExtResource("4_q8hxt")]
 position = Vector2(170, 990)
-collision_layer = 2
-collision_mask = 11
-motion_mode = 1
-script = ExtResource("6_s80sv")
 
 [connection signal="minimum_size_changed" from="CanvasLayer/MissionPanel" to="CanvasLayer/MissionPanel" method="reset_size"]
 

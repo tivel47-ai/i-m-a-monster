@@ -6,6 +6,7 @@ signal converted(villager: Node)
 signal died(villager: Node)
 signal threat_recognized(zombie: Node2D)
 signal warning_attempted(villager: Node2D, threat_position: Vector2)
+signal encounter_started(zombie: Node2D)
 
 enum InfectionState {
 	AVAILABLE,
@@ -361,7 +362,8 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 	):
 		return false
 
-	if infection_state == InfectionState.AVAILABLE:
+	var starting_encounter := infection_state == InfectionState.AVAILABLE
+	if starting_encounter:
 		infection_state = InfectionState.IN_COLLISION
 		threat_reaction.cancel_response()
 		threat_detection.reset_awareness()
@@ -371,6 +373,8 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 		encounter_participants.append(zombie)
 		if encounter_attack_timer.is_stopped():
 			encounter_attack_timer.start()
+	if starting_encounter:
+		encounter_started.emit(zombie)
 	return true
 
 
