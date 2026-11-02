@@ -13,6 +13,10 @@ var pages: Dictionary = {}
 var ui: Control
 var race_list: VBoxContainer
 var race_preview: VBoxContainer
+var race_details: VBoxContainer
+var race_buttons: Dictionary = {}
+var race_mission_label: Label
+var race_back_button: Button
 var start_button: Button
 var result_text: Label
 var settings_status: Label
@@ -197,13 +201,47 @@ func _build_ui() -> void:
 	choose_race_button.custom_minimum_size.x = 240
 	choose_race_button.disabled = true
 	var races := _page(Screen.RACES, "Выбор расы")
+	races.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	race_mission_label = _text(races, "", 18)
+	var race_columns := HBoxContainer.new()
+	race_columns.add_theme_constant_override("separation", 24)
+	race_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	race_columns.custom_minimum_size.y = 390
+	races.add_child(race_columns)
+	var race_left := VBoxContainer.new()
+	race_left.custom_minimum_size.x = 220
+	race_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_columns.add_child(race_left)
+	_text(race_left, "Расы", 24)
+	var race_scroll := ScrollContainer.new()
+	race_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	race_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	race_left.add_child(race_scroll)
 	race_list = VBoxContainer.new()
-	races.add_child(race_list)
+	race_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_list.add_theme_constant_override("separation", 8)
+	race_scroll.add_child(race_list)
 	race_preview = VBoxContainer.new()
-	races.add_child(race_preview)
-	start_button = _button(races, "Начать миссию", _start_mission)
+	race_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_preview.size_flags_stretch_ratio = 1.4
+	race_preview.add_theme_constant_override("separation", 16)
+	race_columns.add_child(race_preview)
+	race_details = VBoxContainer.new()
+	race_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_details.size_flags_stretch_ratio = 1.4
+	race_details.add_theme_constant_override("separation", 16)
+	race_columns.add_child(race_details)
+	var race_footer := HBoxContainer.new()
+	race_footer.add_theme_constant_override("separation", 24)
+	races.add_child(race_footer)
+	race_back_button = _button(race_footer, "Назад", func(): _show(Screen.MISSIONS))
+	race_back_button.custom_minimum_size.x = 180
+	var race_spacer := Control.new()
+	race_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_footer.add_child(race_spacer)
+	start_button = _button(race_footer, "Начать миссию", _start_mission)
+	start_button.custom_minimum_size.x = 240
 	start_button.disabled = true
-	_button(races, "Назад", func(): _show(Screen.MISSIONS))
 	var pause := _page(Screen.PAUSE, "Пауза")
 	_text(pause, "Нажмите Esc, чтобы продолжить")
 	_button(pause, "В главное меню", func():
@@ -245,8 +283,11 @@ func _select_mission(id: String) -> void:
 func _open_race_selection() -> void:
 	if screen != Screen.MISSIONS or not CATALOG.MISSIONS.has(selected_mission): return
 	_clear_children(race_list)
+	race_buttons.clear()
 	for race_id in CATALOG.MISSIONS[selected_mission].races:
-		_button(race_list, CATALOG.RACES[race_id].name, _select_race.bind(race_id))
+		var item := _button(race_list, CATALOG.RACES[race_id].name, _select_race.bind(race_id))
+		item.toggle_mode = true
+		race_buttons[race_id] = item
 	_update_preview()
 	_show(Screen.RACES)
 
@@ -257,25 +298,45 @@ func _select_race(id: String) -> void:
 
 func _update_preview() -> void:
 	_clear_children(race_preview)
-	_text(race_preview, CATALOG.MISSIONS[selected_mission].name + "\n" + CATALOG.MISSIONS[selected_mission].objectives, 18)
+	_clear_children(race_details)
+	race_mission_label.text = "Миссия: " + CATALOG.MISSIONS[selected_mission].name
+	for race_id in race_buttons:
+		race_buttons[race_id].set_pressed_no_signal(race_id == selected_race)
+	_text(race_preview, "Внешний вид", 24)
 	start_button.disabled = not CATALOG.RACES.has(selected_race)
 	if start_button.disabled:
-		_text(race_preview, "Выберите расу для просмотра описания.")
+		_text(race_preview, "Выберите расу в списке слева.", 18)
+		_text(race_details, "Описание", 24)
+		_text(race_details, "Здесь появятся описание, сильные и слабые стороны выбранной расы.", 18)
 		return
 	var race: Dictionary = CATALOG.RACES[selected_race]
 	# Render the current scene's polygon, without running unit AI in the menu.
 	var source: Node2D = load(race.preview).instantiate()
 	var visual := source.get_node("Polygon2D").duplicate() as Polygon2D
 	source.free()
-	var preview := Control.new()
-	preview.custom_minimum_size.y = 100
-	preview.add_child(visual)
-	visual.position = Vector2(70, 64)
-	visual.scale = Vector2.ONE * 3
+	var preview := PanelContainer.new()
+	preview.custom_minimum_size.y = 200
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.add_child(center)
+	var portrait := Control.new()
+	portrait.custom_minimum_size = Vector2(100, 150)
+	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(portrait)
+	portrait.add_child(visual)
+	visual.position = Vector2(50, 100)
+	visual.scale = Vector2.ONE * 4
 	race_preview.add_child(preview)
-	_text(race_preview, race.name + "\n" + race.description)
-	_text(race_preview, "Сильные стороны: " + race.strengths + "\nСлабые стороны: " + race.weaknesses, 18)
-	_text(race_preview, "Управление: ЛКМ — выбор, рамка — группа; ПКМ — движение; Shift+ПКМ — распределение. WASD — камера, колесо — масштаб, Esc — пауза.", 18)
+	_text(race_preview, "Как играется", 24)
+	_text(race_preview, race.gameplay, 18)
+	_text(race_preview, "ЛКМ и рамка — выбор. ПКМ — движение. Shift+ПКМ — распределение группы.", 16)
+	_text(race_details, race.name, 26)
+	_text(race_details, race.description, 18)
+	_text(race_details, "Сильные стороны", 22)
+	_text(race_details, race.strengths, 18)
+	_text(race_details, "Слабые стороны", 22)
+	_text(race_details, race.weaknesses, 18)
 
 func _start_mission() -> void:
 	if screen != Screen.RACES or not CATALOG.MISSIONS.has(selected_mission): return
