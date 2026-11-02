@@ -126,13 +126,13 @@ func travel_to_activity(resident: Node2D, activity: int, navigation_map: RID) ->
 	check(correct_target and clear and resident.is_performing_activity
 		and resident.position.distance_to(target) <= resident.arrival_tolerance,
 		"Profile %s reaches activity %d without crossing buildings" % [resident.name, activity])
-	var ranges := [Vector2(4, 8), Vector2(6, 12), Vector2(3, 6), Vector2(2, 4)]
+	var ranges := [Vector2(12, 24), Vector2(18, 36), Vector2(9, 18), Vector2(6, 12)]
 	check(resident.wait_remaining >= ranges[activity].x and resident.wait_remaining <= ranges[activity].y,
 		"Activity %d uses its expected arrival duration" % activity)
 	var arrived: Vector2 = resident.position
 	await frames(60)
 	check(resident.is_performing_activity and resident.position.is_equal_approx(arrived),
-		"Activity %d waits at destination before selecting again" % activity)
+		"Marker fallback activity %d remains stationary before selecting again" % activity)
 	resident.set_physics_process(false)
 	resident._stop_movement()
 	resident.position = Vector2(90, 300 + map.villagers.find(resident) * 25)

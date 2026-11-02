@@ -38,11 +38,25 @@ enum NavigationResult { MOVING, ARRIVED, FAILED }
 @export var work_weight: float = 45.0
 @export var social_weight: float = 20.0
 @export var wander_weight: float = 10.0
-@export var home_duration: Vector2 = Vector2(4.0, 8.0)
-@export var work_duration: Vector2 = Vector2(6.0, 12.0)
-@export var social_duration: Vector2 = Vector2(3.0, 6.0)
-@export var wander_duration: Vector2 = Vector2(2.0, 4.0)
+@export var home_duration: Vector2 = Vector2(12.0, 24.0)
+@export var work_duration: Vector2 = Vector2(18.0, 36.0)
+@export var social_duration: Vector2 = Vector2(9.0, 18.0)
+@export var wander_duration: Vector2 = Vector2(6.0, 12.0)
 
+@export_group("Activity zones")
+## Explicit assignments only; empty keeps the existing marker-based behavior.
+@export var activity_zone_paths: Array[NodePath] = []
+## X: radius factor, Y: pause-duration factor, Z: movement-probability factor.
+@export var home_local_rules: Vector3 = Vector3(0.65, 1.5, 0.6)
+@export var work_local_rules: Vector3 = Vector3(0.5, 2.0, 0.4)
+@export var social_local_rules: Vector3 = Vector3(0.8, 1.0, 1.2)
+@export var wander_local_rules: Vector3 = Vector3(1.3, 0.5, 1.8)
+@export_range(0, 1, 0.01) var local_long_move_chance: float = 0.1
+
+var _using_zone: bool = false
+var current_zone: ActivityZone2D
+var local_wait_remaining: float = 0.0
+var _last_local_origin: Vector2 = Vector2.INF
 var current_activity: Activity = Activity.NONE
 var is_performing_activity: bool = false
 
@@ -69,6 +83,7 @@ var encounter_participants: Array[Node2D] = []
 
 
 func _ready() -> void:
+	add_to_group("activity_zone_residents")
 	current_health = maxf(max_health, 0.0)
 	encounter_attack_timer.name = "EncounterAttackTimer"
 	encounter_attack_timer.wait_time = maxf(attack_interval, 0.01)
@@ -88,6 +103,13 @@ func _physics_process(delta: float) -> void:
 		return
 	if threat_reaction.update_response(delta):
 		return
+	if _using_zone:
+		if not is_instance_valid(current_zone) or not current_zone.allows_resident(self) or not current_zone.has_valid_polygon():
+			_begin_wait()
+			return
+		if is_performing_activity:
+			_update_zone_activity(delta)
+			return
 	if not has_destination:
 		wait_remaining = maxf(wait_remaining - delta, 0.0)
 		if wait_remaining == 0.0:
@@ -119,19 +141,26 @@ func _advance_navigation(goal: Vector2, speed: float, delta: float) -> Navigatio
 
 func _choose_destination(navigation_map: RID) -> void:
 	var points := get_node_or_null(points_of_interest_path) if not points_of_interest_path.is_empty() else null
-	if points == null:
-		_begin_wait()
-		return
 	var options: Array[Dictionary] = []
 	var total_weight := 0.0
 	for activity in [Activity.HOME, Activity.WORK, Activity.SOCIAL, Activity.WANDER]:
 		var weight := _activity_weight(activity)
 		if weight <= 0.0:
 			continue
-		var candidates: Array[Marker2D] = []
-		for candidate in _activity_points(activity, points):
-			if _is_destination_valid(candidate.global_position, navigation_map):
-				candidates.append(candidate)
+		var candidates: Array[Dictionary] = []
+		for path in activity_zone_paths:
+			var zone := get_node_or_null(path) as ActivityZone2D if not path.is_empty() else null
+			if zone == null or zone.activity != activity or not zone.allows_resident(self):
+				continue
+			var sample := zone.sample_destination(self, _zone_reservations(zone), null,
+				maxf(arrival_tolerance, 0.5) + 1.0, maxf(arrival_tolerance, 0.5) + 1.0)
+			if not sample.is_empty():
+				candidates.append({"point": sample[0], "zone": zone})
+		# Prefer assigned zones; unavailable assignments retain safe marker fallback.
+		if candidates.is_empty():
+			for candidate in _activity_points(activity, points):
+				if _is_destination_valid(candidate.global_position, navigation_map):
+					candidates.append({"point": candidate.global_position, "zone": null})
 		if not candidates.is_empty():
 			options.append({"activity": activity, "weight": weight, "points": candidates})
 			total_weight += weight
@@ -148,15 +177,19 @@ func _choose_destination(navigation_map: RID) -> void:
 	current_activity = selected["activity"]
 	is_performing_activity = false
 	var candidates: Array = selected["points"]
-	destination = candidates.pick_random().global_position
-	navigation_agent.target_position = destination
-	has_destination = true
-	progress_position = global_position
-	stalled_seconds = 0.0
+	var target: Dictionary = candidates.pick_random()
+	current_zone = target["zone"]
+	_using_zone = current_zone != null
+	wait_remaining = 0.0
+	local_wait_remaining = 0.0
+	_last_local_origin = Vector2.INF
+	_set_peaceful_destination(target["point"])
 
 
 func _activity_points(activity: Activity, points: Node) -> Array[Marker2D]:
 	var result: Array[Marker2D] = []
+	if points == null:
+		return result
 	if activity == Activity.HOME or activity == Activity.WORK:
 		var path := home_point_path if activity == Activity.HOME else work_point_path
 		var marker := get_node_or_null(path) if not path.is_empty() else null
@@ -179,6 +212,8 @@ func _activity_weight(activity: Activity) -> float:
 
 
 func _activity_duration(activity: Activity) -> Vector2:
+	if is_instance_valid(current_zone) and current_zone.activity == activity and current_zone.duration_override != Vector2.ZERO:
+		return current_zone.duration_override
 	match activity:
 		Activity.HOME: return home_duration
 		Activity.WORK: return work_duration
@@ -203,6 +238,12 @@ func _is_destination_valid(point: Vector2, navigation_map: RID) -> bool:
 
 
 func _stop_movement() -> void:
+	if _using_zone:
+		wait_remaining = 0.0
+	_using_zone = false
+	current_zone = null
+	local_wait_remaining = 0.0
+	_last_local_origin = Vector2.INF
 	has_destination = false
 	current_activity = Activity.NONE
 	is_performing_activity = false
@@ -212,18 +253,106 @@ func _stop_movement() -> void:
 
 func _begin_wait(arrived: bool = false) -> void:
 	var activity := current_activity if arrived else Activity.NONE
+	var zone := current_zone if arrived and is_instance_valid(current_zone) else null
 	_stop_movement()
+	current_zone = zone
+	_using_zone = zone != null
 	current_activity = activity
 	is_performing_activity = activity != Activity.NONE
 	var duration := _activity_duration(activity)
 	var minimum := maxf(duration.x, 0.0)
 	wait_remaining = randf_range(minimum, maxf(duration.y, minimum))
+	if current_zone != null:
+		_begin_local_pause()
+
+
+func _local_rules(activity: Activity) -> Vector3:
+	match activity:
+		Activity.HOME: return home_local_rules
+		Activity.WORK: return work_local_rules
+		Activity.SOCIAL: return social_local_rules
+		Activity.WANDER: return wander_local_rules
+	return Vector3.ONE
+
+
+func _zone_local_speed() -> float:
+	return minf(maxf(current_zone.local_move_speed, 0.0), maxf(move_speed, 0.0) * 0.9)
+
+
+func _set_peaceful_destination(point: Vector2) -> void:
+	destination = point
+	navigation_agent.target_position = point
+	has_destination = true
+	progress_position = global_position
+	stalled_seconds = 0.0
+
+
+func _zone_reservations(zone: ActivityZone2D) -> PackedVector2Array:
+	var positions := PackedVector2Array()
+	for resident in get_tree().get_nodes_in_group("activity_zone_residents"):
+		if resident == self or resident.is_queued_for_deletion() or resident.get_world_2d() != get_world_2d():
+			continue
+		if resident.current_zone == zone and resident.has_destination and resident.is_available_for_infection():
+			positions.append(resident.destination)
+	return positions
+
+
+func _begin_local_pause() -> void:
+	has_destination = false
+	velocity = Vector2.ZERO
+	navigation_agent.velocity = Vector2.ZERO
+	stalled_seconds = 0.0
+	var interval := current_zone.local_pause_duration * maxf(_local_rules(current_activity).y, 0.0)
+	var minimum := maxf(interval.x, 0.25)
+	local_wait_remaining = randf_range(minimum, maxf(interval.y, minimum))
+
+
+func _update_zone_activity(delta: float) -> void:
+	if not current_zone.contains_world_point(global_position):
+		_begin_wait()
+		return
+	# One activity clock covers every local route and every intentional pause.
+	wait_remaining = maxf(wait_remaining - delta, 0.0)
+	if wait_remaining == 0.0:
+		_stop_movement()
+		return
+	if has_destination:
+		var result := _advance_navigation(destination, _zone_local_speed(), delta)
+		if result != NavigationResult.MOVING:
+			_begin_local_pause()
+		return
+	local_wait_remaining = maxf(local_wait_remaining - delta, 0.0)
+	if local_wait_remaining > 0.0:
+		return
+	var rules := _local_rules(current_activity)
+	var probability := clampf(current_zone.local_move_probability * rules.z, 0.0, 1.0)
+	if _zone_local_speed() <= 0.0 or randf() >= probability:
+		_begin_local_pause()
+		return
+	var radius := maxf(current_zone.local_move_radius * rules.x, 0.0)
+	if randf() < clampf(local_long_move_chance, 0.0, 1.0):
+		radius *= 1.8
+	var sample := current_zone.sample_local_destination(self, radius,
+		maxf(arrival_tolerance * 3.0, 10.0), _last_local_origin, _zone_reservations(current_zone))
+	if sample.is_empty():
+		_begin_local_pause()
+		return
+	_last_local_origin = global_position
+	_set_peaceful_destination(sample[0])
 
 
 func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE or not (has_destination or threat_reaction.has_route):
 		velocity = Vector2.ZERO
 		return
+	if _using_zone and not is_instance_valid(current_zone):
+		velocity = Vector2.ZERO
+		return
+	if is_performing_activity and is_instance_valid(current_zone) and not threat_reaction.has_route:
+		# Bound avoidance/slide displacement by the distance to any polygon edge.
+		# Geometry only: no per-frame path or physics-space queries.
+		var clearance := maxf(current_zone.distance_to_boundary(global_position) - 0.05, 0.0)
+		safe_velocity = safe_velocity.limit_length(clearance / maxf(get_physics_process_delta_time(), 0.000001))
 	velocity = safe_velocity
 	move_and_slide()
 

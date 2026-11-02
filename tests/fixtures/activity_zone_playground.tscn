@@ -1,0 +1,65 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/test_map.tscn" id="1_map"]
+[ext_resource type="PackedScene" path="res://scenes/activity_zone_2d.tscn" id="2_zone"]
+
+[node name="ActivityZonePlayground" instance=ExtResource("1_map")]
+
+[node name="Villager" parent="."]
+position = Vector2(500, 600)
+home_weight = 1.0
+work_weight = 0.0
+social_weight = 0.0
+wander_weight = 0.0
+activity_zone_paths = Array[NodePath]([NodePath("../ActivityZones/Home")])
+
+[node name="Villager2" parent="."]
+position = Vector2(1060, 125)
+home_weight = 0.0
+work_weight = 1.0
+social_weight = 0.0
+wander_weight = 0.0
+activity_zone_paths = Array[NodePath]([NodePath("../ActivityZones/Work")])
+
+[node name="Villager3" parent="."]
+position = Vector2(800, 390)
+home_weight = 0.0
+work_weight = 0.0
+social_weight = 1.0
+wander_weight = 0.0
+activity_zone_paths = Array[NodePath]([NodePath("../ActivityZones/Social")])
+
+[node name="Villager4" parent="."]
+position = Vector2(625, 390)
+home_weight = 0.0
+work_weight = 0.0
+social_weight = 0.0
+wander_weight = 1.0
+activity_zone_paths = Array[NodePath]([NodePath("../ActivityZones/Wander")])
+
+[node name="ActivityZones" type="Node2D" parent="."]
+
+[node name="Home" parent="ActivityZones" instance=ExtResource("2_zone")]
+polygon = PackedVector2Array(435, 565, 575, 565, 575, 635, 435, 635)
+activity = 0
+zone_id = &"test_home"
+debug_enabled = true
+
+[node name="Work" parent="ActivityZones" instance=ExtResource("2_zone")]
+polygon = PackedVector2Array(920, 70, 1150, 70, 1150, 150, 920, 150)
+activity = 1
+zone_id = &"test_work"
+debug_enabled = true
+
+[node name="Social" parent="ActivityZones" instance=ExtResource("2_zone")]
+polygon = PackedVector2Array(775, 335, 900, 335, 900, 425, 775, 425)
+activity = 2
+zone_id = &"test_social"
+minimum_separation = 8.0
+debug_enabled = true
+
+[node name="Wander" parent="ActivityZones" instance=ExtResource("2_zone")]
+polygon = PackedVector2Array(565, 310, 690, 310, 690, 410, 565, 410)
+activity = 3
+zone_id = &"test_wander"
+debug_enabled = true

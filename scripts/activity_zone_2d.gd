@@ -16,8 +16,8 @@ enum Activity { HOME, WORK, SOCIAL, WANDER }
 @export var allowed_residents: Array[NodePath] = []
 @export var allowed_roles: PackedStringArray = []
 
-@export_group("Future peaceful movement")
-## (0, 0) means use the resident's activity duration. Data only in Stage 1.
+@export_group("Peaceful movement")
+## (0, 0) means use the resident's activity duration.
 @export var duration_override: Vector2 = Vector2.ZERO
 @export_range(0, 100, 0.5) var local_move_speed: float = 30.0
 @export_range(0, 200, 1) var local_move_radius: float = 40.0
@@ -129,19 +129,19 @@ func sample_polygon_point(random: RandomNumberGenerator = null) -> Array[Vector2
 
 ## Empty means wait/retry or select another zone; never returns an unsafe fallback.
 ## Reservations are caller-owned snapshots, not persistent claims on this zone.
-func sample_destination(resident: CharacterBody2D, reserved_positions: PackedVector2Array = PackedVector2Array(), random: RandomNumberGenerator = null) -> Array[Vector2]:
+func sample_destination(resident: CharacterBody2D, reserved_positions: PackedVector2Array = PackedVector2Array(), random: RandomNumberGenerator = null, boundary_clearance: float = 0.0, start_projection_tolerance: float = 1.0) -> Array[Vector2]:
 	if not _can_query(resident):
 		return []
 	for attempt in range(clampi(sampling_attempts, 1, 64)):
 		var sample := sample_polygon_point(random)
 		if sample.is_empty():
 			return []
-		if is_destination_valid(sample[0], resident, reserved_positions):
+		if distance_to_boundary(sample[0]) >= maxf(boundary_clearance, 0.0) and is_destination_valid(sample[0], resident, reserved_positions, false, start_projection_tolerance):
 			return sample
 	return []
 
 
-func is_destination_valid(point: Vector2, resident: CharacterBody2D, reserved_positions: PackedVector2Array = PackedVector2Array()) -> bool:
+func is_destination_valid(point: Vector2, resident: CharacterBody2D, reserved_positions: PackedVector2Array = PackedVector2Array(), require_local_path: bool = false, start_projection_tolerance: float = 1.0) -> bool:
 	if not contains_world_point(point) or not _can_query(resident):
 		return false
 	var separation := maxf(minimum_separation, 0.0)
@@ -173,8 +173,23 @@ func is_destination_valid(point: Vector2, resident: CharacterBody2D, reserved_po
 		if not space.intersect_shape(query, 1).is_empty():
 			return false
 	var path := NavigationServer2D.map_get_path(navigation_map, resident.global_position, point, true, agent.navigation_layers)
-	# Check both ends: navigation otherwise silently projects an off-mesh origin.
-	return not path.is_empty() and path[0].distance_to(resident.global_position) <= NAVIGATION_TOLERANCE and path[-1].distance_to(point) <= NAVIGATION_TOLERANCE
+	# Strict by default; zone AI may allow a small, physically clear arrival drift.
+	if path.is_empty() or path[0].distance_to(resident.global_position) > maxf(start_projection_tolerance, NAVIGATION_TOLERANCE) or path[-1].distance_to(point) > NAVIGATION_TOLERANCE:
+		return false
+	if path[0].distance_to(resident.global_position) > NAVIGATION_TOLERANCE:
+		query.shape = shape_node.shape
+		query.transform = shape_node.global_transform
+		query.collision_mask = obstacle_mask
+		query.motion = path[0] - resident.global_position
+		if not space.intersect_shape(query, 1).is_empty() or space.cast_motion(query)[0] < 1.0:
+			return false
+	if require_local_path:
+		if not contains_world_segment(resident.global_position, path[0]):
+			return false
+		for index in range(1, path.size()):
+			if not contains_world_segment(path[index - 1], path[index]):
+				return false
+	return true
 
 
 func _can_query(resident: CharacterBody2D) -> bool:
@@ -231,3 +246,45 @@ func _edges_touch(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> bool:
 		return true
 	# The intersection helper returns null for collinear overlapping edges.
 	return Geometry2D.get_closest_point_to_segment(a, c, d).is_equal_approx(a) or Geometry2D.get_closest_point_to_segment(b, c, d).is_equal_approx(b) or Geometry2D.get_closest_point_to_segment(c, a, b).is_equal_approx(c) or Geometry2D.get_closest_point_to_segment(d, a, b).is_equal_approx(d)
+
+
+## Nearby disk sampling uses the same bounded budget and destination validation.
+func sample_local_destination(resident: CharacterBody2D, radius: float, minimum_distance: float,
+		previous_origin: Vector2 = Vector2.INF, reserved_positions: PackedVector2Array = PackedVector2Array(),
+		random: RandomNumberGenerator = null) -> Array[Vector2]:
+	if not _can_query(resident) or radius <= minimum_distance or not contains_world_point(resident.global_position):
+		return []
+	var rng := random if random != null else _random
+	for attempt in range(clampi(sampling_attempts, 1, 64)):
+		var point := resident.global_position + Vector2.from_angle(rng.randf() * TAU) * sqrt(rng.randf()) * radius
+		if point.distance_to(resident.global_position) < minimum_distance:
+			continue
+		if previous_origin.is_finite() and point.distance_to(previous_origin) < minimum_distance:
+			continue
+		if distance_to_boundary(point) < maxf(resident.arrival_tolerance, 0.5) + 1.0:
+			continue
+		if is_destination_valid(point, resident, reserved_positions, true, maxf(resident.arrival_tolerance, 0.5) + 1.0):
+			return [point]
+	return []
+
+
+## Minimum world-space distance to the authored boundary, or zero outside.
+func distance_to_boundary(point: Vector2) -> float:
+	if not contains_world_point(point):
+		return 0.0
+	var distance := INF
+	for index in range(polygon.size()):
+		var a := to_global(offset + polygon[index])
+		var b := to_global(offset + polygon[(index + 1) % polygon.size()])
+		distance = minf(distance, Geometry2D.get_closest_point_to_segment(point, a, b).distance_to(point))
+	return distance
+
+
+## Reject boundary crossings even when both endpoints lie in a concave zone.
+func contains_world_segment(start: Vector2, end: Vector2) -> bool:
+	if not contains_world_point(start) or not contains_world_point(end):
+		return false
+	for index in range(polygon.size()):
+		if _edges_touch(start, end, to_global(offset + polygon[index]), to_global(offset + polygon[(index + 1) % polygon.size()])):
+			return false
+	return true
