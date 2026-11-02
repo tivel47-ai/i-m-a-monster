@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://svrloe6sxvwm"]
 
 [ext_resource type="Script" uid="uid://dkqm3e22tn4dj" path="res://scripts/test_map.gd" id="1_s80sv"]
-[ext_resource type="NavigationPolygon" path="res://scenes/village_simulation_navigation.tres" id="2_mxr46"]
+[ext_resource type="NavigationPolygon" uid="uid://b5w67mjhndqj6" path="res://scenes/village_simulation_navigation.tres" id="2_mxr46"]
 [ext_resource type="PackedScene" uid="uid://bt7e18e7p513v" path="res://scenes/villager.tscn" id="3_e63ae"]
 [ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="4_q8hxt"]
 [ext_resource type="Script" uid="uid://w0xlc1ks717q" path="res://scripts/camera_controller.gd" id="6_rq6e5"]

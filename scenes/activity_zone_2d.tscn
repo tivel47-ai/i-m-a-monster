@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/activity_zone_2d.gd" id="1_zone"]
+
+[node name="ActivityZone2D" type="Polygon2D"]
+color = Color(0, 0, 0, 0)
+polygon = PackedVector2Array(-64, -48, 64, -48, 64, 48, -64, 48)
+script = ExtResource("1_zone")
