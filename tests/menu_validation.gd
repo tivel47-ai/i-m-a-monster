@@ -58,7 +58,8 @@ func pointer_click(title: String) -> void:
 
 func launch() -> void:
 	click("Начать игру")
-	click("◆ Первая деревня")
+	click("Первая деревня")
+	click("Выбрать расу")
 	click("Зомби")
 	click("Начать миссию")
 	await frames(5)
@@ -82,17 +83,30 @@ func run() -> void:
 	check(app.screen == app.Screen.MAIN, "Mission selection Esc returns to main")
 	click("Начать игру")
 	await frames()
+	check(app.choose_race_button.disabled, "Choose Race disabled before mission selection")
+	app._open_race_selection()
+	check(app.screen == app.Screen.MISSIONS, "Cannot advance without selecting mission")
 	app.mission_scroll.scroll_horizontal = 100
 	app.mission_scroll.scroll_vertical = 80
 	var scroll := Vector2i(app.mission_scroll.scroll_horizontal, app.mission_scroll.scroll_vertical)
-	click("◆ Первая деревня")
+	pointer_click("Первая деревня")
+	check(app.screen == app.Screen.MISSIONS and app.mission == null, "Selecting a mission stays on mission screen")
+	check(not app.choose_race_button.disabled and app.mission_buttons.village.button_pressed, "Selection enables next action and highlights list item")
+	check(app.mission_title.text == "Первая деревня" and "80%" in app.mission_objectives.text, "Right panel shows selected mission and objective")
+	check(app.mission_preview.visible and not app.mission_preview.shapes.is_empty() and get_nodes_in_group("player_units").is_empty(), "Preview draws geometry without starting gameplay")
+	await frames()
+	check(app.mission_scroll.get_global_rect().end.x < app.mission_details.get_global_rect().position.x, "Mission list is left of details")
+	check(app.choose_race_button.get_global_rect().position.x > app.mission_scroll.get_global_rect().end.x, "Choose Race button is on the right")
+	click("Выбрать расу")
+	check(app.screen == app.Screen.RACES, "Choose Race explicitly opens race selection")
 	check(app.start_button.disabled, "Start disabled before selecting a valid race")
 	click("Зомби")
 	check(not app.start_button.disabled and app.mission == null, "Race updates preview without launching")
 	esc()
 	await frames()
-	check(app.selected_mission == "village" and scroll == Vector2i(app.mission_scroll.scroll_horizontal, app.mission_scroll.scroll_vertical), "Race Back retains mission and map position")
-	click("◆ Первая деревня")
+	check(app.selected_mission == "village" and scroll == Vector2i(app.mission_scroll.scroll_horizontal, app.mission_scroll.scroll_vertical), "Race Back retains mission and list position")
+	click("Первая деревня")
+	click("Выбрать расу")
 	click("Начать миссию")
 	var first: Node = app.mission
 	app._start_mission()
@@ -151,7 +165,8 @@ func run() -> void:
 	click("К выбору миссии")
 	await frames()
 	check(app.screen == app.Screen.MISSIONS and not paused, "Results returns to mission selection")
-	click("◆ Первая деревня")
+	click("Первая деревня")
+	click("Выбрать расу")
 	click("Начать миссию")
 	await frames(5)
 	var converting: Node = app.mission.villagers[0]
@@ -176,8 +191,11 @@ func run() -> void:
 	check(reloaded.camera_speed == 650, "Settings survive reload")
 	if existed:
 		var file := FileAccess.open(path, FileAccess.WRITE)
-		file.store_buffer(previous)
-		file.close()
+		if file != null:
+			file.store_buffer(previous)
+			file.close()
+		else:
+			check(false, "Settings backup can be restored")
 	else: DirAccess.remove_absolute(path)
 	app.queue_free()
 	await frames()

@@ -4,9 +4,9 @@ extends RefCounted
 const MISSIONS := {
 	"village": {
 		"name": "Первая деревня",
-		"description": "Заразите или уничтожьте не менее 80% жителей деревни.",
+		"description": "Небольшая деревня с жилыми домами, площадью и хозяйственными постройками.",
+		"objectives": "Заразите или уничтожьте не менее 80% жителей деревни.",
 		"scene": "res://scenes/test_map.tscn",
-		"marker": Vector2(440, 240),
 		"races": ["zombie"],
 	},
 }
