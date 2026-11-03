@@ -64,7 +64,7 @@ func preferences(scene: Node) -> Dictionary:
 	var values := {"residents":{},"zones":{},"patrol_routes":{},"alert":exports(scene.get_node("VillageAlert"))}
 	for actor in scene.get_node("Villagers").get_children():
 		var entry := {"exports":exports(actor),"color":actor.get_node("Polygon2D").color,"components":{}}
-		for component in ["ThreatDetection","ThreatReaction","LocalWarning","GuardPatrol"]:
+		for component in ["ThreatDetection","ThreatReaction","LocalWarning","GuardPatrol","PriestRoutine"]:
 			if actor.has_node(component): entry.components[component]=exports(actor.get_node(component))
 		values.residents[str(actor.name)]=entry
 	for zone in scene.get_node("ActivityZones").get_children():
@@ -146,6 +146,11 @@ func run() -> void:
 	if scene.has_node("GuardPatrolRoutes"):
 		scene.get_node("Villagers/Guard25/GuardPatrol").patrol_speed=42
 		scene.get_node("GuardPatrolRoutes/NorthCircuit").observation_pause=Vector2(3,6)
+	var priest = scene.get_node("Villagers/Priest30/PriestRoutine")
+	priest.chapel_duration=Vector2(71,93)
+	priest.cemetery_visits_per_public=Vector2i(3,5)
+	priest.primary_local_speed=19
+	priest.chapel_zone_paths.reverse()
 	var expected_preferences := preferences(scene)
 	var packed := PackedScene.new()
 	var saved := packed.pack(scene)

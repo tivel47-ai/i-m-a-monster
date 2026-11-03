@@ -25,7 +25,7 @@ enum NavigationResult { MOVING, ARRIVED, FAILED }
 @export var transformation_duration: float = 2.0
 @export var autonomous_movement_enabled: bool = true
 @export var points_of_interest_path: NodePath
-@export var move_speed: float = 55.0
+@export var move_speed: float = 35.0
 @export var wait_duration_min: float = 2.0
 @export var wait_duration_max: float = 5.0
 @export var arrival_tolerance: float = 4.0
@@ -87,6 +87,7 @@ var encounter_participants: Array[Node2D] = []
 @onready var threat_reaction = $ThreatReaction
 @onready var local_warning = $LocalWarning
 @onready var guard_patrol = get_node_or_null("GuardPatrol")
+@onready var priest_routine = get_node_or_null("PriestRoutine")
 
 
 func _ready() -> void:
@@ -173,6 +174,10 @@ func _choose_destination(navigation_map: RID) -> void:
 		if not candidates.is_empty():
 			options.append({"activity": activity, "weight": weight, "points": candidates})
 			total_weight += weight
+	if priest_routine != null and priest_routine.routine_enabled:
+		options = priest_routine.filter_options(options)
+		total_weight = 0.0
+		for option in options: total_weight += float(option.weight)
 	if options.is_empty():
 		_begin_wait()
 		return
@@ -246,6 +251,8 @@ func _activity_weight(activity: Activity) -> float:
 func _activity_duration(activity: Activity) -> Vector2:
 	if is_instance_valid(current_zone) and current_zone.activity == activity and current_zone.duration_override != Vector2.ZERO:
 		return current_zone.duration_override
+	if priest_routine != null and priest_routine.routine_enabled:
+		return priest_routine.activity_duration(current_zone, Vector2(wait_duration_min, wait_duration_max))
 	match activity:
 		Activity.HOME: return home_duration
 		Activity.WORK: return work_duration
@@ -300,6 +307,13 @@ func _begin_wait(arrived: bool = false) -> void:
 
 
 func _local_rules(activity: Activity) -> Vector3:
+	if priest_routine != null and priest_routine.routine_enabled:
+		var base := _civilian_local_rules(activity)
+		return priest_routine.local_rules(current_zone, base)
+	return _civilian_local_rules(activity)
+
+
+func _civilian_local_rules(activity: Activity) -> Vector3:
 	match activity:
 		Activity.HOME: return home_local_rules
 		Activity.WORK: return work_local_rules
@@ -309,7 +323,10 @@ func _local_rules(activity: Activity) -> Vector3:
 
 
 func _zone_local_speed() -> float:
-	return minf(maxf(current_zone.local_move_speed, 0.0), maxf(move_speed, 0.0) * 0.9)
+	var speed := minf(maxf(current_zone.local_move_speed, 0.0), maxf(move_speed, 0.0) * 0.9)
+	if priest_routine != null and priest_routine.routine_enabled and priest_routine.zone_territory(current_zone) in [0, 1]:
+		speed = minf(speed, maxf(priest_routine.primary_local_speed, 0.0))
+	return speed
 
 
 func _set_peaceful_destination(point: Vector2) -> void:
@@ -347,6 +364,8 @@ func _update_zone_activity(delta: float) -> void:
 	# One activity clock covers every local route and every intentional pause.
 	wait_remaining = maxf(wait_remaining - delta, 0.0)
 	if wait_remaining == 0.0:
+		if priest_routine != null and priest_routine.routine_enabled:
+			priest_routine.activity_completed(current_zone)
 		_stop_movement()
 		return
 	_advance_local_zone_cycle(delta)

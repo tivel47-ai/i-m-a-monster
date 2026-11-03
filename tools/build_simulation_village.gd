@@ -488,7 +488,7 @@ func read_npc_preferences() -> void:
 		if not previous.has_node("ActivityZones"):
 			for key in ["activity_zone_paths", "marker_activity_fallback_enabled", "preferred_district", "district_zone_preference", "nearby_zone_distance"]: values.erase(key)
 		var preferences := {"color":npc.get_node("Polygon2D").color,"exports":values,"components":{}}
-		for component in ["ThreatDetection","ThreatReaction","LocalWarning","GuardPatrol"]:
+		for component in ["ThreatDetection","ThreatReaction","LocalWarning","GuardPatrol","PriestRoutine"]:
 			if npc.has_node(component): preferences.components[component] = exported_values(npc.get_node(component))
 		npc_preferences[str(npc.name)] = preferences
 	if previous.has_node("ActivityZones"):
@@ -715,7 +715,7 @@ func populate() -> void:
 			job = artisan_jobs[i-19]
 			district = "artisan"
 		else:
-			# These roles have no dedicated AI yet; reuse normal activities.
+			# Shared civilian threat/combat profiles; peaceful role components are added below.
 			npc.civilian_profile = "Villager"
 			job = "GuardYard" if i<29 else "Church"
 			district = "guard" if i<29 else "church"
@@ -758,6 +758,12 @@ func populate() -> void:
 			patrol.post_zone_path=patrol.get_path_to(zones["HomeGuardPost"])
 			patrol.post_center_path=patrol.get_path_to(region.get_node("Buildings/Public/GuardPost"))
 			patrol.starts_on_duty=i==24
+		if role=="priest":
+			var routine: Node=load("res://scripts/priest_routine.gd").new()
+			attach(npc,routine,"PriestRoutine")
+			for title in ["HomeChapel","WorkChurch","SocialChurch","WalkChurch"]: routine.chapel_zone_paths.append(routine.get_path_to(zones[title]))
+			for title in ["WorkCemetery","WalkCemetery"]: routine.cemetery_zone_paths.append(routine.get_path_to(zones[title]))
+			for title in ["SocialSquare","SocialWell"]: routine.public_zone_paths.append(routine.get_path_to(zones[title]))
 		if npc_preferences.has(str(npc.name)):
 			var preferences: Dictionary = npc_preferences[str(npc.name)]
 			for property_name in preferences.exports:

@@ -1,17 +1,15 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://droq1npe7c3cx"]
 
-[ext_resource type="Script" path="res://scripts/test_map.gd" id="1_4nt34"]
-[ext_resource type="NavigationPolygon" path="res://scenes/village_simulation_navigation.tres" id="2_v68d6"]
+[ext_resource type="Script" uid="uid://dkqm3e22tn4dj" path="res://scripts/test_map.gd" id="1_4nt34"]
+[ext_resource type="NavigationPolygon" uid="uid://b5w67mjhndqj6" path="res://scenes/village_simulation_navigation.tres" id="2_v68d6"]
 [ext_resource type="PackedScene" path="res://scenes/village_alert.tscn" id="3_mtxfa"]
-[ext_resource type="Script" path="res://scripts/village_alert.gd" id="4_e4212"]
-[ext_resource type="Script" path="res://scripts/camera_controller.gd" id="5_htiqp"]
+[ext_resource type="Script" uid="uid://w0xlc1ks717q" path="res://scripts/camera_controller.gd" id="5_htiqp"]
 [ext_resource type="PackedScene" path="res://scenes/activity_zone_2d.tscn" id="6_58qfh"]
-[ext_resource type="Script" path="res://scripts/activity_zone_2d.gd" id="7_2xp6p"]
-[ext_resource type="Script" path="res://scripts/guard_patrol_route_2d.gd" id="8_aki2m"]
-[ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="9_vjkkk"]
-[ext_resource type="Script" path="res://scripts/guard_patrol.gd" id="10_nkg87"]
-[ext_resource type="PackedScene" path="res://scenes/zombie.tscn" id="11_ugq7x"]
-[ext_resource type="Script" path="res://scripts/zombie.gd" id="12_r1adv"]
+[ext_resource type="Script" uid="uid://dgfka70jpwf2q" path="res://scripts/guard_patrol_route_2d.gd" id="8_aki2m"]
+[ext_resource type="PackedScene" uid="uid://bt7e18e7p513v" path="res://scenes/villager.tscn" id="9_vjkkk"]
+[ext_resource type="Script" uid="uid://xxgvwwo1b67t" path="res://scripts/guard_patrol.gd" id="10_nkg87"]
+[ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="11_ugq7x"]
+[ext_resource type="Script" uid="uid://bcgm133eekdng" path="res://scripts/priest_routine.gd" id="30_priest_routine"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -4806,7 +4804,7 @@ custom_minimum_size = Vector2(250, 80)
 offset_left = 8.0
 offset_top = 8.0
 offset_right = 258.0
-offset_bottom = 88.0
+offset_bottom = 96.0
 mouse_filter = 2
 theme = SubResource("Theme_mission")
 
@@ -4844,8 +4842,7 @@ visible = false
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_selection")
 
-[node name="VillageAlert" type="Node" parent="." unique_id=732062171 instance=ExtResource("3_mtxfa")]
-script = ExtResource("4_e4212")
+[node name="VillageAlert" parent="." unique_id=732062171 instance=ExtResource("3_mtxfa")]
 debug_enabled = true
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=305544344]
@@ -4856,628 +4853,569 @@ map_bounds = Rect2(0, 0, 3000, 2000)
 
 [node name="ActivityZones" type="Node2D" parent="." unique_id=1957561038]
 
-[node name="Home01" type="Polygon2D" parent="ActivityZones" unique_id=1791943697 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home01" parent="ActivityZones" unique_id=1791943697 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(634.964, 594.1011)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-85.41028, -40.063477, 73.43909, -59.217407, 85.41034, 40.063477, -73.439026, 59.217407)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home01"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage01")
 allowed_roles = PackedStringArray()
 
-[node name="WorkHome1" type="Polygon2D" parent="ActivityZones" unique_id=1400220024 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkHome1" parent="ActivityZones" unique_id=1400220024 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(634.964, 594.1011)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-85.41028, -40.063477, 73.43909, -59.217407, 85.41034, 40.063477, -73.439026, 59.217407)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkHome1"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage01")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="Home02" type="Polygon2D" parent="ActivityZones" unique_id=2049830972 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home02" parent="ActivityZones" unique_id=2049830972 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(869.6073, 806.3651)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-71.01233, -62.10681, 86.94409, -36.615967, 71.01221, 62.10681, -86.94409, 36.615906)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home02"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage02")
 allowed_roles = PackedStringArray()
 
-[node name="WorkHome2" type="Polygon2D" parent="ActivityZones" unique_id=925915349 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkHome2" parent="ActivityZones" unique_id=925915349 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(869.6073, 806.3651)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-71.01233, -62.10681, 86.94409, -36.615967, 71.01221, 62.10681, -86.94409, 36.615906)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkHome2"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage02")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="Home03" type="Polygon2D" parent="ActivityZones" unique_id=1713487673 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home03" parent="ActivityZones" unique_id=1713487673 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(524.43634, 930.54816)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-88.338806, -33.10974, 68.47186, -64.89685, 88.338806, 33.109802, -68.47186, 64.89691)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home03"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage03")
 allowed_roles = PackedStringArray()
 
-[node name="WorkHome3" type="Polygon2D" parent="ActivityZones" unique_id=1958168497 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkHome3" parent="ActivityZones" unique_id=1958168497 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(524.43634, 930.54816)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-88.338806, -33.10974, 68.47186, -64.89685, 88.338806, 33.109802, -68.47186, 64.89691)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkHome3"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage03")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="Home04" type="Polygon2D" parent="ActivityZones" unique_id=877797564 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home04" parent="ActivityZones" unique_id=877797564 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1156.168, 1215.2385)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-74.02759, -58.480103, 85.00537, -40.91565, 74.02759, 58.47998, -85.00537, 40.915527)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home04"
 district_id = &"center"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage04")
 allowed_roles = PackedStringArray()
 
-[node name="Home05" type="Polygon2D" parent="ActivityZones" unique_id=451969333 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home05" parent="ActivityZones" unique_id=451969333 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1018.9718, 557.55865)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-75.74841, -56.233276, 83.73987, -43.44696, 75.74841, 56.233215, -83.73993, 43.4469)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home05"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage05")
 allowed_roles = PackedStringArray()
 
-[node name="WorkHome5" type="Polygon2D" parent="ActivityZones" unique_id=346255644 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkHome5" parent="ActivityZones" unique_id=346255644 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1018.9718, 557.55865)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-75.74841, -56.233276, 83.73987, -43.44696, 75.74841, 56.233215, -83.73993, 43.4469)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkHome5"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage05")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="Home06" type="Polygon2D" parent="ActivityZones" unique_id=1666613392 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home06" parent="ActivityZones" unique_id=1666613392 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1778.4081, 790.80176)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-85.80664, -39.207336, 72.84326, -59.94879, 85.80664, 39.207397, -72.84326, 59.948853)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home06"
 district_id = &"center"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage06")
 allowed_roles = PackedStringArray()
 
-[node name="Home07" type="Polygon2D" parent="ActivityZones" unique_id=1932767012 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home07" parent="ActivityZones" unique_id=1932767012 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1756.9912, 1754.0396)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-70.387695, -62.813843, 87.30591, -35.74463, 70.387695, 62.813843, -87.30591, 35.74463)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home07"
 district_id = &"south"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage07")
 allowed_roles = PackedStringArray()
 
-[node name="Home08" type="Polygon2D" parent="ActivityZones" unique_id=979391714 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home08" parent="ActivityZones" unique_id=979391714 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(873.9767, 1249.3007)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-84.59204, -41.76355, 74.60864, -57.73694, 84.59198, 41.763428, -74.60864, 57.736816)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home08"
 district_id = &"farm"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage08")
 allowed_roles = PackedStringArray()
 
-[node name="Home09" type="Polygon2D" parent="ActivityZones" unique_id=139875785 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home09" parent="ActivityZones" unique_id=139875785 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1829.9058, 1242.5911)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-72.24011, -60.674194, 86.19446, -38.34729, 72.24011, 60.674316, -86.19446, 38.347412)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home09"
 district_id = &"artisan"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage09")
 allowed_roles = PackedStringArray()
 
-[node name="WorkHome9" type="Polygon2D" parent="ActivityZones" unique_id=1137934643 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkHome9" parent="ActivityZones" unique_id=1137934643 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1829.9058, 1242.5911)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-72.24011, -60.674194, 86.19446, -38.34729, 72.24011, 60.674316, -86.19446, 38.347412)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkHome9"
 district_id = &"artisan"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage09")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="Home10" type="Polygon2D" parent="ActivityZones" unique_id=1209504631 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home10" parent="ActivityZones" unique_id=1209504631 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1035.2587, 1052.2954)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-83.73987, -43.4469, 75.74841, -56.233276, 83.73987, 43.4469, -75.74841, 56.233276)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home10"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage10")
 allowed_roles = PackedStringArray()
 
-[node name="WorkHome10" type="Polygon2D" parent="ActivityZones" unique_id=1970895191 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkHome10" parent="ActivityZones" unique_id=1970895191 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1035.2587, 1052.2954)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-83.73987, -43.4469, 75.74841, -56.233276, 83.73987, 43.4469, -75.74841, 56.233276)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkHome10"
 district_id = &"northwest"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage10")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="Home11" type="Polygon2D" parent="ActivityZones" unique_id=1181425063 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home11" parent="ActivityZones" unique_id=1181425063 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1291.048, 1640.8303)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-73.43909, -59.217407, 85.41028, -40.063477, 73.438965, 59.217407, -85.41028, 40.063354)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home11"
 district_id = &"south"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage11")
 allowed_roles = PackedStringArray()
 
-[node name="WorkHome11" type="Polygon2D" parent="ActivityZones" unique_id=399222242 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkHome11" parent="ActivityZones" unique_id=399222242 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1291.048, 1640.8303)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-73.43909, -59.217407, 85.41028, -40.063477, 73.438965, 59.217407, -85.41028, 40.063354)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkHome11"
 district_id = &"south"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage11")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="Home12" type="Polygon2D" parent="ActivityZones" unique_id=927941574 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="Home12" parent="ActivityZones" unique_id=927941574 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(700.7114, 1728.3395)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-86.94415, -36.615845, 71.01221, -62.10681, 86.94403, 36.615967, -71.01233, 62.106934)
-script = ExtResource("7_2xp6p")
 zone_id = &"Home12"
 district_id = &"farm"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Farmhouse12")
 allowed_roles = PackedStringArray()
 
-[node name="WorkFieldsWest" type="Polygon2D" parent="ActivityZones" unique_id=1427276529 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkFieldsWest" parent="ActivityZones" unique_id=1427276529 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(238.75, 1538.75)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-98.75, -128.75, 76.25, -148.75, 106.25, 121.25, -83.75, 156.25)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkFieldsWest"
 district_id = &"farm"
 location_path = NodePath("../../Environment/WestField")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkFieldsEast" type="Polygon2D" parent="ActivityZones" unique_id=538426604 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkFieldsEast" parent="ActivityZones" unique_id=538426604 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(940, 1552.5)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-110, -102.5, 60, -122.5, 125, 107.5, -75, 117.5)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkFieldsEast"
 district_id = &"farm"
 location_path = NodePath("../../Environment/EastField")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkVegetables" type="Polygon2D" parent="ActivityZones" unique_id=739361847 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkVegetables" parent="ActivityZones" unique_id=739361847 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(500, 1870)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-170, -60, 170, -60, 170, 60, -170, 60)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkVegetables"
 district_id = &"farm"
 location_path = NodePath("../../Environment/Vegetables")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkFieldsSouth" type="Polygon2D" parent="ActivityZones" unique_id=795285836 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkFieldsSouth" parent="ActivityZones" unique_id=795285836 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(940, 1870)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-75, -40, 75, -40, 75, 40, -75, 40)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkFieldsSouth"
 district_id = &"farm"
 location_path = NodePath("../../Environment/SouthField")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkBarn" type="Polygon2D" parent="ActivityZones" unique_id=1429039231 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkBarn" parent="ActivityZones" unique_id=1429039231 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(565, 1325)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-90, -45, 90, -45, 90, 45, -90, 45)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkBarn"
 district_id = &"farm"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Agricultural/Barn")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkFarmLane" type="Polygon2D" parent="ActivityZones" unique_id=545312355 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkFarmLane" parent="ActivityZones" unique_id=545312355 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(810, 1730)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-55, -40, 55, -40, 55, 40, -55, 40)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkFarmLane"
 district_id = &"farm"
 location_path = NodePath("../../Environment/EastField")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkGarden0" type="Polygon2D" parent="ActivityZones" unique_id=1491451532 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkGarden0" parent="ActivityZones" unique_id=1491451532 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(519.25, 495)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-31.25, -29, 32.75, -29, 29.75, 29, -31.25, 29)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkGarden0"
 district_id = &"northwest"
 location_path = NodePath("../../Environment/Garden0")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkGarden3" type="Polygon2D" parent="ActivityZones" unique_id=700332916 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkGarden3" parent="ActivityZones" unique_id=700332916 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1069.25, 1115)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-31.25, -29, 32.75, -29, 29.75, 29, -31.25, 29)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkGarden3"
 district_id = &"center"
 location_path = NodePath("../../Environment/Garden3")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkGarden7" type="Polygon2D" parent="ActivityZones" unique_id=2099533150 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkGarden7" parent="ActivityZones" unique_id=2099533150 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(759.25, 1135)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-31.25, -29, 32.75, -29, 29.75, 29, -31.25, 29)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkGarden7"
 district_id = &"farm"
 location_path = NodePath("../../Environment/Garden7")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkWell" type="Polygon2D" parent="ActivityZones" unique_id=1447069832 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkWell" parent="ActivityZones" unique_id=1447069832 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1350, 935)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-55, -50, 55, -50, 55, 50, -55, 50)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkWell"
 district_id = &"center"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/Well")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkSquare" type="Polygon2D" parent="ActivityZones" unique_id=88863192 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkSquare" parent="ActivityZones" unique_id=88863192 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1510, 965)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-75, -50, 75, -50, 75, 50, -75, 50)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkSquare"
 district_id = &"center"
 location_path = NodePath("../../Roads/Square")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkBell" type="Polygon2D" parent="ActivityZones" unique_id=233286112 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkBell" parent="ActivityZones" unique_id=233286112 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1660, 945)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-50, -50, 50, -50, 50, 50, -50, 50)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkBell"
 district_id = &"center"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/AlarmBell")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkSouthRoad" type="Polygon2D" parent="ActivityZones" unique_id=1206907218 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkSouthRoad" parent="ActivityZones" unique_id=1206907218 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1540, 1760)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-80, -35, 80, -35, 80, 35, -80, 35)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkSouthRoad"
 district_id = &"south"
 location_path = NodePath("../../Roads/FarmLane0")
 allowed_roles = PackedStringArray("peasant")
 
-[node name="WorkSmithYard" type="Polygon2D" parent="ActivityZones" unique_id=234947621 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkSmithYard" parent="ActivityZones" unique_id=234947621 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2205, 838)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-45, -47.5, 45, -47.5, 45, 47.5, -45, 47.5)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkSmithYard"
 district_id = &"artisan"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Workshops/Blacksmith")
 allowed_roles = PackedStringArray("artisan")
 
-[node name="WorkCarpenter" type="Polygon2D" parent="ActivityZones" unique_id=545593425 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkCarpenter" parent="ActivityZones" unique_id=545593425 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2400, 950)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-70, -35, 70, -35, 70, 35, -70, 35)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkCarpenter"
 district_id = &"artisan"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Workshops/Carpenter")
 allowed_roles = PackedStringArray("artisan")
 
-[node name="WorkWeaver" type="Polygon2D" parent="ActivityZones" unique_id=1559719491 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkWeaver" parent="ActivityZones" unique_id=1559719491 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2180, 1225)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-80, -45, 80, -45, 80, 45, -80, 45)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkWeaver"
 district_id = &"artisan"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Workshops/Weaver")
 allowed_roles = PackedStringArray("artisan")
 
-[node name="WorkStorage" type="Polygon2D" parent="ActivityZones" unique_id=209926283 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkStorage" parent="ActivityZones" unique_id=209926283 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2440, 1210)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-75, -45, 75, -45, 75, 45, -75, 45)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkStorage"
 district_id = &"artisan"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Workshops/Storage")
 allowed_roles = PackedStringArray("artisan")
 
-[node name="HomeGuardPost" type="Polygon2D" parent="ActivityZones" unique_id=321057650 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="HomeGuardPost" parent="ActivityZones" unique_id=321057650 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2260, 1660)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-100, -45, 100, -45, 100, 45, -100, 45)
-script = ExtResource("7_2xp6p")
 zone_id = &"HomeGuardPost"
 district_id = &"guard"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/GuardPost")
 allowed_roles = PackedStringArray("guard")
 
-[node name="WorkGuardYard" type="Polygon2D" parent="ActivityZones" unique_id=1346416080 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkGuardYard" parent="ActivityZones" unique_id=1346416080 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2260, 1660)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-100, -45, 100, -45, 100, 45, -100, 45)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkGuardYard"
 district_id = &"guard"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/GuardPost")
 allowed_roles = PackedStringArray("guard")
 
-[node name="WorkGuardRoad" type="Polygon2D" parent="ActivityZones" unique_id=646082522 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkGuardRoad" parent="ActivityZones" unique_id=646082522 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2305, 1370)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-65, -35, 65, -35, 65, 35, -65, 35)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkGuardRoad"
 district_id = &"guard"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/GuardPost")
 allowed_roles = PackedStringArray("guard")
 
-[node name="HomeChapel" type="Polygon2D" parent="ActivityZones" unique_id=1677998063 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="HomeChapel" parent="ActivityZones" unique_id=1677998063 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1405, 595)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-50, -45, 50, -45, 50, 45, -50, 45)
-script = ExtResource("7_2xp6p")
 zone_id = &"HomeChapel"
 district_id = &"church"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/Church")
 allowed_roles = PackedStringArray("priest")
 
-[node name="WorkChurch" type="Polygon2D" parent="ActivityZones" unique_id=502176674 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkChurch" parent="ActivityZones" unique_id=502176674 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1400, 598)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-55, -47.5, 55, -47.5, 55, 47.5, -55, 47.5)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkChurch"
 district_id = &"church"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/Church")
 allowed_roles = PackedStringArray("priest")
 
-[node name="WorkCemetery" type="Polygon2D" parent="ActivityZones" unique_id=717359277 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WorkCemetery" parent="ActivityZones" unique_id=717359277 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1730, 365)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-175, -35, 175, -35, 175, 35, -175, 35)
-script = ExtResource("7_2xp6p")
 activity = 1
 zone_id = &"WorkCemetery"
 district_id = &"church"
 location_path = NodePath("../../Environment/CemeteryYard")
 allowed_roles = PackedStringArray("priest")
 
-[node name="SocialNorthwest" type="Polygon2D" parent="ActivityZones" unique_id=1448593068 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialNorthwest" parent="ActivityZones" unique_id=1448593068 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(710, 653)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-45, -52.5, 45, -52.5, 45, 52.5, -45, 52.5)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialNorthwest"
 district_id = &"northwest"
 location_path = NodePath("../../Roads/WestLane0")
 allowed_roles = PackedStringArray()
 
-[node name="SocialSquare" type="Polygon2D" parent="ActivityZones" unique_id=357498646 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialSquare" parent="ActivityZones" unique_id=357498646 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1530, 965)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-75, -50, 75, -50, 75, 50, -75, 50)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialSquare"
 district_id = &"center"
 location_path = NodePath("../../Roads/Square")
 allowed_roles = PackedStringArray()
 
-[node name="SocialWell" type="Polygon2D" parent="ActivityZones" unique_id=282742194 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialWell" parent="ActivityZones" unique_id=282742194 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1380, 970)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-55, -40, 55, -40, 55, 40, -55, 40)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialWell"
 district_id = &"center"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/Well")
 allowed_roles = PackedStringArray()
 
-[node name="SocialFarm" type="Polygon2D" parent="ActivityZones" unique_id=1652283773 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialFarm" parent="ActivityZones" unique_id=1652283773 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(735, 1445)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-60, -50, 60, -50, 60, 50, -60, 50)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialFarm"
 district_id = &"farm"
 location_path = NodePath("../../Environment/EastField")
 allowed_roles = PackedStringArray()
 
-[node name="SocialArtisan" type="Polygon2D" parent="ActivityZones" unique_id=419363652 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialArtisan" parent="ActivityZones" unique_id=419363652 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2230, 900)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-60, -50, 60, -50, 60, 50, -60, 50)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialArtisan"
 district_id = &"artisan"
 location_path = NodePath("../../Environment/WorkYard")
 allowed_roles = PackedStringArray()
 
-[node name="SocialSouth" type="Polygon2D" parent="ActivityZones" unique_id=1045833849 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialSouth" parent="ActivityZones" unique_id=1045833849 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1500, 1635)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-60, -45, 60, -45, 60, 45, -60, 45)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialSouth"
 district_id = &"south"
 location_path = NodePath("../../Roads/FarmLane0")
 allowed_roles = PackedStringArray()
 
-[node name="SocialTavern" type="Polygon2D" parent="ActivityZones" unique_id=134136388 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialTavern" parent="ActivityZones" unique_id=134136388 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1710, 1290)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-90, -30, 90, -30, 90, 30, -90, 30)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialTavern"
 district_id = &"south"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/Tavern")
 allowed_roles = PackedStringArray()
 
-[node name="SocialGuard" type="Polygon2D" parent="ActivityZones" unique_id=540597578 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialGuard" parent="ActivityZones" unique_id=540597578 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2230, 1650)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-70, -45, 70, -45, 70, 45, -70, 45)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialGuard"
 district_id = &"guard"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/GuardPost")
 allowed_roles = PackedStringArray("guard")
 
-[node name="SocialChurch" type="Polygon2D" parent="ActivityZones" unique_id=282087891 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="SocialChurch" parent="ActivityZones" unique_id=282087891 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1540, 530)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-60, -35, 60, -35, 60, 35, -60, 35)
-script = ExtResource("7_2xp6p")
 activity = 2
 zone_id = &"SocialChurch"
 district_id = &"church"
 location_path = NodePath("../../NavigationRegion2D/Buildings/Public/Church")
 allowed_roles = PackedStringArray()
 
-[node name="WalkNorthwest" type="Polygon2D" parent="ActivityZones" unique_id=246402693 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WalkNorthwest" parent="ActivityZones" unique_id=246402693 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(780, 790)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-35, -80, 35, -80, 35, 80, -35, 80)
-script = ExtResource("7_2xp6p")
 activity = 3
 zone_id = &"WalkNorthwest"
 district_id = &"northwest"
 allowed_roles = PackedStringArray()
 
-[node name="WalkCenter" type="Polygon2D" parent="ActivityZones" unique_id=1650296258 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WalkCenter" parent="ActivityZones" unique_id=1650296258 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1540, 1125)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-50, -55, 50, -55, 50, 55, -50, 55)
-script = ExtResource("7_2xp6p")
 activity = 3
 zone_id = &"WalkCenter"
 district_id = &"center"
 allowed_roles = PackedStringArray()
 
-[node name="WalkFarm" type="Polygon2D" parent="ActivityZones" unique_id=1076354695 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WalkFarm" parent="ActivityZones" unique_id=1076354695 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(505, 1400)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-65, -50, 65, -50, 65, 50, -65, 50)
-script = ExtResource("7_2xp6p")
 activity = 3
 zone_id = &"WalkFarm"
 district_id = &"farm"
 allowed_roles = PackedStringArray()
 
-[node name="WalkArtisan" type="Polygon2D" parent="ActivityZones" unique_id=1811190684 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WalkArtisan" parent="ActivityZones" unique_id=1811190684 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2045, 990)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-35, -60, 35, -60, 35, 60, -35, 60)
-script = ExtResource("7_2xp6p")
 activity = 3
 zone_id = &"WalkArtisan"
 district_id = &"artisan"
 allowed_roles = PackedStringArray()
 
-[node name="WalkSouth" type="Polygon2D" parent="ActivityZones" unique_id=6441445 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WalkSouth" parent="ActivityZones" unique_id=6441445 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1595, 1745)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-75, -45, 75, -45, 75, 45, -75, 45)
-script = ExtResource("7_2xp6p")
 activity = 3
 zone_id = &"WalkSouth"
 district_id = &"south"
 allowed_roles = PackedStringArray()
 
-[node name="WalkGuard" type="Polygon2D" parent="ActivityZones" unique_id=1572530268 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WalkGuard" parent="ActivityZones" unique_id=1572530268 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2155, 1455)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-55, -55, 55, -55, 55, 55, -55, 55)
-script = ExtResource("7_2xp6p")
 activity = 3
 zone_id = &"WalkGuard"
 district_id = &"guard"
 allowed_roles = PackedStringArray("guard")
 
-[node name="WalkChurch" type="Polygon2D" parent="ActivityZones" unique_id=1564076638 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WalkChurch" parent="ActivityZones" unique_id=1564076638 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1520, 635)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-45, -50, 45, -50, 45, 50, -45, 50)
-script = ExtResource("7_2xp6p")
 activity = 3
 zone_id = &"WalkChurch"
 district_id = &"church"
 allowed_roles = PackedStringArray()
 
-[node name="WalkCemetery" type="Polygon2D" parent="ActivityZones" unique_id=779374916 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
+[node name="WalkCemetery" parent="ActivityZones" unique_id=779374916 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(1730, 365)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-175, -35, 175, -35, 175, 35, -175, 35)
-script = ExtResource("7_2xp6p")
 activity = 3
 zone_id = &"WalkCemetery"
 district_id = &"church"
@@ -5849,7 +5787,7 @@ metadata/work_site = "SmithYard"
 metadata/activity_district = "artisan"
 
 [node name="Polygon2D" parent="Villagers/Artisan20" index="0" unique_id=1358113620]
-color = Color(0.6509804, 0.5294118, 0.39215687, 1)
+color = Color(0.34509805, 0.24313726, 0.13333334, 1)
 
 [node name="Artisan21" parent="Villagers" unique_id=1242741327 instance=ExtResource("9_vjkkk")]
 position = Vector2(2420, 910)
@@ -5866,7 +5804,7 @@ metadata/work_site = "Carpenter"
 metadata/activity_district = "artisan"
 
 [node name="Polygon2D" parent="Villagers/Artisan21" index="0" unique_id=1358113620]
-color = Color(0.6509804, 0.5294118, 0.39215687, 1)
+color = Color(0.34509805, 0.24313726, 0.13333334, 1)
 
 [node name="Artisan22" parent="Villagers" unique_id=1501188052 instance=ExtResource("9_vjkkk")]
 position = Vector2(2180, 1190)
@@ -5883,7 +5821,7 @@ metadata/work_site = "Weaver"
 metadata/activity_district = "artisan"
 
 [node name="Polygon2D" parent="Villagers/Artisan22" index="0" unique_id=1358113620]
-color = Color(0.6509804, 0.5294118, 0.39215687, 1)
+color = Color(0.34509805, 0.24313726, 0.13333334, 1)
 
 [node name="Artisan23" parent="Villagers" unique_id=54515785 instance=ExtResource("9_vjkkk")]
 position = Vector2(2435, 1180)
@@ -5900,7 +5838,7 @@ metadata/work_site = "Storage"
 metadata/activity_district = "artisan"
 
 [node name="Polygon2D" parent="Villagers/Artisan23" index="0" unique_id=1358113620]
-color = Color(0.6509804, 0.5294118, 0.39215687, 1)
+color = Color(0.34509805, 0.24313726, 0.13333334, 1)
 
 [node name="Artisan24" parent="Villagers" unique_id=1458016739 instance=ExtResource("9_vjkkk")]
 position = Vector2(2130, 860)
@@ -5917,7 +5855,7 @@ metadata/work_site = "SmithYard"
 metadata/activity_district = "artisan"
 
 [node name="Polygon2D" parent="Villagers/Artisan24" index="0" unique_id=1358113620]
-color = Color(0.6509804, 0.5294118, 0.39215687, 1)
+color = Color(0.34509805, 0.24313726, 0.13333334, 1)
 
 [node name="Guard25" parent="Villagers" unique_id=829940465 instance=ExtResource("9_vjkkk")]
 position = Vector2(2160, 1480)
@@ -5937,7 +5875,7 @@ metadata/work_site = "GuardYard"
 metadata/activity_district = "guard"
 
 [node name="Polygon2D" parent="Villagers/Guard25" index="0" unique_id=1358113620]
-color = Color(0.5294118, 0.6117647, 0.627451, 1)
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
 [node name="GuardPatrol" type="Node" parent="Villagers/Guard25" unique_id=1638490624]
 script = ExtResource("10_nkg87")
@@ -5965,7 +5903,7 @@ metadata/work_site = "GuardYard"
 metadata/activity_district = "guard"
 
 [node name="Polygon2D" parent="Villagers/Guard26" index="0" unique_id=1358113620]
-color = Color(0.5294118, 0.6117647, 0.627451, 1)
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
 [node name="GuardPatrol" type="Node" parent="Villagers/Guard26" unique_id=1487016041]
 script = ExtResource("10_nkg87")
@@ -5992,7 +5930,7 @@ metadata/work_site = "GuardYard"
 metadata/activity_district = "guard"
 
 [node name="Polygon2D" parent="Villagers/Guard27" index="0" unique_id=1358113620]
-color = Color(0.5294118, 0.6117647, 0.627451, 1)
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
 [node name="GuardPatrol" type="Node" parent="Villagers/Guard27" unique_id=224714852]
 script = ExtResource("10_nkg87")
@@ -6019,7 +5957,7 @@ metadata/work_site = "GuardYard"
 metadata/activity_district = "guard"
 
 [node name="Polygon2D" parent="Villagers/Guard28" index="0" unique_id=1358113620]
-color = Color(0.5294118, 0.6117647, 0.627451, 1)
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
 [node name="GuardPatrol" type="Node" parent="Villagers/Guard28" unique_id=259142486]
 script = ExtResource("10_nkg87")
@@ -6046,7 +5984,7 @@ metadata/work_site = "GuardYard"
 metadata/activity_district = "guard"
 
 [node name="Polygon2D" parent="Villagers/Guard29" index="0" unique_id=1358113620]
-color = Color(0.5294118, 0.6117647, 0.627451, 1)
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
 [node name="GuardPatrol" type="Node" parent="Villagers/Guard29" unique_id=2122208518]
 script = ExtResource("10_nkg87")
@@ -6073,33 +6011,24 @@ metadata/work_site = "Church"
 metadata/activity_district = "church"
 
 [node name="Polygon2D" parent="Villagers/Priest30" index="0" unique_id=1358113620]
-color = Color(0.76862746, 0.7372549, 0.6745098, 1)
+color = Color(0.946505, 0.93783337, 0.9204679, 1)
+
+[node name="PriestRoutine" type="Node" parent="Villagers/Priest30" unique_id=1259873974]
+script = ExtResource("30_priest_routine")
+chapel_zone_paths = Array[NodePath]([NodePath("../../../ActivityZones/HomeChapel"), NodePath("../../../ActivityZones/WorkChurch"), NodePath("../../../ActivityZones/SocialChurch"), NodePath("../../../ActivityZones/WalkChurch")])
+cemetery_zone_paths = Array[NodePath]([NodePath("../../../ActivityZones/WorkCemetery"), NodePath("../../../ActivityZones/WalkCemetery")])
+public_zone_paths = Array[NodePath]([NodePath("../../../ActivityZones/SocialSquare"), NodePath("../../../ActivityZones/SocialWell")])
 
 [node name="Zombies" type="Node2D" parent="." unique_id=326596473]
 
-[node name="Zombie1" type="CharacterBody2D" parent="Zombies" unique_id=1210245640 groups=["player_units"] instance=ExtResource("11_ugq7x")]
-z_index = 1
+[node name="Zombie1" parent="Zombies" unique_id=1210245640 instance=ExtResource("11_ugq7x")]
 position = Vector2(170, 900)
-collision_layer = 2
-collision_mask = 11
-motion_mode = 1
-script = ExtResource("12_r1adv")
 
-[node name="Zombie2" type="CharacterBody2D" parent="Zombies" unique_id=1865253270 groups=["player_units"] instance=ExtResource("11_ugq7x")]
-z_index = 1
+[node name="Zombie2" parent="Zombies" unique_id=1865253270 instance=ExtResource("11_ugq7x")]
 position = Vector2(170, 945)
-collision_layer = 2
-collision_mask = 11
-motion_mode = 1
-script = ExtResource("12_r1adv")
 
-[node name="Zombie3" type="CharacterBody2D" parent="Zombies" unique_id=395894147 groups=["player_units"] instance=ExtResource("11_ugq7x")]
-z_index = 1
+[node name="Zombie3" parent="Zombies" unique_id=395894147 instance=ExtResource("11_ugq7x")]
 position = Vector2(170, 990)
-collision_layer = 2
-collision_mask = 11
-motion_mode = 1
-script = ExtResource("12_r1adv")
 
 [connection signal="minimum_size_changed" from="CanvasLayer/MissionPanel" to="CanvasLayer/MissionPanel" method="reset_size"]
 
