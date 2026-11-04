@@ -9,6 +9,9 @@ func warning_fixture() -> void:
 	await response_fixture(3)
 	response.warning_duration = 0.25
 	response.fleeing_speed = 0
+	# Isolate the completed stationary W action; escape cries have their own
+	# end-to-end regression with the default interval and ordinary movement.
+	resident.local_warning.escape_warning_interval = 0
 	map.villagers[1].position = Vector2(680, 350)
 	map.villagers[2].position = Vector2(470, 360)
 	map.villagers[3].position = Vector2(520, 350)
@@ -79,7 +82,8 @@ func run() -> void:
 		"Unrefreshed report expires and clears warning-only navigation lock")
 	receiver.set_physics_process(true)
 	await frames(10)
-	check(receiver.has_destination or receiver.is_performing_activity, "Expired warning permits peaceful activities to resume")
+	check(receiver.threat_reaction.seeking_home and receiver.threat_reaction.reaction_state == receiver.threat_reaction.Reaction.SEEKING_SHELTER
+		and not receiver.is_performing_activity, "Expired coordinates retain the civilian's home refuge plan")
 	await clear_map()
 	await check_radius_and_invalid_reports()
 	await check_failed_report_response()
@@ -117,8 +121,8 @@ func check_failed_report_response() -> void:
 		"Unavailable escape route uses existing bounded fallback for a report")
 	await frames(60)
 	check(not report.has_report() and not receiver.threat_reaction.episode_active
-		and (receiver.has_destination or receiver.is_performing_activity),
-		"Failed warning-only response expires without permanently freezing civilian AI")
+		and receiver.threat_reaction.seeking_home and receiver.threat_reaction.reaction_state == receiver.threat_reaction.Reaction.SEEKING_SHELTER,
+		"Failed immediate escape expires into home seeking rather than ordinary work")
 	await clear_map()
 
 

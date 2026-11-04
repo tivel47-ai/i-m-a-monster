@@ -290,8 +290,9 @@ func check_direct_threat() -> void:
 		"Existing fleeing owns agent target and can leave zone without peaceful timers or boundary clamp interfering")
 	enemy.queue_free()
 	await frames(330)
-	check(not actor.threat_reaction.episode_active and actor.current_zone == data.zone and actor.current_activity == actor.Activity.HOME,
-		"After danger ends, existing reassessment permits fresh zone activity selection")
+	check(not actor.threat_reaction.episode_active and actor.current_zone == null and actor.threat_reaction.seeking_home
+		and actor.threat_reaction.reaction_state == actor.threat_reaction.Reaction.SEEKING_SHELTER and actor.current_activity == actor.Activity.NONE,
+		"After danger ends, persistent home refuge owns navigation instead of resuming a peaceful zone")
 	await clear_map()
 
 
@@ -327,8 +328,9 @@ func check_local_warning() -> void:
 			owns_route = owns_route and actor.navigation_agent.target_position == actor.threat_reaction.route_destination
 	check(owns_route and actor.current_zone == null, "Report-based fleeing retains target ownership after local timers would have expired")
 	await frames(600)
-	check(not actor.local_warning.has_report() and not actor.threat_reaction.episode_active and actor.current_zone == data.zone,
-		"Report expiration releases existing response and resumes fresh peaceful zone selection")
+	check(not actor.local_warning.has_report() and not actor.threat_reaction.episode_active and actor.current_zone == null
+		and actor.threat_reaction.seeking_home and actor.threat_reaction.reaction_state == actor.threat_reaction.Reaction.SEEKING_SHELTER,
+		"Report expiration preserves home refuge without restoring a peaceful zone")
 	await clear_map()
 
 
@@ -345,7 +347,9 @@ func check_combat_lifecycle() -> void:
 	actor.leave_encounter(enemy)
 	enemy.queue_free()
 	await frames(330)
-	check(actor.is_available_for_infection() and actor.current_zone == data.zone, "Surviving combat returns through existing reassessment to fresh zone selection")
+	check(actor.is_available_for_infection() and actor.current_zone == null and actor.threat_reaction.seeking_home
+		and actor.current_activity == actor.Activity.NONE and actor.threat_reaction.reaction_state == actor.threat_reaction.Reaction.SEEKING_SHELTER,
+		"Surviving combat retains independent home refuge without resuming a peaceful zone")
 	await clear_map()
 	data = await moving_fixture()
 	actor = data.actor

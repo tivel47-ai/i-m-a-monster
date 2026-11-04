@@ -227,8 +227,9 @@ func check_warning_and_recovery() -> void:
 	check(warning_events == 1 and response.episode_active, "Brief threat loss and reacquisition do not reroll ongoing response")
 	zombie.position = Vector2(1000, 390)
 	await frames(200)
-	check(resident.has_destination or resident.is_performing_activity or resident.wait_remaining > 0,
-		"Villager returns to ordinary activity cycle after safety timeout")
+	check(response.seeking_home and response.reaction_state == response.Reaction.SEEKING_SHELTER
+		and not resident.is_performing_activity,
+		"Sustained quiet ends immediate flight but preserves the home refuge plan")
 	# The recovery cooldown now begins only after actual safety, not a time cap.
 	await frames(250)
 	resident._stop_movement()

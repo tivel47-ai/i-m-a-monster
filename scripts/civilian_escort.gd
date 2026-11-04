@@ -335,6 +335,9 @@ func update_escort(delta: float) -> bool:
 			move_to(point, delta)
 		return true
 	if decision: observe_site_danger()
+	# A witness/warned civilian keeps their own refuge plan even after the short
+	# emergency reaction/report expires. Recruitment above can still override it.
+	if actor.threat_reaction.seeking_home: return false
 	if actor.threat_reaction.episode_active or actor.get_recognized_threat() != null: return false
 	if role() == "priest": return false # preserve the separate peaceful PriestRoutine
 	# An individual destination preference, not a spontaneous militia.

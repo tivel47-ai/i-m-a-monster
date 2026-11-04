@@ -53,7 +53,7 @@ func nearby(actor: Node2D, radius: float, mask: int = 8) -> Array[Node2D]:
 func release_safety(actor: Node2D) -> void:
 	safety_reservations.erase(actor.get_instance_id())
 
-func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator, local: bool = false, local_radius: float = 40.0) -> Vector2:
+func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator, local: bool = false, local_radius: float = 40.0, marker_radius: float = INF) -> Vector2:
 	# Movement reservations only, never enemy knowledge or an NPC command bus.
 	var reserved = PackedVector2Array()
 	for id in safety_reservations.keys():
@@ -81,7 +81,7 @@ func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator
 			var snapped = NavigationServer2D.map_get_closest_point(actor.navigation_agent.get_navigation_map(), point)
 			if snapped.distance_to(point) > actor.arrival_tolerance: continue
 			point = snapped
-		if not reachable(actor, point): continue
+		if point.distance_to(marker.global_position) > marker_radius or not reachable(actor, point): continue
 		var free = true
 		for other in reserved:
 			if point.distance_to(other) < safety_spacing: free = false

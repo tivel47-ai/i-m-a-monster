@@ -557,6 +557,10 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 
 	var starting_encounter := infection_state == InfectionState.AVAILABLE
 	if starting_encounter:
+		if guard_ai == null or not guard_ai.enabled:
+			threat_reaction.seeking_home = true
+			threat_reaction.threat_position = zombie.global_position
+			local_warning._remember_observation(zombie)
 		infection_state = InfectionState.IN_COLLISION
 		threat_reaction.cancel_response()
 		threat_detection.reset_awareness()

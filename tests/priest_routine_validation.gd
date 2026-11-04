@@ -240,7 +240,7 @@ func check_interruptions() -> void:
 	enemy.queue_free()
 	await frames(30)
 	check(priest.threat_reaction.episode_active,"Removing threat preserves existing safety/reassessment delay")
-	check(await await_activity(),"Priest returns to a valid peaceful territory after threat reassessment")
+	check(await await_refuge() and routine.completed_activities==completed and routine.territory==phase,"After danger the priest takes exterior refuge without falsely completing a peaceful visit")
 	completed=routine.completed_activities
 	var speaker=map.villagers[0]
 	speaker.position=priest.position+Vector2(35,0)
@@ -252,7 +252,7 @@ func check_interruptions() -> void:
 	speaker.threat_reaction.cancel_response()
 	await frames(720)
 	check(not priest.local_warning.has_report() and not priest.threat_reaction.episode_active,"Existing report expiry safely releases priest response")
-	check(await await_activity(),"Priest safely resumes after a local warning")
+	check(await await_refuge() and routine.completed_activities==completed,"After a local warning the priest remains in exterior refuge instead of resuming peaceful visits")
 	enemy=enemy_near_actor()
 	priest.threat_detection.detection_enabled=false
 	priest.begin_encounter(Color.GREEN,enemy)
@@ -260,11 +260,17 @@ func check_interruptions() -> void:
 	check(not priest.has_destination and priest.current_zone==null and priest.is_in_collision(),"Combat suspends priest peaceful selection and movement")
 	priest.leave_encounter(enemy)
 	enemy.queue_free()
-	check(await await_activity(),"Existing encounter reassessment permits priest routine recovery")
+	check(await await_refuge() and routine.completed_activities==completed,"A priest surviving combat keeps the same home refuge fallback as other civilians")
 	completed=routine.completed_activities
 	priest.take_damage(1000)
 	await frames(30)
 	check(priest.is_dead() and priest.current_zone==null and not priest.has_destination and routine.completed_activities==completed,"Death permanently stops priest routine without false activity completion")
+
+func await_refuge() -> bool:
+	for tick in range(3600):
+		await frames(1)
+		if priest.threat_reaction.sheltered_at_home: return true
+	return false
 
 func check_conversion() -> void:
 	check(await await_activity(),"Conversion fixture reaches its real assigned chapel territory")

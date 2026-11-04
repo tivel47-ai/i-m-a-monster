@@ -7,6 +7,8 @@ enum Knowledge { NORMAL, WARNED, DIRECTLY_AWARE }
 @export var report_duration: float = 10.0
 @export var duplicate_distance: float = 32.0
 @export var duplicate_refresh_interval: float = 1.0
+## A firsthand witness can call for help while running, without a stationary W roll.
+@export var escape_warning_interval: float = 1.0
 @export var debug_enabled: bool = true
 
 var reported_position: Vector2
@@ -16,6 +18,8 @@ var local_time: float = 0.0
 var reports_received: int = 0
 var notifications_delivered: int = 0
 var firsthand_report: Dictionary = {}
+var next_escape_warning: float = 0.0
+var sending_escape_warning: bool = false
 
 @onready var villager = get_parent()
 @onready var sensor = get_parent().get_node("ThreatDetection")
@@ -27,7 +31,7 @@ func _ready() -> void:
 
 
 func _remember_observation(target: Node2D) -> void:
-	if villager.defense == null: return
+	if villager.defense == null or not sensor._is_visible_target(target): return
 	var count := 0
 	for enemy in sensor.nearby_threats():
 		if sensor._is_visible_target(enemy): count += 1
@@ -45,7 +49,23 @@ func _physics_process(delta: float) -> void:
 		remaining = maxf(remaining - delta, 0.0)
 		if remaining == 0:
 			clear_report()
+	_update_escape_warning()
 	queue_redraw()
+
+
+func _update_escape_warning() -> void:
+	if escape_warning_interval <= 0 or local_time < next_escape_warning or not villager.autonomous_movement_enabled or not villager.is_available_for_infection(): return
+	if villager.guard_ai != null and villager.guard_ai.enabled: return # guards use their own local protocol
+	var reaction = villager.threat_reaction
+	if not reaction.seeking_home or reaction.report_based or reaction.reaction_state in [reaction.Reaction.WARNING, reaction.Reaction.FROZEN]: return
+	next_escape_warning = local_time + maxf(escape_warning_interval, duplicate_refresh_interval + 0.01)
+	var target = villager.get_recognized_threat()
+	if is_instance_valid(target) and sensor._is_visible_target(target): _remember_observation(target)
+	if firsthand_report.is_empty() or villager.defense.elapsed - float(firsthand_report.observed_at) > report_duration: return
+	# This flag is scoped to synchronous delivery, never inherited by recipients.
+	sending_escape_warning = true
+	_deliver_warning(firsthand_report.point)
+	sending_escape_warning = false
 
 
 func _can_receive() -> bool:
@@ -77,7 +97,14 @@ func _on_warning_attempted(source: Node2D, point: Vector2) -> void:
 	var reaction = villager.threat_reaction
 	if reaction.report_based or not reaction.episode_active or not reaction.warning_sent or not _valid_position(point):
 		return
-	# Delivery is event-driven and single-hop; receivers never broadcast here.
+	var target = villager.get_recognized_threat()
+	if is_instance_valid(target) and sensor._is_visible_target(target): _remember_observation(target)
+	next_escape_warning = local_time + maxf(escape_warning_interval, duplicate_refresh_interval + 0.01)
+	_deliver_warning(point)
+
+
+func _deliver_warning(point: Vector2) -> void:
+	# Both a completed W action and an escape cry use the same local delivery.
 	for candidate in get_tree().get_nodes_in_group("civilian_warning_receivers"):
 		if candidate == villager or not candidate is Node2D or candidate.is_queued_for_deletion():
 			continue
@@ -93,7 +120,9 @@ func receive_warning(source: Variant, point: Vector2) -> bool:
 		return false
 	if source.is_queued_for_deletion() or not source.is_in_group("civilian_warning_receivers") or not source.is_available_for_infection():
 		return false
-	if source.get_world_2d() != villager.get_world_2d() or source.threat_reaction.report_based or not source.threat_reaction.episode_active or not source.threat_reaction.warning_sent:
+	if source.get_world_2d() != villager.get_world_2d() or source.threat_reaction.report_based:
+		return false
+	if not source.local_warning.sending_escape_warning and (not source.threat_reaction.episode_active or not source.threat_reaction.warning_sent):
 		return false
 	if hearing_radius <= 0 or source.global_position.distance_to(villager.global_position) > hearing_radius or not _valid_position(point):
 		return false
@@ -107,6 +136,8 @@ func receive_warning(source: Variant, point: Vector2) -> bool:
 	reported_position = point
 	received_at = local_time
 	remaining = maxf(report_duration, 0)
+	if not source.local_warning.firsthand_report.is_empty() and villager.defense != null:
+		remaining = minf(remaining, maxf(report_duration - (villager.defense.elapsed - float(source.local_warning.firsthand_report.observed_at)), 0.0))
 	if remaining == 0:
 		clear_report()
 		return false

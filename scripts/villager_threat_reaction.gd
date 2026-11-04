@@ -12,6 +12,7 @@ enum Reaction { NONE, FLEEING, SEEKING_SHELTER, WARNING, FROZEN }
 @export var fleeing_speed: float = 85.0
 @export var escape_distance: float = 180.0
 @export var threat_clearance: float = 40.0
+@export var home_approach_radius: float = 36.0
 @export var warning_duration: float = 1.0
 @export var frozen_duration: Vector2 = Vector2(1.0, 3.0)
 @export var safety_timeout: float = 3.0
@@ -44,6 +45,12 @@ var route_attempts: int = 0
 var freeze_used: bool = false
 var warning_sent: bool = false
 var report_based: bool = false
+## Surviving an encounter changes the civilian's plan for the rest of this mission.
+## Cancelling a movement/combat response must not erase this personal decision.
+var seeking_home: bool = false
+var sheltered_at_home: bool = false
+var home_destination: Vector2 = Vector2.INF
+var home_retry_remaining: float = 0.0
 var reaction_random := RandomNumberGenerator.new()
 
 @onready var villager = get_parent()
@@ -70,6 +77,8 @@ func recognize_threat(target: Node2D) -> void:
 		return
 	if not sensor._is_visible_target(target):
 		return
+	seeking_home = true
+	sheltered_at_home = false
 	if episode_active:
 		# Personal recognition supersedes a static report without rerolling.
 		if report_based:
@@ -78,7 +87,8 @@ func recognize_threat(target: Node2D) -> void:
 		episode_targets[target.get_instance_id()] = true
 		_consider_target(target)
 		return
-	if cooldown_remaining > 0 or handled_targets.has(target.get_instance_id()):
+	# A returning monster is immediate danger even during the old recovery pause.
+	if handled_targets.has(target.get_instance_id()):
 		return
 	villager._stop_movement()
 	threat_target = target
@@ -99,6 +109,8 @@ func recognize_threat(target: Node2D) -> void:
 func respond_to_report(point: Vector2) -> void:
 	if not reactions_enabled or not villager.autonomous_movement_enabled or not villager.is_available_for_infection():
 		return
+	seeking_home = true
+	sheltered_at_home = false
 	var direct: Node2D = villager.get_recognized_threat()
 	if is_instance_valid(direct) and sensor._is_visible_target(direct):
 		recognize_threat(direct)
@@ -140,18 +152,17 @@ func update_response(delta: float) -> bool:
 		var recognized: Node2D = villager.get_recognized_threat()
 		if is_instance_valid(recognized):
 			recognize_threat(recognized)
-		if not episode_active and villager.local_warning.has_report():
+		if not episode_active and not seeking_home and villager.local_warning.has_report():
 			respond_to_report(villager.local_warning.reported_position)
 		if not episode_active:
 			if reassessment_remaining > 0:
 				reassessment_remaining = maxf(0, reassessment_remaining - delta)
 				villager._stop_movement()
-				return reassessment_remaining > 0 and safe_elapsed < maxf(safety_timeout, 0.1)
-			return false
+				if reassessment_remaining > 0 and safe_elapsed < maxf(safety_timeout, 0.1): return true
+			return _update_home(delta) if seeking_home else false
 	if report_based and not villager.local_warning.has_report():
 		cancel_response()
-		villager.wait_remaining = 0
-		return false
+		return _update_home(delta)
 	episode_elapsed += delta
 	if safe_elapsed >= maxf(safety_timeout, 0.1):
 		_finish_episode()
@@ -291,12 +302,13 @@ func _plan_route() -> void:
 	has_route = true
 
 
-func _route_is_safe(point: Vector2) -> bool:
+func _route_is_safe(point: Vector2, remember_last_position: bool = true) -> bool:
 	var navigation_map: RID = villager.navigation_agent.get_navigation_map()
 	if not villager._is_destination_valid(point, navigation_map):
 		return false
 	var path := NavigationServer2D.map_get_path(navigation_map, villager.global_position, point, true, villager.navigation_agent.navigation_layers)
-	var dangers: Array[Vector2] = [threat_position]
+	var dangers: Array[Vector2] = []
+	if remember_last_position: dangers.append(threat_position)
 	for candidate in _visible_threats():
 		dangers.append(candidate.global_position)
 	for danger in dangers:
@@ -321,9 +333,60 @@ func _finish_episode() -> void:
 		handled_targets.clear()
 	cooldown_remaining = maxf(response_cooldown, 0)
 	villager.wait_remaining = 0
+	_update_home(0.0)
+
+
+func _update_home(delta: float) -> bool:
+	# Quiet is permission to approach a known home, not to resume WORK/SOCIAL.
+	# Last observed danger still constrains the path; no hidden enemy is tracked.
+	if villager.has_destination or villager.current_activity != villager.Activity.NONE:
+		villager._stop_movement()
+	reaction_state = Reaction.SEEKING_SHELTER
+	home_retry_remaining = maxf(home_retry_remaining - delta, 0.0)
+	if not has_route:
+		_stop_velocity()
+		if home_destination.is_finite() and villager.global_position.distance_to(home_destination) <= villager.arrival_tolerance:
+			sheltered_at_home = true
+			queue_redraw()
+			return true
+		if home_retry_remaining > 0: return true
+		home_retry_remaining = maxf(reassess_interval, 0.1)
+		var home = villager.get_node_or_null(villager.home_point_path) if not villager.home_point_path.is_empty() else null
+		if not home is Node2D: return true
+		var point: Vector2 = home.global_position
+		if villager.defense != null:
+			point = villager.defense.reserve_safety(villager, home, reaction_random, false, 40.0, maxf(home_approach_radius, 0.0))
+		var report: Dictionary = villager.local_warning.firsthand_report
+		var remember_last = villager.local_warning.has_report() or (not report.is_empty() and villager.defense != null
+			and villager.defense.elapsed - float(report.observed_at) <= villager.local_warning.report_duration)
+		if not point.is_finite() or not _route_is_safe(point, remember_last):
+			if villager.defense != null: villager.defense.release_safety(villager)
+			return true
+		home_destination = point
+		route_destination = point
+		villager.navigation_agent.target_position = point
+		villager.progress_position = villager.global_position
+		villager.stalled_seconds = 0
+		has_route = true
+	var result: int = villager._advance_navigation(home_destination, fleeing_speed, delta)
+	if result != villager.NavigationResult.MOVING:
+		has_route = false
+		_stop_velocity()
+		sheltered_at_home = result == villager.NavigationResult.ARRIVED
+		if not sheltered_at_home:
+			home_destination = Vector2.INF
+			if villager.defense != null: villager.defense.release_safety(villager)
+	queue_redraw()
+	return true
 
 
 func cancel_response() -> void:
+	if villager.defense != null and seeking_home: villager.defense.release_safety(villager)
+	if not villager.is_alive() or villager.infection_state == villager.InfectionState.TRANSFORMING:
+		seeking_home = false
+	home_destination = Vector2.INF
+	sheltered_at_home = false
+	home_retry_remaining = 0.0
 	episode_active = false
 	report_based = false
 	reaction_state = Reaction.NONE
