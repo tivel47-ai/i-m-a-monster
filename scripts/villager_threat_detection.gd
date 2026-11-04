@@ -87,13 +87,27 @@ func _is_visible_target(target: Variant) -> bool:
 func _nearest_visible_zombie() -> Node2D:
 	var nearest: Node2D
 	var nearest_distance := INF
-	for candidate in get_tree().get_nodes_in_group("player_units"):
+	for candidate in nearby_threats():
 		if candidate is Node2D and _is_visible_target(candidate):
 			var distance := global_position.distance_squared_to(candidate.global_position)
 			if distance < nearest_distance:
 				nearest = candidate
 				nearest_distance = distance
 	return nearest
+
+
+func nearby_threats() -> Array[Node2D]:
+	var result: Array[Node2D] = []
+	if detection_radius <= 0: return result
+	var shape := CircleShape2D.new()
+	shape.radius = detection_radius
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = shape
+	query.transform = global_transform
+	query.collision_mask = 2
+	for hit in get_world_2d().direct_space_state.intersect_shape(query, 64):
+		if hit.collider is Node2D and _is_valid_zombie(hit.collider): result.append(hit.collider)
+	return result
 
 
 func get_recognized_target() -> Node2D:

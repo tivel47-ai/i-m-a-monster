@@ -51,7 +51,7 @@ func check_assignments_and_destinations() -> void:
 		var actor = map.villagers[index]
 		var role: String = actor.get_meta("village_role")
 		var activities := [false,false,false,false]
-		var correct: bool = actor.home_duration == Vector2(12,24) and actor.work_duration == Vector2(18,36) and actor.move_speed == 55
+		var correct: bool = actor.home_duration == Vector2(12,24) and actor.work_duration == Vector2(18,36) and actor.move_speed == 35
 		correct = correct and not actor.marker_activity_fallback_enabled and actor.get_node_or_null(actor.home_point_path) is Marker2D
 		for zone in zone_list(actor):
 			correct = correct and zone.allows_resident(actor)

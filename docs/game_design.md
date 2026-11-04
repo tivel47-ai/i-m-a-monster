@@ -1,13 +1,13 @@
 # I’m a Monster
 
-> **Guard design decision record — 2026-11-04:** [Guard AI — canonical confirmed design](guard_ai_design.md) preserves the complete approved guard behavior, decision statuses, implementation gaps and future acceptance scenarios. It takes precedence for intended guard behavior over older summaries below. This documentation update implements no gameplay features; existing Russian prototype reports remain implementation history.
+> **04.11.2026 — реализация стражи:** [каноническая спецификация](guard_ai_design.md) сохраняет согласованный дизайн. Тактическая стража, задачи, местная связь, спутники и физический колокол подключены к миссиям; ограничения — §13 спецификации, параметры и проверки — TDD §9.12. Описания этапов 1–4 ниже сохраняют историческое состояние на дату этапа.
 
 ## Game Design Document (GDD) — MVP v0.6.2
 
 **Статус:** рабочий документ для разработки MVP  
 **Версия:** 0.6.2
 
-**Дата обновления:** 2 ноября 2026 года
+**Дата обновления:** 4 ноября 2026 года
 
 **Платформа:** Windows PC  
 **Движок:** Godot 4.7.2 Stable
@@ -289,7 +289,7 @@ HOME использует короткие переходы и длинные п
 
 ### Стражник
 
-**Confirmed design, not yet implemented as tactical guard AI:** use **B2 — Reasonable Defender**, local knowledge, contextual combat/retreat, bounded pursuit and dynamic lost-target search. Preserve the existing five guards, three routes and post/shift foundation. Guards have bounded relevant task memory; assistance versus reaching the bell is situational. At ALARM they retain territorial responsibility, actively recruit up to two civilian followers, and may locally agree on temporary cooperation with peer patrols. State, task, village alert, follower membership and patrol alliance are separate dimensions. Full rules, including no deliberate abandonment of active followers for faster assistance, are in the [canonical specification](guard_ai_design.md). Current guards still use civilian threat reactions; peaceful patrol alone does not implement this design.
+**Реализовано 04.11.2026:** `GuardAI` использует B2, местные наблюдения/сообщения, ограниченное преследование и динамический поиск. Память хранит актуальные задачи и прерывания. Сохранены пять стражников, три маршрута и смены у поста. При ALARM действуют территориальный патруль, приглашение максимум двух спутников и временные равноправные соглашения патрулей. Спутников нельзя намеренно бросать ради помощи союзнику. Правила и ограничения — [спецификация](guard_ai_design.md); боевой баланс не менялся.
 
 - Патрулирует маршруты и охраняет важные точки.
 - Использует оружие ближнего боя; дальнее оружие добавляется после базового боя.
@@ -345,11 +345,15 @@ HOME использует короткие переходы и длинные п
 ## 7.4. Дома
 Жители могут укрываться в домах; стены блокируют обзор. В MVP зомби могут атаковать жителей внутри через упрощённую механику. Взломы, баррикады и гнёзда монстров — идеи на будущее.
 
+**Исправления после видеопроверки 04.11.2026:** продолжающийся ближний контакт не перезапускает таймер удара; пойманный стражник защищается, не отменяя бой на каждой переоценке. Зомби при застревании может выбрать ограниченный доступный боковой обход. При ALARM гражданские занимают разнесённые места в доступных зонах, а стража сохраняет цель во время ожидания спутников и может подойти к лично видимому кандидату для приглашения. Задержка до затухания **очков подозрения** увеличена до 90 игровых секунд; ALARM от колокола автоматически не понижается. Параметры и выполненные проверки — [TDD §9.13](technical_design.md#913-исправления-по-видеозаписям-и-отладчику-04112026).
+**Уточнено и реализовано 04.11.2026 после новых записей:** личные распознавание, неуслышанный бой и смерть не повышают общий счёт. Подозрение растёт после фактически принятого местного сообщения, один раз на исходный инцидент; ALARM по-прежнему требует колокола. После колокола сбор спутников имеет приоритет над прежним поиском: без готового спутника стражник не отправляется один по старому следу. В местах сбора гражданские чередуют ожидание и короткую местную ходьбу. При лично замеченной или достоверно сообщённой большой группе монстров они запоминают опасное место и предпочитают дом/мастерскую после непосредственного бегства; несколько секунд тишины не вызывают спокойный возврат на опасную площадь. Параметры и проверка — [TDD §9.14](technical_design.md#914-сбор-спутников-после-колокола-распространённое-подозрение-и-жизнь-мест-сбора).
 # 8. Тревога и оборона
 
-**Confirmed target design — 2026-11-04:** `NORMAL`, `SUSPICION`, `ALARM`, and `ORGANIZED_DEFENSE` are village levels, separate from individual guard states. Village-wide ALARM requires physically reaching and activating the bell/alarm mechanism; incident scores and repeated sightings cannot trigger it remotely. The bell communicates danger, not exact monster locations. ALARM is not automatically organized defense. Full ORGANIZED_DEFENSE activation/command and ALARM reduction remain undecided. The score escalation/decay described in §8.1 is the **current implementation and a documented design gap**, not the approved future notification or stand-down rule. See [alert interaction](guard_ai_design.md#3-village-alert-and-patrol-interaction--confirmed-design) and [source discrepancies](guard_ai_design.md#13-current-implementation-and-discrepancy-register).
+**Актуально 04.11.2026:** четыре уровня отделены от личного состояния NPC. ALARM требует физического колокола, сообщает об опасности без координат и не означает ORGANIZED_DEFENSE. Очки повышают только SUSPICION; затухание не снимает ALARM. Отбой, переход и командование ORGANIZED_DEFENSE открыты. Подробности — [спецификация](guard_ai_design.md#3-village-alert-and-patrol-interaction--confirmed-design).
 
 ## 8.1. Общая тревога деревни — этап 1.6
+
+> **История до 04.11.2026:** следующие пороги ALARM и его понижение описывают прежний код. Сейчас `alarm_threshold` не активирует ALARM, а затухание относится к очкам подозрения. Актуальная реализация — TDD §9.12.
 
 **Реализовано 02.11.2026:** каждая запущенная миссия имеет собственный информационный показатель опасности: `NORMAL (0)`, `SUSPICION (1)`, `ALARM (2)`. `ORGANIZED_DEFENSE (3)` зарезервирован и недостижим текущей системой. Обе карты — четыре жителя тестовой деревни и 30 жителей «Миссии №1» — используют одинаковые правила. При угрозе стражники и священник пока используют обычные гражданские реакции; мирный патруль стражи описан в разделе 7.1.
 
@@ -370,12 +374,13 @@ HOME использует короткие переходы и длинные п
 
 Необязательный `VillageAlert.debug_enabled` по умолчанию выключен. Он показывает уровень, счёт и активность затухания под существующей статистикой миссии; постоянный игровой интерфейс тревоги пока не добавлен.
 
-## 8.2. Отложенные механики
+## 8.2. Реализованные группы и отложенные системы
 
-**Confirmed but not yet implemented:** ALARM civilians choose safety individually; leaderless gatherings generally wait for defenders. Recruitment is active and may be refused. One guard leads up to two civilian followers who retain navigation, flexible combat and individual panic. Each ALARM recruitment has a 60% arming probability (40% unarmed), without per-frame rerolls or guaranteed group proportions. Acquisition is instant, with role-weighted random weapons. At ORGANIZED_DEFENSE all available living non-converted peasants/artisans are intended to arm, without becoming professional guards; the priest stays unarmed. Local guard reports preserve provenance and allow one inherited retransmission; urgent assistance, bounded follower waiting and genuinely agreed dynamic peer-patrol waypoints follow the [complete rules](guard_ai_design.md). Detailed defense command and Priest AI remain deferred. The following older roadmap lists unimplemented areas, not an alternative specification; future level subscribers must preserve physical bell activation.
+При ALARM гражданские выбирают безопасность индивидуально, у мест сбора без лидера ждут защитников. Стражник приглашает, житель может отказать; предел — два спутника и один лидер на жителя. Навигация, паника и возвращение индивидуальны. При вступлении 60% решений дают мгновенное вооружение с выбором инструмента по роли, 40% оставляют спутника безоружным; точная пропорция внутри группы не задаётся. Сейчас оружие — идентификатор/состояние без новых боевых чисел.
 
-**Планируется:** колокол, локальные и общие сигналы тревоги для NPC, многошаговое распространение информации, мобилизация стражи, вооружённые группы, руководство священника и организованная оборона. Текущий информационный счёт не реализует эти действия. Будущие механики могут подписываться на изменения уровня, сохраняя различие между общей опасностью и личным знанием. Тревога и оборона сами по себе не означают поражение.
+Местные сообщения стражи сохраняют происхождение и допускают одну наследованную ретрансляцию. Повтор старого вызова не повышает срочность; подтверждение ответа остаётся местным. Два патруля могут договориться об общей динамической точке, сохраняя своих спутников и независимые тактические решения.
 
+**Отложено:** полный ИИ/мораль священника, мобилизация/командование ORGANIZED_DEFENSE, отбой ALARM, окончательные различия оружия и баланс. Hook вооружения всех доступных живых необращённых крестьян/ремесленников предусмотрен для внешнего перехода в ORGANIZED_DEFENSE; сам переход не придуман. Священник остаётся безоружным. Ограничения — [спецификация §13](guard_ai_design.md#13-current-implementation-and-discrepancy-register).
 # 9. Боевая система
 
 Бой развивается в реальном времени, без заранее рассчитанного победителя. На исход влияют численность, тип и состояние бойцов, оружие, позиция, препятствия, организация, осведомлённость и приказы.

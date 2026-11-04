@@ -17,11 +17,25 @@ const MOVEMENT_STALL_TIMEOUT := 3.0
 @export var crowd_push_speed: float = 60.0
 @export var crowd_return_delay: float = 0.75
 @export var crowd_return_speed: float = 35.0
+@export var navigation_recovery_distance: float = 40.0
+@export var navigation_recovery_seconds: float = 1.5
+@export var navigation_progress_window: float = 1.0
+@export var navigation_min_progress: float = 6.0
+@export var navigation_recovery_limit: int = 3
 
 signal move_order_finished(reached: bool)
 var last_move_reached: bool = false
 var progress_position: Vector2
 var stalled_seconds: float = 0.0
+var detour_remaining: float = 0.0
+var detour_point: Vector2
+var detour_resume: Vector2
+var navigation_recoveries: int = 0
+var recovery_attempts: int = 0
+var recovery_target_id: int = 0
+var recovery_window_elapsed: float = 0.0
+var recovery_window_origin: Vector2
+var recovery_blocked_seconds: float = 0.0
 var nearby_allies: Array[Node2D] = []
 
 var is_selected: bool = false
@@ -207,6 +221,12 @@ func issue_player_area_hold_order() -> void:
 
 
 func _prepare_for_player_order() -> void:
+	detour_remaining = 0.0
+	recovery_attempts = 0
+	recovery_target_id = 0
+	recovery_window_elapsed = 0.0
+	recovery_blocked_seconds = 0.0
+	recovery_window_origin = global_position
 	progress_position = global_position
 	stalled_seconds = 0.0
 	last_move_reached = false
@@ -233,6 +253,22 @@ func on_encounter_ended(villager: Node) -> void:
 	aggro_target = null
 	has_target = false
 	velocity = Vector2.ZERO
+
+
+func engage_defender(defender: Node2D) -> bool:
+	# A nearby autonomous defender uses the same encounter/timer contract as aggro.
+	if is_dead or global_position.distance_to(defender.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(defender): return false
+	if is_instance_valid(aggro_target) and aggro_target != defender:
+		# Additional nearby defenders use their own existing attack timers; the
+		# zombie retains its current opponent rather than receiving a global order.
+		return defender.begin_encounter(zombie_visual.color, self)
+	if not defender.begin_encounter(zombie_visual.color, self): return false
+	aggro_target = defender
+	_start_encounter_attack_timer()
+	if not has_player_order:
+		has_target = false
+		velocity = Vector2.ZERO
+	return true
 
 
 func _on_encounter_attack_timer_timeout() -> void:
@@ -358,14 +394,23 @@ func _update_aggro_target(delta: float) -> void:
 
 
 func _start_encounter_attack_timer() -> void:
+	if detour_remaining > 0.0 and has_player_order:
+		navigation_agent.target_position = detour_resume
+	detour_remaining = 0.0
 	var attack_timer := get_node("EncounterAttackTimer") as Timer
 	attack_timer.wait_time = maxf(attack_interval, 0.01)
-	attack_timer.start()
+	# Repeated contact is not a new attack cycle.
+	if attack_timer.is_stopped(): attack_timer.start()
 
 
 func _set_aggro_destination() -> void:
 	if aggro_target == null or not is_instance_valid(aggro_target):
 		return
+	if recovery_target_id != aggro_target.get_instance_id():
+		recovery_target_id = aggro_target.get_instance_id()
+		recovery_attempts = 0
+		detour_remaining = 0.0
+	if detour_remaining > 0.0: return
 
 	_cancel_crowd_displacement()
 	aggro_destination_origin = aggro_target.global_position
@@ -387,18 +432,43 @@ func _has_line_of_sight(target: Node2D) -> bool:
 func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
+	if detour_remaining > 0.0:
+		detour_remaining = maxf(detour_remaining - delta, 0.0)
+		if detour_remaining == 0.0 or global_position.distance_to(detour_point) <= navigation_agent.target_desired_distance:
+			detour_remaining = 0.0
+			navigation_agent.target_position = detour_resume
+			progress_position = global_position
+			stalled_seconds = 0.0
 
-	if has_player_order or (crowd_is_displaced and has_target):
+	if has_target:
+		recovery_window_elapsed += delta
+		if recovery_window_elapsed >= navigation_progress_window:
+			if global_position.distance_to(recovery_window_origin) < navigation_min_progress:
+				recovery_blocked_seconds += recovery_window_elapsed
+			else: recovery_blocked_seconds = 0.0
+			recovery_window_elapsed = 0.0
+			recovery_window_origin = global_position
 		if global_position.distance_squared_to(progress_position) >= 4.0:
 			progress_position = global_position
 			stalled_seconds = 0.0
 		else:
 			stalled_seconds += delta
-		if stalled_seconds >= MOVEMENT_STALL_TIMEOUT:
-			_finish_movement_target()
-			_cancel_crowd_displacement()
+		if stalled_seconds >= MOVEMENT_STALL_TIMEOUT or recovery_blocked_seconds >= MOVEMENT_STALL_TIMEOUT:
+			if _try_navigation_detour():
+				stalled_seconds = 0.0
+			else:
+				_finish_movement_target()
+				_cancel_crowd_displacement()
+				if not has_player_order:
+					aggro_target = null
+					aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
 			stalled_seconds = 0.0
+			recovery_blocked_seconds = 0.0
 			return
+	else:
+		recovery_window_elapsed = 0.0
+		recovery_blocked_seconds = 0.0
+		recovery_window_origin = global_position
 	_update_aggro_target(delta)
 	if aggro_target != null:
 		_cancel_crowd_displacement()
@@ -447,6 +517,36 @@ func _physics_process(delta: float) -> void:
 		)
 	navigation_agent.velocity = desired_direction * desired_speed
 	queue_redraw()
+
+
+func _try_navigation_detour() -> bool:
+	# RVO can stop symmetrically in front of an idle body. Select a real,
+	# reachable side waypoint, then resume the same order/visible target.
+	if detour_remaining > 0.0 or move_speed <= 0.0 or recovery_attempts >= maxi(navigation_recovery_limit, 0): return false
+	var original: Vector2 = navigation_agent.target_position
+	var direction := global_position.direction_to(original)
+	if direction.is_zero_approx(): return false
+	var best := Vector2.INF
+	var best_cost := INF
+	for angle in [PI / 2, -PI / 2, PI / 3, -PI / 3, PI * 2 / 3, -PI * 2 / 3]:
+		var point := global_position + direction.rotated(angle) * navigation_recovery_distance
+		if not _can_yield_to(point): continue
+		var cost := point.distance_to(original)
+		if cost < best_cost:
+			best = point
+			best_cost = cost
+	if not best.is_finite(): return false
+	detour_point = best
+	detour_resume = original
+	detour_remaining = navigation_recovery_seconds
+	navigation_agent.target_position = best
+	progress_position = global_position
+	recovery_window_origin = global_position
+	recovery_window_elapsed = 0.0
+	recovery_blocked_seconds = 0.0
+	navigation_recoveries += 1
+	recovery_attempts += 1
+	return true
 
 
 func _nearby_allies() -> Array[Node2D]:

@@ -10,13 +10,16 @@ enum Level { NORMAL, SUSPICION, ALARM, ORGANIZED_DEFENSE }
 @export_group("Provisional escalation")
 @export_range(1, 1000) var max_score: float = 100.0
 @export var suspicion_threshold: float = 20.0
+## Legacy serialized setting retained for compatibility; never activates ALARM.
 @export var alarm_threshold: float = 60.0
+## Contribution of a genuinely delivered local incident, once per original ID.
 @export var recognition_points: float = 20.0
+## Legacy serialized stage contributions; private events no longer add points.
 @export var warning_points: float = 10.0
 @export var combat_points: float = 20.0
 @export var outcome_points: float = 20.0
 @export_group("Provisional decay")
-@export var quiet_period: float = 15.0
+@export var quiet_period: float = 90.0
 @export var decay_per_second: float = 2.0
 @export var hysteresis: float = 5.0
 @export_group("Debug")
@@ -28,10 +31,10 @@ var quiet_elapsed: float = 0.0
 var decay_active: bool = false
 var incident_counts: Dictionary = {}
 var _seen: Dictionary = {}
-var _combatants: Dictionary = {}
 var _registered: Dictionary = {}
 var _debug_layer: CanvasLayer
 var _debug_label: Label
+var bell_activated: bool = false
 
 
 func _ready() -> void:
@@ -56,45 +59,17 @@ func initialize(residents: Array[Node]) -> void:
 		if _registered.has(id) or not get_parent().is_ancestor_of(resident):
 			continue
 		_registered[id] = true
-		resident.threat_recognized.connect(_on_recognition.bind(resident))
-		resident.warning_attempted.connect(_on_warning)
-		resident.encounter_started.connect(_on_combat.bind(resident))
-		resident.died.connect(_on_outcome)
-		resident.converted.connect(_on_outcome)
 
 
-func _on_recognition(zombie: Node2D, resident: Node2D) -> void:
-	if not resident.is_available_for_infection() or not _valid_zombie(zombie):
-		return
-	_record(&"recognition", zombie.get_instance_id(), recognition_points)
-
-
-func _on_warning(resident: Node2D, point: Vector2) -> void:
-	var reaction = resident.threat_reaction
-	if not resident.is_available_for_infection() or reaction.report_based or not reaction.episode_active or not reaction.warning_sent:
-		return
-	if reaction.threat_id <= 0 or not resident.local_warning._valid_position(point):
-		return
-	_record(&"warning", reaction.threat_id, warning_points)
-
-
-func _on_combat(zombie: Node2D, resident: Node2D) -> void:
-	if not _valid_zombie(zombie) or not resident.is_encounter_owner(zombie):
-		return
-	var id := resident.get_instance_id()
-	_combatants[id] = true
-	_record(&"combat", id, combat_points)
-
-
-func _on_outcome(resident: Node) -> void:
-	var id := resident.get_instance_id()
-	# An unrelated death is not evidence of a hostile encounter.
-	if _combatants.has(id) and (resident.is_dead() or resident.is_converted()):
-		_record(&"outcome", id, outcome_points)
-
-
-func _valid_zombie(target: Variant) -> bool:
-	return is_instance_valid(target) and not target.is_queued_for_deletion() and target.is_in_group("player_units") and get_parent().is_ancestor_of(target) and target.has_method("is_alive") and target.is_alive()
+func report_delivered(source: Node2D, recipient: Node2D, report: Dictionary) -> void:
+	# Called AFTER the local recipient accepted the message. Personal perception,
+	# combat, an unheard shout and an unwitnessed death are not village knowledge.
+	if not is_instance_valid(source) or not is_instance_valid(recipient) or source == recipient: return
+	if not _registered.has(source.get_instance_id()) or not _registered.has(recipient.get_instance_id()): return
+	if not source.is_alive() or not recipient.is_alive() or source.defense != recipient.defense: return
+	if report.get("ack", false) or int(report.get("incident", 0)) <= 0: return
+	if source.global_position.distance_to(recipient.global_position) > recipient.local_warning.hearing_radius: return
+	_record(&"communicated", int(report.incident), recognition_points)
 
 
 func _record(kind: StringName, subject_id: int, points: float) -> void:
@@ -131,14 +106,12 @@ func _physics_process(delta: float) -> void:
 
 
 func _refresh_level() -> void:
+	if level == Level.ORGANIZED_DEFENSE: return # reserved external transition, never selected here
 	var maximum := maxf(max_score, 1.0)
 	var suspicion := clampf(suspicion_threshold, 0.001, maximum)
-	var alarm := clampf(alarm_threshold, suspicion, maximum)
 	var margin := maxf(hysteresis, 0.0)
 	var previous := level
-	if score >= alarm:
-		level = Level.ALARM
-	elif level == Level.ALARM and score > maxf(alarm - margin, 0.0):
+	if bell_activated:
 		level = Level.ALARM
 	elif score >= suspicion:
 		level = Level.SUSPICION
@@ -148,6 +121,17 @@ func _refresh_level() -> void:
 		level = Level.NORMAL
 	if previous != level:
 		level_changed.emit(previous, level)
+
+
+func activate_bell(actor: Node2D) -> bool:
+	# Only the mission's physical interaction endpoint is accepted.
+	var defense = get_parent().get_node_or_null("VillageDefense")
+	if defense == null or not can_process() or not actor.is_available_for_infection() or actor.defense != defense or not is_instance_valid(defense.bell): return false
+	if actor.global_position.distance_to(defense.bell.global_position) > defense.bell_reach or not defense.bell_visible(actor): return false
+	bell_activated = true
+	_refresh_level()
+	_update_debug()
+	return true
 
 
 func _update_debug() -> void:

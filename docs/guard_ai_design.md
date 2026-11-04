@@ -1,6 +1,6 @@
 # Guard AI — canonical confirmed design
 
-**Decision record:** 2026-11-04. **Scope:** documentation only; no gameplay implementation.
+**Decision record:** 2026-11-04. **Implementation update:** 2026-11-04. Confirmed rules remain authoritative; current integration and validation are recorded in §13 and §18.
 
 This is the authoritative specification for the confirmed guard behavior of **I'm a Monster**. It preserves the user's design decisions for future implementation. Where older design descriptions conflict, this specification controls the intended guard behavior; older implementation reports remain records of what the prototype actually does.
 
@@ -15,16 +15,16 @@ The first large village has approximately 30 inhabitants: 19 peasants, 5 artisan
 | Decision/status checklist | Status | Specification / implementation evidence |
 |---|---|---|
 | Local knowledge and ordinary LOS/reaction foundations | Confirmed; perception foundation implemented | §2; §13 |
-| B2 — Reasonable Defender, contextual combat/retreat/pursuit | Confirmed; specialized guard behavior not yet implemented | §2, §4 |
-| Four alert levels, physical bell activation | Confirmed; enum implemented, bell semantics not yet implemented | §3, §13 |
-| Nine conceptual guard states, separate behavioral dimensions | Confirmed; not yet implemented as guard system | §5 |
-| Bounded relevant tasks, interruption and contextual priorities | Confirmed; not yet implemented | §6 |
+| B2 — Reasonable Defender, contextual combat/retreat/pursuit | Confirmed; prototype integrated, numerical combat balance deferred | §2, §4 |
+| Four alert levels, physical bell activation | Confirmed; physical bell integrated; organized defense deferred | §3, §13 |
+| Nine conceptual guard states, separate behavioral dimensions | Confirmed; integrated in GuardAI | §5 |
+| Bounded relevant tasks, interruption and contextual priorities | Confirmed; prototype integrated | §6 |
 | Existing peaceful routes and post relief | Confirmed foundation; implemented | §3, §13 |
-| ALARM territorial patrol and active civilian recruitment | Confirmed; not yet implemented | §3, §8 |
-| Civilian equipment, 60% arming, role-weighted weapons | Confirmed; not yet implemented | §9 |
-| Individual follower behavior, cohesion and recovery | Confirmed; not yet implemented | §8, §10 |
-| Provenance, one retransmission, assistance and local acknowledgements | Confirmed; existing single-hop warnings are only a foundation | §7, §13 |
-| Peer patrol cooperation and genuinely agreed dynamic waypoints | Confirmed; not yet implemented | §11 |
+| ALARM territorial patrol and active civilian recruitment | Confirmed; prototype integrated | §3, §8 |
+| Civilian equipment, 60% arming, role-weighted weapons | Confirmed; prototype integrated | §9 |
+| Individual follower behavior, cohesion and recovery | Confirmed; prototype integrated | §8, §10 |
+| Provenance, one retransmission, assistance and local acknowledgements | Confirmed; guard relay protocol integrated; civilian legacy delivery retained | §7, §13 |
+| Peer patrol cooperation and genuinely agreed dynamic waypoints | Confirmed; prototype integrated | §11 |
 | Priest influence / non-combat boundary | Confirmed high-level boundary; morale/command details deferred | §12 |
 | ORGANIZED_DEFENSE general level and civilian arming | Confirmed high-level intent; full behavior/activation deferred | §3, §9, §14 |
 | ALARM reduction, precise tuning, task capacity, numerical balance | Deferred | §14 |
@@ -65,6 +65,9 @@ At ALARM, a guard keeps general responsibility for the assigned territory, rathe
 
 The exact conditions for lowering or ending village-wide ALARM are **DEFERRED**. Current score decay is not an approved stand-down mechanism. See §13 for the explicit mismatch between the prototype's score-driven ALARM and this physical notification requirement.
 
+**Подтверждённое уточнение пользователя 04.11.2026:** после колокола подготовительный сбор спутников имеет приоритет над старым SEARCH/INVESTIGATE. Личный непосредственный бой и необходимое отступление сохраняют приоритет безопасности. Без готового спутника стражник не выбирает добровольный поиск/расследование старого следа при ALARM; после ограниченной попытки сбора продолжает защитный патруль и приглашения, а не бесконечное ожидание.
+
+Общий счёт подозрения теперь учитывает фактически принятую местную информацию один раз на исходный инцидент. Распознавание самой жертвой, неуслышанный бой/крик и её смерть остаются личными событиями и не сообщают деревне о нападении. Физический ALARM и отказ от передачи точных координат колоколом сохраняются.
 ## 4. Individual tactical behavior — CONFIRMED DESIGN
 
 ### 4.1 Discovery, reports, and alarm decisions
@@ -172,6 +175,7 @@ The guard leads tactical movement and decisions, but followers navigate individu
 
 A guard's presence increases courage/willingness to resist without removing temperament; departure or loss may reduce confidence. Neither leadership nor group membership permits magical position tracking.
 
+**Уточнение для мест сбора 04.11.2026:** ожидание защитников включает чередование пауз и короткой ходьбы внутри доступной территории. При лично замеченной или достоверно сообщённой большой группе монстров гражданский хранит личную память опасного места и после немедленного бегства предпочитает доступный дом; ремесленник также может выбрать свою мастерскую. Повтор старого сообщения не делает сведения свежими, удалённые NPC не получают память автоматически, краткая тишина не доказывает безопасность прежнего места. Число противников, область, срок памяти и темп занятий — начальные параметры реализации, а не окончательный баланс.
 ## 9. Civilian equipment and adjacent combat constraints — CONFIRMED DESIGN
 
 At ALARM, each civilian recruitment has a **60% probability of arming**, with **40% remaining unarmed companions**. This is an individual recruitment decision, not a guaranteed distribution within each two-follower group. The same recruitment must not reroll equipment every frame. Unarmed followers may still attempt limited assistance/self-defense.
@@ -259,25 +263,25 @@ Detailed Priest AI, exact morale mechanics, the relationship to guard command, a
 
 ## 13. CURRENT IMPLEMENTATION and discrepancy register
 
-Source inspection on 2026-11-04, not runtime validation. All paths below exist. No scripts, scenes, assets, mechanics, statistics or tests were changed by this documentation task. Historical test results in the TDD remain historical; none of the new acceptance scenarios is claimed to pass in the game.
+**Актуализировано 04.11.2026 после реализации.** Подтверждённый дизайн разделов 2–12 сохранён. Первоначальный аудит описывал автоматический ALARM по очкам, гражданские реакции стражи и отсутствие сопровождения; эти ограничения заменены актуальным состоянием ниже.
 
-| Source / inspected behavior | Relationship to confirmed design / gap |
-|---|---|
-| `scripts/guard_patrol.gd`: peaceful `IDLE`, `PATROL`, `LEAVING_POST`, `RETURNING_POST`, `POST`; route traversal and post relief; eligibility excludes active threat episodes | Preserve this foundation. These component states are not the nine conceptual tactical states. No implemented alert territorial patrol, peer cooperation, or civilian escort follows from this component. |
-| Same GuardPatrol: `_peers()` enumerates eligible patrol components sharing the post; post occupancy/incoming relief checks read peer state and position | Existing peaceful post scheduling is shared bookkeeping, not a local communication protocol. Future tactical warnings, peer decisions and cooperation must not copy this access as omniscient guard knowledge. Preserve the shift foundation while reviewing its information boundary during later implementation. |
-| `scenes/village_simulation_map.tscn`: five guards using `NorthCircuit`, `FarmCircuit`, `BridgeCircuit`, and `PostAccess`; guard-post assignments | Existing routes/post shift are the starting system, not a newly proposed replacement. |
-| `scripts/villager.gd`: common villager actor; threat response runs before peaceful GuardPatrol; encounter timers, damage and infection are shared foundations | Guards/priest still use ordinary civilian threat reactions and existing combat parameters. B2 tactical reasoning, guard task collection, recruitment, role equipment, and cooperation are not yet implemented. |
-| `scripts/villager_threat_detection.gd`: radial detection, randomized recognition delay, obstacle raycast; loses recognized awareness when visibility is lost | Implements ordinary perception foundations, not a guard-specific bounded pursuit/search planner. Global iteration of candidates in the sensor does not itself grant knowledge of blocked targets. |
-| `scripts/villager_threat_reaction.gd`: `NONE`, `FLEEING`, `SEEKING_SHELTER`, `WARNING`, `FROZEN`; reports cause report-based fleeing; route planning and visible-position refresh | Existing local reaction/navigation is not B2 report investigation, guard combat/retreat selection, dynamic lost-target search, or a bounded task lifecycle. Its warning preparation is not a requirement for future urgent guard calls. |
-| `scripts/villager_local_warning.gd`: one temporary report position, receipt time, expiry; event-driven local hearing delivery; report-based sources cannot retransmit; distance/time duplicate suppression | Implements initial eyewitness-to-neighbor delivery only. Confirmed design additionally permits one inherited retransmission and requires original source/incident/observation provenance, credibility, distinct assistance requests and local response acknowledgements. Existing duplicate refresh can renew a report using receipt time; it is not the required preservation of original evidence age. |
-| `scripts/village_alert.gd`: four-value Level enum; `_record()` scores recognized threats/warnings/combat/outcomes; `_refresh_level()` sets ALARM from score; quiet-period decay and hysteresis lower levels | **Direct design mismatch:** scores currently raise village-wide ALARM without physical bell interaction and decay can lower it. Confirmed ALARM requires physical notification; stand-down is undecided. Preserve the code report as implementation history, not an approved future alarm mechanism. ORGANIZED_DEFENSE is enum-only and never selected here. |
-| Same VillageAlert: incident deduplication uses event-kind/subject ID for mission lifetime; stores no threat coordinates/references and issues no NPC defense commands | Supports separation of global status and personal enemy knowledge. It is not local multi-report incident reconciliation or guard task memory; no automatic mobilization follows from current ALARM. |
-| Bell object / `VillagePointsOfInterest/Bell` on the large map | Visual object and navigation marker exist; physical alarm interaction/village notification is not implemented. |
-| `scripts/priest_routine.gd`: peaceful territory/visit routine | Does not implement morale, leadership, alarm activation or organized defense. |
-| Current shared encounter model versus §9 | Individual real-time combat exists, but role-specific guard/armed civilian equipment and the stated directional balance intentions are not validated implementation claims. No equipment probabilities or new combat values were implemented here. |
+| Компонент | Реализовано | Граница / ограничение |
+|---|---|---|
+| `scripts/guard_ai.gd` | Девять состояний, B2-оценка локальных врагов/союзников/состояния, задачи и прерывания, ограниченное преследование, динамический поиск, отступление, расследование, помощь/отказ и выбор колокола | Начальная эвристика прототипа, не окончательный баланс. Помощь — подход к событию либо известной точке отхода союзника, затем обычное локальное боевое решение; специальных формаций/дальнего прикрытия нет. |
+| `scripts/guard_memory.gd` | Ограниченная память задач, источник/достоверность/исходное время/incident ID, pending/active/interrupted/completed/canceled/expired/infeasible, дедупликация и последние исходы | Incident ID основан на личности наблюдаемого противника; объединение разных неизвестных противников в один крупный инцидент не реализовано. |
+| `scripts/guard_patrol.gd` | Прежние пять стражников, три маршрута, пост и физическая смена; при SUSPICION короче остановки наблюдения | Мирный учёт мест у поста остаётся прежним общим служебным механизмом и не используется как источник тактического знания. ALARM использует динамические точки территории своего маршрута. |
+| `scripts/village_defense.gd` | Миссионные часы, локальные физические запросы, проверка видимости/доступности, динамические точки, местная доставка и физический колокол на обеих картах | Инициализация не является общим трекером угроз. Нет координат при ALARM. При произвольной плотности неподвижных тел возможен затор; неудачная навигация завершается как infeasible, не как достижение цели. |
+| `scripts/village_alert.gd` | SUSPICION учитывает принятые местные сообщения по исходному incident ID; частные события не начисляют очки. ALARM устанавливается физическим колоколом | Прежний `alarm_threshold` оставлен для сериализации и не используется для ALARM. Автоматического отбоя нет: правило не согласовано. ORGANIZED_DEFENSE автоматически не назначается. |
+| `scripts/villager_local_warning.gd`, `villager_threat_detection.gd`, `villager_threat_reaction.gd` | Прежние гражданские реакции сохранены; зрение использует локальный физический запрос. Предупреждение гражданского даёт GuardAI происхождение настоящего наблюдения. Стража использует одну наследованную ретрансляцию, запросы помощи и местные подтверждения ответа | Гражданские получатели сохраняют прежнюю однопереходную реакцию. Подтверждение ответа не является наблюдением и не ретранслируется. Соглашение патрулей не обходит предел ретрансляции. |
+| `scripts/civilian_escort.gd` | Приглашение/отказ, два спутника, один лидер, индивидуальная навигация, паника/условное возвращение, резервирование места, распад связи и местный поиск замены лидера, местная деятельность и личная память опасных мест при ALARM | У места сбора без лидера не возникает организованное ополчение. Нет удалённого знания смерти лидера. |
+| Оружие спутников | Одно решение 60% при вступлении, мгновенный выбор инструмента по роли, `armed` и метаданные `civilian_weapon`; внешний hook `mobilize_civilians()` при уже установленном ORGANIZED_DEFENSE | В проекте нет предметной системы. Идентификатор оружия не меняет прежние урон/скорость/дальность атак. Направленный баланс «здоровый страж сильнее одного зомби» не обеспечивается новыми числами и не объявляется проверенным. |
+| Временные союзы | Местное предложение/принятие общей динамической точки, проверка маршрута каждого патруля/спутника, задача GROUP_PATROL, прерывание, ограниченное ожидание и отдельное окончание связи, запрет повтора по прежнему основанию | Один союз пары патрулей на стражника; центрального командира нет. Точка имеет допустимый радиус встречи для двух физических тел. Многосторонние союзы и специализированное фланкирование остаются расширениями. |
+| `scripts/villager.gd`, `scripts/zombie.gd` | Подключение перед мирным циклом; существующие взаимные боевые таймеры; соседние защитники участвуют своими атаками; ушедшие/удалённые противники очищаются из контакта стражи | Боевые характеристики/заражение не перебалансированы; нет нового инвентаря, спецэффектов и строя. |
+| Священник | Прежний PriestRoutine; минимальная возможность физически поднять тревогу при серьёзной лично замеченной угрозе; безоружен | Полный ИИ, мораль, подавление обычного бегства и командование не реализованы. |
 
-**NOT YET IMPLEMENTED as specified:** nine-state tactical guard behavior; bounded task memory and commitment rules; report investigation and bounded pursuit/search; physical bell activation and guard bell/assist arbitration; alert-dependent defensive patrol; recruitment/two-follower groups; arming and role-weighted weapons; follower cohesion/panic/reassignment; one-retransmission provenance protocol; assistance acknowledgements/deduplication; peer objective/waypoint agreement and cooperation lifecycle. Existing perception, navigation, warning, combat and peaceful patrol systems provide foundations, not proof these features work.
+Инициализация выполняется из `scripts/test_map.gd` для обеих миссий. При отсутствии авторских узлов создаются `VillageDefense`, `GuardAI` и `CivilianEscort`; заранее добавленные одноимённые компоненты используют свои Inspector-настройки. Сцены, геометрия, navmesh, население и боевые характеристики не переписывались. Пауза и остановка миссии наследуются от её process mode. Параметры, проверки и ручная приёмка — [TDD §9.12](technical_design.md#912-тактическая-стража-и-сопровождение).
 
+**Исправления по видео 04.11.2026:** плотный контакт не отменяется каждой переоценкой отступления и не откладывает таймер удара. Удалённые спутники очищаются по индексу, ожидание сохраняет патрульную цель, скорость группы учитывает спутников. Подход к кандидату остаётся местным и территориальным; приглашение не гарантирует согласие. Мирное безопасное ожидание при ALARM использует отдельные доступные места, не одну координату маркера. Затухание подозрения начинается после 90 с; ALARM от колокола не затухает. Новые регрессионные сценарии и ограничения — [TDD §9.13](technical_design.md#913-исправления-по-видеозаписям-и-отладчику-04112026).
 ## 14. Deferred decisions and unresolved ambiguities
 
 Do not invent answers to these questions:
@@ -297,7 +301,7 @@ Use explicitly unset configurable parameters for future tuning (for example sear
 
 ## 15. Behavioral acceptance matrix — future implementation criteria
 
-These scenarios specify expected behavior, **not executed tests**. Every row is currently a design acceptance criterion; partial foundations in §13 do not establish a pass. No automated tests are requested by this documentation-only task.
+These rows preserve the original design acceptance criteria. Automated contract and physical integration tests now cover the prototype; actual scope and limitations are recorded in §18 and TDD §9.12. A scenario row alone is not proof of a test pass.
 
 | # | Situation | Expected behavior / acceptance evidence |
 |---|---|---|
@@ -338,6 +342,8 @@ These scenarios specify expected behavior, **not executed tests**. Every row is 
 
 ## 16. Audit against the documentation task
 
+This table preserves the original documentation-task audit. References to unexecuted scenarios describe that initial record; current implementation and executed validation are recorded in §13 and §18.
+
 | User prompt section | Preserved content |
 |---|---|
 | 1 — Repository/workflow | Canonical specification, cross-references, status separation, source discrepancies, decision index and change log (§1, §13, §17) |
@@ -362,4 +368,17 @@ These scenarios specify expected behavior, **not executed tests**. Every row is 
 
 ## 17. Documentation change log
 
+- **2026-11-04, уточнение после записей 17:05/17:10:** закреплены приоритет спутников после колокола, счёт только распространённых сведений, местная деятельность и уход от известной массовой угрозы к дому/мастерской. Реализация, начальные параметры и выполненные проверки — TDD §9.14.
+
+- **2026-11-04, исправления по видео:** уточнены текущие самозащита, таймеры контакта, очистка спутников, ограниченный обход, места ожидания, сохранение патрульной цели и задержка затухания подозрения; результаты в TDD §9.13.
+
+- **2026-11-04, реализация:** подключены стража, сопровождение, местная связь и физический колокол; обновлены текущие статусы, ограничения и проверки. Подтверждённые правила сохранены.
 - **2026-11-04:** Preserved the complete confirmed guard design as a canonical specification; added state/lifecycle tables, implementation gaps, unresolved decisions, acceptance matrix and prompt coverage audit. Linked it from the GDD, TDD and large-village documentation, with explicit notices distinguishing current score-based alarm/single-hop warnings from the intended physical bell and provenance-aware guard protocol. Documentation only; no gameplay or runtime validation claims added.
+
+## 18. Проверки реализации и оставшиеся границы
+
+Добавлены `tests/guard_ai_validation.gd` (контракты состояний, памяти, сообщений, групп и соглашений с привязкой к 52 пунктам задания) и `tests/guard_ai_world_validation.gd` (физическое расследование, подход/взаимодействие с колоколом, взаимный урон, непрозрачная стена, движение двух патрулей к согласованной точке, реальное боевое прерывание союза, 600 независимых решений вооружения и 180 игровых секунд ALARM всех 30 NPC). Часть контрактов непосредственно вызывает API; WORLD-сценарии проверяют подключение к реальным движению/бою. Это не ручная приёмка каждой комбинации условий.
+
+Окончательные результаты и журналы, временные defaults и инструкция наблюдения — TDD §9.12. Не объявляются готовыми полный Priest AI, мораль, переход/командование ORGANIZED_DEFENSE, отбой ALARM, окончательные оружейные различия и числовой баланс. Долгое интерактивное прохождение с произвольной плотностью толпы ещё требует приёмки.
+
+Актуальное уточнение реализации и проверок: [TDD §9.14](technical_design.md#914-сбор-спутников-после-колокола-распространённое-подозрение-и-жизнь-мест-сбора).

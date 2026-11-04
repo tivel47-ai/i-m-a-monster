@@ -204,7 +204,7 @@ func update_response(delta: float) -> bool:
 
 func _visible_threats() -> Array[Node2D]:
 	var result: Array[Node2D] = []
-	for candidate in get_tree().get_nodes_in_group("player_units"):
+	for candidate in sensor.nearby_threats():
 		if candidate is Node2D and sensor._is_visible_target(candidate):
 			result.append(candidate)
 	return result

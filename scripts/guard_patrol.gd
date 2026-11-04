@@ -13,6 +13,7 @@ const MAX_AT_POST := 2
 @export var minimum_patrol_seconds: float = 90.0
 @export var minimum_post_duration: Vector2 = Vector2(24,40)
 @export var post_radius: float = 220.0
+@export var suspicion_pause_factor: float = 0.6
 
 var state: State = State.IDLE
 var pause_remaining := 0.0
@@ -42,7 +43,7 @@ func _access() -> GuardPatrolRoute2D:
 	return get_node_or_null(post_access_path) as GuardPatrolRoute2D if not post_access_path.is_empty() else null
 
 func _eligible() -> bool:
-	return patrol_enabled and actor.autonomous_movement_enabled and actor.is_available_for_infection() and not actor.threat_reaction.episode_active
+	return patrol_enabled and actor.autonomous_movement_enabled and actor.is_available_for_infection() and not actor.threat_reaction.episode_active and (actor.guard_ai == null or not actor.guard_ai.enabled or actor.guard_ai.peaceful_duty())
 
 func _peers() -> Array[Node]:
 	var peers: Array[Node]=[]
@@ -191,6 +192,8 @@ func update_patrol(delta: float) -> bool:
 	if state==State.PATROL and _route().observation_indices.has(_cursor):
 		var interval := _route().observation_pause
 		pause_remaining=randf_range(maxf(interval.x,0.0),maxf(interval.y,interval.x))
+		if actor.defense != null and actor.defense.alert.level == actor.defense.alert.Level.SUSPICION:
+			pause_remaining *= maxf(suspicion_pause_factor, 0.0)
 	_cursor+=1
 	if _cursor<_steps.size(): return true
 	if state==State.RETURNING_POST:

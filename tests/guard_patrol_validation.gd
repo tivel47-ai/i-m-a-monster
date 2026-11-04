@@ -107,6 +107,7 @@ func check_interruptions(guards: Array[Node]) -> void:
 	actor.threat_detection.recognition_delay_min=0.1
 	actor.threat_detection.recognition_delay_max=0.1
 	actor.threat_detection.detection_enabled=true
+	var observation_before: float = actor.guard_ai.last_seen_time
 	var enemy=load("res://scenes/zombie.tscn").instantiate()
 	for index in range(8):
 		var point: Vector2=actor.position+Vector2.from_angle(TAU*index/8.0)*65
@@ -119,15 +120,16 @@ func check_interruptions(guards: Array[Node]) -> void:
 	enemy.navigation_agent.avoidance_enabled=false
 	for tick in range(60):
 		await frames(1)
-		if actor.threat_reaction.episode_active: break
-	check(actor.threat_reaction.episode_active and patrol.state==patrol.State.IDLE,"Actual threat recognition interrupts patrol and releases post claim")
+		if actor.guard_ai.last_seen_time > observation_before: break
+	await frames(30) # perception signal may precede the next bounded decision tick
+	check(actor.guard_ai.last_seen_time > observation_before and patrol.state==patrol.State.IDLE,"Actual guard recognition interrupts patrol and releases post claim without forcing a particular B2 decision")
 	var owned:=true
 	for tick in range(60):
 		await frames(1)
-		if actor.threat_reaction.has_route: owned=owned and actor.navigation_agent.target_position==actor.threat_reaction.route_destination
-	check(owned,"Patrol cannot overwrite threat-response route")
+		if actor.has_destination: owned=owned and patrol.state==patrol.State.IDLE
+	check(owned,"Patrol cannot overwrite guard tactical movement")
 	enemy.queue_free()
-	await frames(300)
+	await frames(900) # bounded guard search replaces the former civilian safety timeout
 	check(patrol.state!=patrol.State.IDLE and not actor.threat_reaction.episode_active,"Guard resumes peaceful patrol after existing reassessment")
 	actor.take_damage(1000)
 	await frames(2)

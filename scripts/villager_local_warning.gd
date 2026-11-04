@@ -15,6 +15,7 @@ var remaining: float = 0.0
 var local_time: float = 0.0
 var reports_received: int = 0
 var notifications_delivered: int = 0
+var firsthand_report: Dictionary = {}
 
 @onready var villager = get_parent()
 @onready var sensor = get_parent().get_node("ThreatDetection")
@@ -22,6 +23,15 @@ var notifications_delivered: int = 0
 
 func _ready() -> void:
 	villager.warning_attempted.connect(_on_warning_attempted)
+	villager.threat_recognized.connect(_remember_observation)
+
+
+func _remember_observation(target: Node2D) -> void:
+	if villager.defense == null: return
+	var count := 0
+	for enemy in sensor.nearby_threats():
+		if sensor._is_visible_target(enemy): count += 1
+	firsthand_report = {"incident": target.get_instance_id(), "point": target.global_position, "count": maxi(count, 1), "source": villager.get_instance_id(), "observed_at": villager.defense.elapsed, "credibility": 0.75, "relay": 0, "help": false}
 
 
 func _physics_process(delta: float) -> void:
@@ -87,6 +97,11 @@ func receive_warning(source: Variant, point: Vector2) -> bool:
 		return false
 	if hearing_radius <= 0 or source.global_position.distance_to(villager.global_position) > hearing_radius or not _valid_position(point):
 		return false
+	if villager.guard_ai != null and not source.local_warning.firsthand_report.is_empty():
+		var accepted: bool = villager.guard_ai.receive_message(source.local_warning.firsthand_report, source)
+		if accepted:
+			reports_received += 1
+		return accepted
 	if has_report() and point.distance_to(reported_position) <= maxf(duplicate_distance, 0) and local_time - received_at < maxf(duplicate_refresh_interval, 0):
 		return false
 	reported_position = point
@@ -97,6 +112,9 @@ func receive_warning(source: Variant, point: Vector2) -> bool:
 		return false
 	reports_received += 1
 	villager.threat_reaction.respond_to_report(point)
+	if villager.defense != null and not source.local_warning.firsthand_report.is_empty():
+		if villager.escort != null: villager.escort.learn_site_danger(source.local_warning.firsthand_report)
+		villager.defense.alert.report_delivered(source, villager, source.local_warning.firsthand_report)
 	queue_redraw()
 	return true
 

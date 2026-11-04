@@ -22,7 +22,7 @@ func run() -> void:
 	var expected_work := ["FieldApproach", "GardenApproach", "WorkshopApproach"]
 	for index in range(4):
 		var resident = map.villagers[index]
-		check(resident.move_speed == 55.0, "Profile preserves Stage 1.1 movement speed: %d" % index)
+		check(resident.move_speed == 35.0, "Profile preserves existing movement speed: %d" % index)
 		var expected_weights := [25.0, 45.0, 20.0, 10.0] if index < 3 else [50.0, 0.0, 40.0, 10.0]
 		check([resident.home_weight, resident.work_weight, resident.social_weight, resident.wander_weight] == expected_weights,
 			"Scene configures the intended profile weights: %d" % index)

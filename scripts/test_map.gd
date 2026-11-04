@@ -64,6 +64,12 @@ func _ready() -> void:
 
 	total_residents = villagers.size()
 	$VillageAlert.initialize(villagers)
+	var defense = get_node_or_null("VillageDefense")
+	if defense == null:
+		defense = preload("res://scripts/village_defense.gd").new()
+		defense.name = "VillageDefense"
+		add_child(defense)
+	defense.initialize(villagers, $VillageAlert)
 	_refresh_mission_progress()
 
 

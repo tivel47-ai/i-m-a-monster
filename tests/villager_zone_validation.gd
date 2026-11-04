@@ -95,7 +95,7 @@ func check_activity_cycle(activity: int) -> void:
 	check(actor.current_zone == zone and actor.has_destination and not actor.is_performing_activity and actor.wait_remaining == 0,
 		"Activity %d selects assigned zone before starting its timer" % activity)
 	await frames(60)
-	check(not actor.is_performing_activity and actor.wait_remaining == 0 and actor.navigation_agent.max_speed == 55,
+	check(not actor.is_performing_activity and actor.wait_remaining == 0 and actor.navigation_agent.max_speed == 35,
 		"Activity %d travel uses normal speed and consumes no activity time" % activity)
 	check(await await_arrival(actor) and zone.contains_world_point(actor.position), "Activity %d physically arrives inside its zone" % activity)
 	var duration: Vector2 = actor._activity_duration(activity)
@@ -140,7 +140,7 @@ func check_activity_cycle(activity: int) -> void:
 	check(valid and targets >= 1 and moving > 5 and waiting > 10, "Activity %d alternates real local routes and pauses inside its assigned zone" % activity)
 	check(clock_valid and absf(elapsed - initial) < 0.04 and actor.current_activity == actor.Activity.NONE and actor.current_zone == null,
 		"Activity %d has one uninterrupted clock through local arrivals and expires on time" % activity)
-	check(stable and slower and actor.move_speed == 55 and actor._local_rules(activity) == rules,
+	check(stable and slower and actor.move_speed == 35 and actor._local_rules(activity) == rules,
 		"Activity %d intentional pauses bypass stall detection; walking stays slower than travel" % activity)
 	actor.set(["home_weight", "work_weight", "social_weight", "wander_weight"][activity], 1.0)
 	await frames(2)
