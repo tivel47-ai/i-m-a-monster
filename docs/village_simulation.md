@@ -1,5 +1,7 @@
 # Миссия №1 — большая деревня для симуляции
 
+> **Confirmed guard design preserved — 2026-11-04:** [Guard AI — canonical confirmed design](guard_ai_design.md) specifies the intended B2 defenders, local reports, physical alarm bell, civilian followers, task memory and temporary peer-patrol cooperation. This is a documentation record, not a new simulation stage or implementation. Preserve the existing 19 peasants, 5 artisans, 5 guards, 1 priest, three patrol circuits and guard-post relief. The large map's bell is currently a visual object/marker; the existing score-driven ALARM does not implement physical activation. Guards/priest still use civilian threat responses; recruitment, equipment, group cohesion, tactical guard tasks and joint patrols are not yet implemented. Detailed Priest AI, ORGANIZED_DEFENSE command/activation, and ALARM reduction remain deferred. See the [implementation gap register](guard_ai_design.md#13-current-implementation-and-discrepancy-register) and [future acceptance matrix](guard_ai_design.md#15-behavioral-acceptance-matrix--future-implementation-criteria).
+
 **Реализовано 02.11.2026**, Godot 4.7.2. Это отдельная игровая graybox-карта,
 без финальных художественных ресурсов. На этапе 3 карта перенесена на существующий
 мирный AI зон этапов 1–2. Планировка, коллизии, navmesh и исходная четырёхместная

@@ -1,4 +1,7 @@
 # I’m a Monster
+
+> **Guard design decision record — 2026-11-04:** [Guard AI — canonical confirmed design](guard_ai_design.md) preserves the complete approved guard behavior, decision statuses, implementation gaps and future acceptance scenarios. It takes precedence for intended guard behavior over older summaries below. This documentation update implements no gameplay features; existing Russian prototype reports remain implementation history.
+
 ## Game Design Document (GDD) — MVP v0.6.2
 
 **Статус:** рабочий документ для разработки MVP  
@@ -285,6 +288,9 @@ HOME использует короткие переходы и длинные п
 Использует базовую логику жителя, но имеет другую рабочую точку и расписание. Сложная симуляция профессий не нужна.
 
 ### Стражник
+
+**Confirmed design, not yet implemented as tactical guard AI:** use **B2 — Reasonable Defender**, local knowledge, contextual combat/retreat, bounded pursuit and dynamic lost-target search. Preserve the existing five guards, three routes and post/shift foundation. Guards have bounded relevant task memory; assistance versus reaching the bell is situational. At ALARM they retain territorial responsibility, actively recruit up to two civilian followers, and may locally agree on temporary cooperation with peer patrols. State, task, village alert, follower membership and patrol alliance are separate dimensions. Full rules, including no deliberate abandonment of active followers for faster assistance, are in the [canonical specification](guard_ai_design.md). Current guards still use civilian threat reactions; peaceful patrol alone does not implement this design.
+
 - Патрулирует маршруты и охраняет важные точки.
 - Использует оружие ближнего боя; дальнее оружие добавляется после базового боя.
 - Может поднять тревогу, объединиться с другими стражниками, защищать позицию, атаковать, преследовать или отступать.
@@ -293,6 +299,9 @@ HOME использует короткие переходы и длинные п
 В будущем луки могут стрелять быстрее с меньшим уроном, а арбалеты — медленнее, но сильнее за попадание.
 
 ### Священник
+
+**Confirmed boundary:** the priest is unarmed and non-combat, with high-level morale/leadership influence and priority for raising a credible alarm. Detailed morale, guard-command relationships and ORGANIZED_DEFENSE responsibilities remain deferred; older general influence statements below do not settle those details. See [Priest boundary](guard_ai_design.md#12-priest-boundary--confirmed-high-level-design).
+
 Мирный распорядок реализован в этапе 4 (раздел 7.1). Следующие свойства влияния,
 руководства и специального боя остаются целевым дизайном, а не готовыми механиками.
 
@@ -338,6 +347,8 @@ HOME использует короткие переходы и длинные п
 
 # 8. Тревога и оборона
 
+**Confirmed target design — 2026-11-04:** `NORMAL`, `SUSPICION`, `ALARM`, and `ORGANIZED_DEFENSE` are village levels, separate from individual guard states. Village-wide ALARM requires physically reaching and activating the bell/alarm mechanism; incident scores and repeated sightings cannot trigger it remotely. The bell communicates danger, not exact monster locations. ALARM is not automatically organized defense. Full ORGANIZED_DEFENSE activation/command and ALARM reduction remain undecided. The score escalation/decay described in §8.1 is the **current implementation and a documented design gap**, not the approved future notification or stand-down rule. See [alert interaction](guard_ai_design.md#3-village-alert-and-patrol-interaction--confirmed-design) and [source discrepancies](guard_ai_design.md#13-current-implementation-and-discrepancy-register).
+
 ## 8.1. Общая тревога деревни — этап 1.6
 
 **Реализовано 02.11.2026:** каждая запущенная миссия имеет собственный информационный показатель опасности: `NORMAL (0)`, `SUSPICION (1)`, `ALARM (2)`. `ORGANIZED_DEFENSE (3)` зарезервирован и недостижим текущей системой. Обе карты — четыре жителя тестовой деревни и 30 жителей «Миссии №1» — используют одинаковые правила. При угрозе стражники и священник пока используют обычные гражданские реакции; мирный патруль стражи описан в разделе 7.1.
@@ -360,6 +371,8 @@ HOME использует короткие переходы и длинные п
 Необязательный `VillageAlert.debug_enabled` по умолчанию выключен. Он показывает уровень, счёт и активность затухания под существующей статистикой миссии; постоянный игровой интерфейс тревоги пока не добавлен.
 
 ## 8.2. Отложенные механики
+
+**Confirmed but not yet implemented:** ALARM civilians choose safety individually; leaderless gatherings generally wait for defenders. Recruitment is active and may be refused. One guard leads up to two civilian followers who retain navigation, flexible combat and individual panic. Each ALARM recruitment has a 60% arming probability (40% unarmed), without per-frame rerolls or guaranteed group proportions. Acquisition is instant, with role-weighted random weapons. At ORGANIZED_DEFENSE all available living non-converted peasants/artisans are intended to arm, without becoming professional guards; the priest stays unarmed. Local guard reports preserve provenance and allow one inherited retransmission; urgent assistance, bounded follower waiting and genuinely agreed dynamic peer-patrol waypoints follow the [complete rules](guard_ai_design.md). Detailed defense command and Priest AI remain deferred. The following older roadmap lists unimplemented areas, not an alternative specification; future level subscribers must preserve physical bell activation.
 
 **Планируется:** колокол, локальные и общие сигналы тревоги для NPC, многошаговое распространение информации, мобилизация стражи, вооружённые группы, руководство священника и организованная оборона. Текущий информационный счёт не реализует эти действия. Будущие механики могут подписываться на изменения уровня, сохраняя различие между общей опасностью и личным знанием. Тревога и оборона сами по себе не означают поражение.
 

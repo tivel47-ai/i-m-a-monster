@@ -1,4 +1,7 @@
 # I'm a Monster — Technical Design Document (TDD)
+
+> **Guard specification — 2026-11-04:** [Guard AI — canonical confirmed design](guard_ai_design.md) is authoritative for intended guard behavior. It contains the nine conceptual states, independent state/task/alert/group/alliance dimensions, task transitions, communication semantics, cohesion/cooperation rules, status checklist, implementation discrepancies and unexecuted acceptance scenarios. This update changes documentation only. Existing runtime-validation reports below describe earlier work and were not rerun for this task.
+
 ## MVP v0.6.2 — рабочий технический проект
 
 **Статус:** рабочий технический документ прототипа и последующих этапов
@@ -456,6 +459,8 @@ $godot = 'D:\My programs\my_game\Godot_v4.7.2-stable_win64.exe'
 
 ### 9.5. Локальные предупреждения — этап 1.5
 
+**Design/implementation distinction — 2026-11-04:** the single-hop system documented below is current code. Confirmed guard communication permits an eyewitness warning to be retransmitted once by its recipient, with original incident identity, source and observation time retained; the next recipient cannot continue inherited forwarding without personal reconfirmation. Incident reconciliation, bounded task memory, urgent assistance requests and local response acknowledgements are not implemented by `LocalWarning`. Repeated unchanged calls must not inflate urgency or reset evidence age. See [communication semantics](guard_ai_design.md#7-local-communication-and-assistance--confirmed-design) and [gap register](guard_ai_design.md#13-current-implementation-and-discrepancy-register).
+
 **Реализовано 1 ноября 2026.** `LocalWarning` (`scripts/villager_local_warning.gd`) в `villager.tscn` подписывается в `_ready` на существующий сигнал родителя `warning_attempted(villager, threat_position)`. Корень жителя включён в группу `civilian_warning_receivers`. На этапе 1.5 отдельного счёта тревоги ещё не было; с этапа 1.6 `test_map.gd` подключает отдельный миссионный `VillageAlert` (раздел 9.6). Сцена карты, геометрия, персонажи и навигационные ресурсы сохранены.
 
 Настройки Inspector: `communication_enabled = true`, `hearing_radius = 180`, `report_duration = 10`, `duplicate_distance = 32`, `duplicate_refresh_interval = 1`, `debug_enabled = false`. Все числа предварительные. Радиус относится к получателю, расстояние измеряется между центрами говорящего и слушателя. Получатели ищутся только при завершённом предупреждении: один проход по группе, без покадрового опроса соседей. Проверяются общий World2D, расстояние, валидность и состояние. LOS для звука не требуется, стены не блокируют доставку. Отправитель не получает своё сообщение.
@@ -481,6 +486,8 @@ Debug: при собственном `debug_enabled` или debug восприя
 **Ручная проверка ещё требуется:** F5/F6 с debug, временно выбрать WARNING единственным положительным весом у источника и обеспечить завершение действия до боя. Расположить одного соседа в пределах 180, другого снаружи; проверить оранжевую отметку и движение первого, в том числе при стене между жителями. Убрать прямую угрозу, дождаться истечения 10 секунд и возврата к занятиям; повторить при личном появлении зомби и при бое. Проверить, что сообщение не охватывает весь уровень, не передаётся дальше автоматически, счётчики/управление/камера работают. Колокол, многошаговое распространение, специальное боевое реагирование стражи, влияние священника и организованная оборона не реализованы; мирный патруль добавлен в 9.10. Общая информационная тревога реализована на этапе 1.6 (раздел 9.6).
 
 ### 9.6. Общая тревога и подозрение — этап 1.6
+
+**Confirmed design mismatch — 2026-11-04:** `_refresh_level()` currently raises ALARM from incident score and lowers it through decay/hysteresis, as accurately recorded below. The approved target requires physical activation of the bell/alarm mechanism; scores cannot activate village-wide notification. Exact ALARM reduction remains undecided, so current decay is not an approved stand-down rule. ORGANIZED_DEFENSE remains enum-only in code, with detailed activation/command deferred. No code is changed by this record. See [alert rules](guard_ai_design.md#3-village-alert-and-patrol-interaction--confirmed-design).
 
 **Реализовано 02.11.2026.** `scripts/village_alert.gd` на корневом `Node` сцены `scenes/village_alert.tscn`; отдельный экземпляр `VillageAlert` включён в `test_map.tscn` и `village_simulation_map.tscn`. Общий `test_map.gd` после сбора населения вызывает `$VillageAlert.initialize(villagers)`. Подключаются все четыре/30 NPC, независимо от `civilian_profile`/`village_role`; повторный initialize не дублирует подписки. `tools/build_simulation_village.gd` сохраняет включение компонента при пересборке. Настройки тревоги редактируются на экземпляре карты; инструмент создаёт его с исходными настройками общей сцены. Autoload, универсального AI-менеджера и поиска жителей на каждом кадре нет.
 
@@ -829,6 +836,8 @@ Compatibility/OpenGL прошли. Просмотрены `.godot/stage3_village
 Инструкции F5/F6, редактирования и наблюдения — `village_simulation.md`.
 
 ### 9.10. Мирный дорожный патруль стражи
+
+**Future integration boundary — 2026-11-04:** preserve these existing routes and post/shift mechanics as the NORMAL foundation. The component's peaceful enum is not the nine-state conceptual tactical model. Future B2 guard behavior must separately represent village level, current behavior, bounded relevant tasks, civilian group membership and temporary peer alliance. ALARM requires flexible territorial patrol, active recruitment (up to two followers), and genuine local agreement on dynamically selected common points for cooperating patrols; none follows automatically from current peaceful patrol. Guard implementation may be hierarchical/compositional; this decision record mandates behavior, not new class/file boundaries. See [task lifecycle](guard_ai_design.md#6-task-memory-priorities-and-transitions--confirmed-design), [cohesion](guard_ai_design.md#10-cohesion-separation-and-follower-recovery--confirmed-design), and [cooperation](guard_ai_design.md#11-temporary-cooperation-between-guard-patrols--confirmed-design).
 
 **Реализовано 02.11.2026 по запросу пользователя.** Ранее стража выбирала обычные
 HOME/WORK/SOCIAL/WANDER с весами 15/65/15/5, а HOME и основные WORK находились
