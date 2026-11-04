@@ -4,11 +4,18 @@ You are working on **I'm a Monster**, a 2D tactical strategy game developed in G
 
 From now on, treat documentation maintenance as a permanent requirement for every development task.
 
+## Canonical workspace — user agreement, 2026-11-04
+
+- Main local project: `D:\My programs\my_game\i-m-a-monster`.
+- Before modifying this game, verify the working directory and repository root against this path.
+- The copy under `C:\Users\Pavel\Documents\ChatGPT\Оборона деревни` is not the main project. Do not use it as a substitute or create another clone without an explicit user request.
+- If the main folder is unavailable or outside allowed workspace access, explain the mismatch and have the user open/authorize the correct folder. Do not silently continue in another copy.
+
 ## 1. General Rule
 
 Whenever you implement, modify, refactor, or remove game functionality, review the relevant project documentation and update it if necessary.
 
-The GitHub repository must always reflect the latest implemented state of the game.
+Local project documentation must reflect the implemented state of the game. The user reviews, commits, and publishes changes to GitHub.
 
 Documentation updates are part of the definition of done, not an optional follow-up task.
 
@@ -88,19 +95,20 @@ For every future development task:
 4. Review whether the implementation affects documented systems.
 5. Update all affected documentation.
 6. Check consistency between code and documentation.
-7. Include documentation changes in the same commit or pull request as the implementation whenever possible.
+7. Leave code and documentation changes uncommitted for user review; commit or publish only upon an explicit request for that action.
 
 Do not postpone documentation updates to a separate future task.
 
 ## 7. Git and Commit Requirements
 
-When a task changes documented functionality:
-
-- Commit code and related documentation together.
-- Use clear, descriptive commit messages.
-- Do not create documentation-only commits unless documentation maintenance is the actual task or a separate correction is required.
+- Leave all changes uncommitted for the user to review, test, commit, and publish.
+- Do not run git add, git commit, git push, or equivalent GitHub/API mutations unless the user explicitly requests that specific action.
+- Do not create pull requests, merge, or publish releases without an explicit user request.
+- Completing a task or passing checks does not authorize committing or pushing.
+- Do not routinely ask for commit/push approval at task completion; report changes and checks and leave publication to the user.
+- Read-only Git inspection (status, diff, log) remains allowed.
 - Do not overwrite or discard unrelated user changes.
-- Avoid unnecessary documentation updates that create noise in Git history.
+- This agreement supersedes older automatic commit/push instructions in project documentation.
 
 ## 8. Final Task Report
 
