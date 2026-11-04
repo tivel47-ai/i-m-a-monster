@@ -72,6 +72,8 @@ The exact conditions for lowering or ending village-wide ALARM are **DEFERRED**.
 
 ### 4.1 Discovery, reports, and alarm decisions
 
+**Новое подтверждённое и реализованное уточнение 04.11.2026:** непосредственный очевидец сначала предупреждает соседей и ищет ближайшую доступную стражу. После местной встречи крестьянин/ремесленник становится спутником до колокола; стражник ведёт расследование последней известной области, по пути предпочитает помощь свободного стражника и может приглашать других жителей. Сохраняются лимит двух гражданских и равноправие временного стражника-партнёра. Посильная встреченная опасность приводит к бою; превосходящая — к отходу и физическому колоколу. Победа требует повторного обследования района перед возвратом присутствующих участников к обычной жизни. Проверенный пустой район не доказывает убийство; неудача/таймаут не дают отбоя. Уточнение отменяет обязательный предварительный ALARM для этой местной группы и прежнее безусловное S до конца миссии у успешно проверенных участников. Полный общий отбой ALARM по-прежнему не определён. Реализация и проверка — [TDD §9.16](technical_design.md#916-свидетель-стража-местное-расследование-и-возврат-к-занятиям).
+
 On personally discovering a threat, assess apparent enemy numbers/types, known nearby allies and their locations, personal condition/ability to continue, escape routes, position/terrain, manageability, and whether support, retreat, or warning is preferable. Possible responses include engagement, holding position, cautious observation, asking for assistance, tactical retreat, and seeking the bell. Decisions are dynamic rather than automatic outcomes of one fixed threshold.
 
 A civilian report is evidence to assess, not proof that the entire village must be alerted. When safe and appropriate, the guard receives it, retains source/location/age/reliability, travels to inspect the area, checks what is actually there, and may fight a manageable isolated threat. A serious discovery can instead lead to retreat, help, or the bell. Investigation must remain interruptible by immediate danger.
@@ -368,6 +370,8 @@ This table preserves the original documentation-task audit. References to unexec
 
 ## 17. Documentation change log
 
+- **2026-11-04, местное расследование:** закреплены гонец, встреча и группа до колокола, приоритет доступного стражника, послебоевая проверка и местный возврат к занятиям без общего отбоя. Подробности — [TDD §9.16](technical_design.md#916-свидетель-стража-местное-расследование-и-возврат-к-занятиям).
+
 - **2026-11-04, запись 17:52:** очевидец кричит и во время бегства; принятая местная передача повышает подозрение по прежнему incident ID. После непосредственного бегства/истечения координат гражданский сохраняет решение дойти до своего дома и стоять с S. Приглашение местной стражи может заменить этот план сопровождением; после потери группы домашний запасной план остаётся. Для отказавшегося/не приглашённого очевидца короткая тишина не открывает обычную деятельность. Интерьеры/баррикады и отбой укрытия отложены. Реализация и проверка — [TDD §9.15](technical_design.md#915-крик-на-бегу-и-стойкое-укрытие-жителей).
 
 - **2026-11-04, уточнение после записей 17:05/17:10:** закреплены приоритет спутников после колокола, счёт только распространённых сведений, местная деятельность и уход от известной массовой угрозы к дому/мастерской. Реализация, начальные параметры и выполненные проверки — TDD §9.14.
@@ -386,3 +390,5 @@ This table preserves the original documentation-task audit. References to unexec
 Актуальное уточнение реализации и проверок: [TDD §9.14](technical_design.md#914-сбор-спутников-после-колокола-распространённое-подозрение-и-жизнь-мест-сбора).
 
 Последующее уточнение поведения очевидцев, местной передачи и проверок: [TDD §9.15](technical_design.md#915-крик-на-бегу-и-стойкое-укрытие-жителей).
+
+Текущий приоритет поиска стражи и местный возврат участников после проверки района: [TDD §9.16](technical_design.md#916-свидетель-стража-местное-расследование-и-возврат-к-занятиям).

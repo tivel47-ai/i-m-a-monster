@@ -2,6 +2,9 @@ extends Node
 ## Reasonable Defender. All tactical evidence is local; peaceful patrol stays separate.
 enum State { PATROL, ALERT_PATROL, INVESTIGATE, SEARCH, COMBAT, RETREAT, ASSIST, GROUP_PATROL, RAISE_ALARM }
 const MEMORY = preload("res://scripts/guard_memory.gd")
+const INVESTIGATION = preload("res://scripts/guard_investigation.gd")
+@export var investigation_seconds: float = 90.0
+@export var verification_seconds: float = 30.0
 @export var enabled: bool = true
 @export var decision_interval: float = 0.35
 @export var alert_recognition_factor: float = 0.75
@@ -34,6 +37,7 @@ var followers: Array[Node] = []
 var alliance: Dictionary = {}
 var cooperation_history: Dictionary = {}
 var acknowledgements: Dictionary = {}
+var cleared_incidents: Dictionary = {}
 var outbox: Array[Dictionary] = []
 var seen_since: Dictionary = {}
 var visible_enemies: Array[Node2D] = []
@@ -60,10 +64,12 @@ var selected_at: float = -100.0
 var cohesion_started: float = -1.0
 var bell_elapsed: float = 0.0
 var rng = RandomNumberGenerator.new()
+var investigation: RefCounted
 @onready var actor = get_parent()
 
 func _ready() -> void:
 	rng.randomize()
+	investigation = INVESTIGATION.new(self)
 	actor.threat_recognized.connect(observe)
 	actor.encounter_started.connect(observe) # physical contact is immediate evidence
 	actor.defense.alert.level_changed.connect(_on_alert_changed)
@@ -71,6 +77,7 @@ func _ready() -> void:
 
 func _on_alert_changed(previous: int, current: int) -> void:
 	if current < actor.defense.alert.Level.ALARM or previous >= actor.defense.alert.Level.ALARM: return
+	investigation.end("interrupted", "physical village alarm supersedes local response")
 	mobilizing = true
 	mobilization_started = now()
 	mobilization_goal = Vector2.INF
@@ -166,8 +173,14 @@ func receive_message(message: Dictionary, sender: Node2D) -> bool:
 		acknowledgements[message.incident] = now()
 		return true
 	if int(message.get("relay", 0)) > 1: return false
+	if cleared_incidents.has(message.incident) and float(message.observed_at) <= float(cleared_incidents[message.incident]): return false
 	if not memory.remember(message, now()): return false
 	acknowledgements.erase(message.incident) # new material danger invalidates old deployment assumptions
+	var civilian_witness = sender.escort != null and sender.escort.report_to_guard_enabled and sender.escort.can_recruit() and not is_instance_valid(sender.escort.leader) and int(message.get("source", 0)) == sender.get_instance_id()
+	if (message.get("witness", false) or civilian_witness) and sender.escort != null and actor.defense.alert.level < actor.defense.alert.Level.ALARM:
+		investigation.begin(message, sender)
+		actor.defense.alert.report_delivered(sender, actor, message)
+		return true # one responding group; no automatic village-wide convergence
 	var kind = State.ASSIST if message.get("help", false) else State.INVESTIGATE
 	var task = memory.offer(kind, message, now())
 	if not task.is_empty() and kind == State.ASSIST and message.get("retreating", false) and message.has("caller_point"):
@@ -180,6 +193,17 @@ func receive_message(message: Dictionary, sender: Node2D) -> bool:
 		var relay = message.duplicate(true)
 		relay.relay = 1
 		outbox.append(relay)
+	actor.defense.alert.report_delivered(sender, actor, message)
+	return true
+
+func receive_eyewitness(message: Dictionary, sender: Node2D) -> bool:
+	if sender.escort == null or sender.defense != actor.defense or not sender.is_available_for_infection(): return false
+	if not sender.local_warning.communication_enabled or not actor.local_warning.communication_enabled: return false
+	if not message.has("point") or not message.has("incident") or not message.has("observed_at"): return false
+	if int(message.incident) <= 0 or not sender.local_warning._valid_position(message.point) or float(message.observed_at) > now() + 0.1: return false
+	if not actor.defense.visible(actor, sender, recruitment_radius) or now() - float(message.observed_at) > memory_seconds: return false
+	if not investigation.begin(message, sender): return false
+	memory.remember(message, now())
 	actor.defense.alert.report_delivered(sender, actor, message)
 	return true
 
@@ -301,6 +325,7 @@ func choose_task() -> void:
 	var best = active if active.is_empty() or active.kind != State.GROUP_PATROL else {}
 	var best_score = score(best) if not best.is_empty() else -INF
 	for task in memory.tasks.duplicate():
+		if task.get("inspection", false): continue
 		if task.kind == State.GROUP_PATROL: continue # executed via locally agreed objective
 		if actor.defense.alert.level >= actor.defense.alert.Level.ALARM and ready_followers() == 0 and task.kind in [State.SEARCH, State.INVESTIGATE]:
 			if not active.is_empty() and active.id == task.id:
@@ -518,6 +543,8 @@ func update_ai(delta: float) -> bool:
 	if decision:
 		next_decision = now() + decision_interval
 		memory.expire(now())
+		if investigation.phase != investigation.Phase.NONE and now() - investigation.started > investigation_seconds:
+			investigation.end("expired", "bounded local response expired during interruption")
 		if not alliance.is_empty() and now() - float(alliance.agreed_at) > memory_seconds:
 			end_cooperation("expired") # even an ongoing emergency cannot preserve obsolete work forever
 		for id in cooperation_history.keys():
@@ -525,15 +552,18 @@ func update_ai(delta: float) -> bool:
 		for id in acknowledgements.keys():
 			if now() - float(acknowledgements[id]) > memory_seconds: acknowledgements.erase(id)
 		sense()
+		investigation.sense()
+		if investigation.phase in [investigation.Phase.CONTACT, investigation.Phase.APPROACH]: investigation.recruit_locally()
 		for message in outbox: actor.defense.broadcast(actor, message, communication_radius)
 		outbox.clear()
-		if visible_enemies.is_empty() and last_seen_id != 0: start_search()
+		if visible_enemies.is_empty() and last_seen_id != 0 and investigation.phase == investigation.Phase.NONE: start_search()
 		if not visible_enemies.is_empty() and dangerous():
+			var first_escalation: bool = investigation.escalate()
 			call_help()
 			offer_alarm(_report(last_seen_id, last_seen_point, visible_enemies.size()))
 			# Once physically caught, defend with the real combat timers. Repeated
 			# cancellation every decision tick made a wounded guard unhittable.
-			if not actor.is_in_collision() and now() >= retreat_until:
+			if not actor.is_in_collision() and now() >= retreat_until and (investigation.phase != investigation.Phase.ESCALATING or first_escalation):
 				retreat_point = retreat_destination()
 				retreat_until = now() + commitment_seconds
 				suspend()
@@ -558,6 +588,7 @@ func update_ai(delta: float) -> bool:
 		if retreat_point.is_finite(): move_to(retreat_point, delta)
 		else: halt() # trapped: retain self-defense through the existing encounter hooks
 		return true
+	if investigation.phase == investigation.Phase.ESCALATING: return investigation.update(delta)
 	var imminent = false
 	for enemy in visible_enemies:
 		if actor.global_position.distance_to(enemy.global_position) <= search_radius: imminent = true
@@ -570,7 +601,8 @@ func update_ai(delta: float) -> bool:
 			pursuit_target = enemy.get_instance_id()
 			pursuit_started = now()
 			pursuit_origin = actor.global_position
-		if now() - pursuit_started > pursuit_seconds or pursuit_origin.distance_to(enemy.global_position) > pursuit_distance or territory_distance(enemy.global_position) > territory_margin:
+		var local_inspection = investigation.phase != investigation.Phase.NONE and enemy.global_position.distance_to(investigation.origin) <= search_radius * 2.0 and now() - investigation.started <= investigation_seconds
+		if (now() - pursuit_started > pursuit_seconds and not local_inspection) or pursuit_origin.distance_to(enemy.global_position) > pursuit_distance or (territory_distance(enemy.global_position) > territory_margin and not local_inspection):
 			set_state(State.ALERT_PATROL)
 			actor._stop_movement()
 			halt() # cautious observation at pursuit boundary, not an endless chase
@@ -580,6 +612,7 @@ func update_ai(delta: float) -> bool:
 			enemy.engage_defender(actor)
 		else: move_to(enemy.global_position, delta)
 		return true
+	if investigation.update(delta): return true
 	if decision: choose_task()
 	if not active.is_empty() and not memory.tasks.has(active): active = {}
 	if maintain_followers(): return true

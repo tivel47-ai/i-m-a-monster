@@ -407,6 +407,24 @@ func request_reassessment() -> void:
 		reassessment_remaining = maxf(safety_timeout, 0.1)
 		villager.wait_remaining = 0
 
+func complete_investigation(incident: int, resolved: Array = []) -> bool:
+	if not villager.is_available_for_infection() or villager.get_recognized_threat() != null: return false
+	var known = resolved.duplicate()
+	if not known.has(incident): known.append(incident)
+	if villager.escort != null and not villager.escort.reported_danger.is_empty() and not known.has(int(villager.escort.reported_danger.incident)): return false
+	var firsthand: Dictionary = villager.local_warning.firsthand_report
+	if not firsthand.is_empty() and not known.has(int(firsthand.incident)): return false
+	for id in known: villager.local_warning.cleared_incidents[id] = villager.defense.elapsed
+	villager.local_warning.clear_report()
+	villager.local_warning.firsthand_report.clear()
+	cancel_response()
+	seeking_home = false
+	handled_targets.clear()
+	cooldown_remaining = 0.0
+	villager._stop_movement()
+	villager.wait_remaining = 0.0
+	return true
+
 
 func interrupt_warning() -> void:
 	if episode_active and reaction_state == Reaction.WARNING:

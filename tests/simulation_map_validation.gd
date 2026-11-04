@@ -141,7 +141,8 @@ func run() -> void:
 	units[0].issue_player_area_hold_order()
 	units[0].position = Vector2(180,1510)
 	await frames(15)
-	check(response.episode_active and response.reaction_state==response.Reaction.FLEEING,"Threat in open field triggers existing perception and fleeing")
+	check((response.episode_active and response.reaction_state==response.Reaction.FLEEING) or not farmer.escort.reporter.report.is_empty(),
+		"Threat in open field triggers immediate flight or the firsthand guard-report route")
 	await frames(60)
 	check(farmer.position.distance_to(units[0].position)>160 and body_clear(farmer.position),"Real farmer escapes across cultivated ground without crop collision")
 	farmer.process_mode = Node.PROCESS_MODE_DISABLED

@@ -250,6 +250,9 @@ func check_interruptions() -> void:
 	speaker.warning_attempted.emit(speaker,priest.position+Vector2(65,0))
 	check(priest.local_warning.has_report() and priest.threat_reaction.report_based and priest.current_zone==null and routine.completed_activities==completed,"Real one-hop local warning interrupts priest activity without advancing the routine")
 	speaker.threat_reaction.cancel_response()
+	# This frozen fixture has finished speaking; do not leave its physical body
+	# parked on the priest's narrow home approach while testing report expiry.
+	speaker.position=Vector2(100,100)
 	await frames(720)
 	check(not priest.local_warning.has_report() and not priest.threat_reaction.episode_active,"Existing report expiry safely releases priest response")
 	check(await await_refuge() and routine.completed_activities==completed,"After a local warning the priest remains in exterior refuge instead of resuming peaceful visits")

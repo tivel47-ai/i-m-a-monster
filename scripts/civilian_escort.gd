@@ -1,6 +1,9 @@
 extends Node
 ## Optional civilian alarm behavior; the ordinary routine remains the fallback.
 enum Mode { INDEPENDENT, FOLLOWING, FLEEING, REUNION }
+const REPORTER = preload("res://scripts/civilian_reporter.gd")
+@export var report_to_guard_enabled: bool = true
+@export var reporting_seconds: float = 45.0
 @export_range(0, 1) var courage: float = 0.55
 @export_range(0, 1) var arming_probability: float = 0.60
 @export var guard_courage_bonus: float = 0.2
@@ -43,11 +46,13 @@ var goal: Vector2 = Vector2.INF
 var bell_elapsed: float = 0.0
 var reported_danger: Dictionary = {}
 var leader_lost: bool = false
+var reporter: RefCounted
 var rng = RandomNumberGenerator.new()
 @onready var actor = get_parent()
 
 func _ready() -> void:
 	rng.randomize()
+	reporter = REPORTER.new(self)
 
 func role() -> String:
 	return str(actor.get_meta("village_role", "artisan" if actor.civilian_profile == "Craftsman" else "peasant"))
@@ -64,15 +69,19 @@ func arm() -> void:
 	actor.set_meta("civilian_weapon", weapon)
 	# Equipment identity only; existing attack attributes/timers remain unchanged.
 
-func invite(guard: Node) -> bool:
+func invite(guard: Node, investigation: bool = false, eyewitness: bool = false) -> bool:
 	var now: float = actor.defense.elapsed
 	if not guard.actor.is_available_for_infection(): return false
-	if not can_recruit() or is_instance_valid(leader) or now < next_invitation or guard.followers.size() >= 2: return false
-	if actor.defense.alert.level < actor.defense.alert.Level.ALARM or not actor.defense.visible(actor, guard.actor, guard.recruitment_radius): return false
+	if not can_recruit() or is_instance_valid(leader) or (not eyewitness and now < next_invitation) or guard.followers.size() >= 2: return false
+	if actor.defense.alert.level < actor.defense.alert.Level.ALARM and not investigation: return false
+	if investigation and guard.investigation.phase == guard.investigation.Phase.NONE: return false
+	if not actor.defense.visible(actor, guard.actor, guard.recruitment_radius): return false
 	next_invitation = now + refusal_seconds
 	var danger = 0.0 if actor.get_recognized_threat() == null else perceived_risk_penalty
-	if rng.randf() > clampf(courage + guard_courage_bonus - danger, 0.0, 1.0): return false
+	if not eyewitness and rng.randf() > clampf(courage + guard_courage_bonus - danger, 0.0, 1.0): return false
 	leader = guard
+	reporter.report.clear()
+	reporter.assigned = null
 	actor.defense.release_safety(actor)
 	safety_point = Vector2.INF
 	safety_marker = null
@@ -89,6 +98,13 @@ func invite(guard: Node) -> bool:
 	actor._stop_movement()
 	return true
 
+func finish_investigation(incident: int, resolved: Array = []) -> void:
+	# A local all-clear releases this group's fear, never every villager's memory.
+	release("local area checked")
+	if actor.threat_reaction.complete_investigation(incident, resolved):
+		reporter.reset(incident)
+		reported_danger.clear()
+
 func release(_reason: String) -> void:
 	if is_instance_valid(leader): leader.followers.erase(self)
 	leader = null
@@ -103,6 +119,7 @@ func release(_reason: String) -> void:
 func receive_message(message: Dictionary, sender: Node2D) -> bool:
 	if not is_instance_valid(sender) or not sender.is_alive() or sender.defense != actor.defense or actor.global_position.distance_to(sender.global_position) > actor.local_warning.hearing_radius: return false
 	if not actor.is_alive() or not actor.local_warning.communication_enabled or message.get("ack", false): return false
+	if actor.local_warning.cleared_incidents.has(message.incident) and float(message.observed_at) <= float(actor.local_warning.cleared_incidents[message.incident]): return false
 	if actor.defense.elapsed - float(message.observed_at) > actor.local_warning.report_duration: return false
 	if not reported_danger.is_empty() and float(message.observed_at) <= float(reported_danger.observed_at): return false
 	reported_danger = message.duplicate(true)
@@ -237,6 +254,12 @@ func panic(contact: Node2D = null) -> void:
 	if target != null: actor.threat_reaction._enter_reaction(actor.threat_reaction.Reaction.FLEEING)
 
 func update_combat() -> void:
+	# The zombie explicitly releases its primary opponent on death. Additional
+	# civilian defenders must also leave their now-ended local encounter.
+	for enemy in actor.encounter_participants.duplicate():
+		if not is_instance_valid(enemy) or (actor.defense.visible(actor, enemy, contact_radius) and not enemy.is_alive()):
+			actor.leave_encounter(enemy)
+	if not actor.is_in_collision(): return
 	if not is_instance_valid(leader) or actor.defense.elapsed < next_decision: return
 	next_decision = actor.defense.elapsed + decision_interval
 	var enemies: Array[Node2D] = []
@@ -296,8 +319,22 @@ func update_escort(delta: float) -> bool:
 				if visible_leader and enemy.global_position.distance_to(last_leader_point) < contact_radius * 0.5 and actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 					enemy.engage_defender(actor)
 					return true
+			var supported_enemy: Node2D = actor.get_recognized_threat()
+			if armed and visible_leader and leader.actor.is_in_collision() and not leader.dangerous() and is_instance_valid(supported_enemy) and actor.threat_detection._is_visible_target(supported_enemy) and supported_enemy.global_position.distance_to(last_leader_point) < contact_radius * 0.5:
+				if actor.global_position.distance_to(supported_enemy.global_position) <= supported_enemy.INFECTION_DISTANCE:
+					supported_enemy.engage_defender(actor)
+				else: move_to(supported_enemy.global_position, delta)
+				return true
 			actor.threat_reaction.cancel_response()
 			if last_leader_point.is_finite():
+				var forward: Vector2 = leader.actor.velocity.normalized() if visible_leader and leader.actor.velocity.length() > 1.0 else Vector2.ZERO
+				var trailing: Vector2 = last_leader_point - forward * follow_distance
+				if not forward.is_zero_approx():
+					var side: float = -1.0 if leader.followers.find(self) % 2 == 0 else 1.0
+					trailing += forward.orthogonal() * side * follow_distance * 0.6
+					if actor.defense.reachable(actor, trailing) and actor.global_position.distance_to(trailing) > actor.arrival_tolerance:
+						move_to(trailing, delta)
+						return true
 				if actor.global_position.distance_to(last_leader_point) > follow_distance:
 					var points = actor.defense.sample_points(actor, last_leader_point, follow_distance, 2)
 					if not points.is_empty(): move_to(points[0], delta)
@@ -312,6 +349,7 @@ func update_escort(delta: float) -> bool:
 		for other in actor.defense.nearby(actor, contact_radius):
 			if other.guard_ai != null and actor.defense.visible(actor, other, contact_radius) and actor.defense.reachable(actor, other.global_position):
 				if invite(other.guard_ai): return true
+	if reporter.update(delta): return true
 	if actor.defense.alert.level < actor.defense.alert.Level.ALARM:
 		# Serious first-person danger may motivate a physical alarm attempt. Priest
 		# has priority; civilians defer to a locally available guard/priest.

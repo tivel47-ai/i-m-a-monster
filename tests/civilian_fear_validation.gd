@@ -3,7 +3,10 @@ extends "res://tests/guard_ai_validation.gd"
 
 func isolate() -> void:
 	for guard in guards: guard.actor.position = Vector2(2600, 1700)
-	for civilian in civilians: civilian.actor.position = Vector2(2600, 1800)
+	for civilian in civilians:
+		civilian.actor.position = Vector2(2600, 1800)
+		# Isolate the home fallback; eyewitness dispatch has its own world tests.
+		civilian.report_to_guard_enabled = false
 
 func start_witness() -> Node2D:
 	var actor = civilians[0].actor

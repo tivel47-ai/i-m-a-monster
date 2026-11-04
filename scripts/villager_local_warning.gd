@@ -18,6 +18,7 @@ var local_time: float = 0.0
 var reports_received: int = 0
 var notifications_delivered: int = 0
 var firsthand_report: Dictionary = {}
+var cleared_incidents: Dictionary = {}
 var next_escape_warning: float = 0.0
 var sending_escape_warning: bool = false
 
@@ -36,6 +37,8 @@ func _remember_observation(target: Node2D) -> void:
 	for enemy in sensor.nearby_threats():
 		if sensor._is_visible_target(enemy): count += 1
 	firsthand_report = {"incident": target.get_instance_id(), "point": target.global_position, "count": maxi(count, 1), "source": villager.get_instance_id(), "observed_at": villager.defense.elapsed, "credibility": 0.75, "relay": 0, "help": false}
+	if villager.escort != null and not villager.defense.guard_contact_points.is_empty() and villager.escort.reporter.observe(firsthand_report):
+		firsthand_report.witness = true
 
 
 func _physics_process(delta: float) -> void:
@@ -105,12 +108,19 @@ func _on_warning_attempted(source: Node2D, point: Vector2) -> void:
 
 func _deliver_warning(point: Vector2) -> void:
 	# Both a completed W action and an escape cry use the same local delivery.
+	var listeners: Array[Node2D] = []
 	for candidate in get_tree().get_nodes_in_group("civilian_warning_receivers"):
 		if candidate == villager or not candidate is Node2D or candidate.is_queued_for_deletion():
 			continue
 		if candidate.get_world_2d() != villager.get_world_2d():
 			continue
 		var receiver = candidate.get_node_or_null("LocalWarning")
+		if receiver != null and candidate.global_position.distance_to(villager.global_position) <= receiver.hearing_radius: listeners.append(candidate)
+	# The nearest audible defender gets the first opportunity to respond. This
+	# orders actual physical delivery; no distant actor positions become NPC knowledge.
+	listeners.sort_custom(func(a, b): return villager.global_position.distance_squared_to(a.global_position) < villager.global_position.distance_squared_to(b.global_position))
+	for candidate in listeners:
+		var receiver = candidate.get_node("LocalWarning")
 		if receiver != null and receiver.receive_warning(villager, point):
 			notifications_delivered += 1
 
@@ -126,6 +136,8 @@ func receive_warning(source: Variant, point: Vector2) -> bool:
 		return false
 	if hearing_radius <= 0 or source.global_position.distance_to(villager.global_position) > hearing_radius or not _valid_position(point):
 		return false
+	var incoming: Dictionary = source.local_warning.firsthand_report
+	if not incoming.is_empty() and cleared_incidents.has(incoming.incident) and float(incoming.observed_at) <= float(cleared_incidents[incoming.incident]): return false
 	if villager.guard_ai != null and not source.local_warning.firsthand_report.is_empty():
 		var accepted: bool = villager.guard_ai.receive_message(source.local_warning.firsthand_report, source)
 		if accepted:
@@ -161,5 +173,7 @@ func clear_report() -> void:
 
 
 func _draw() -> void:
+	if villager.escort != null and not villager.escort.reporter.report.is_empty() and (debug_enabled or sensor.debug_enabled):
+		draw_string(ThemeDB.fallback_font, Vector2(6, -32), "R", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.ORANGE)
 	if has_report() and (debug_enabled or sensor.debug_enabled):
 		draw_rect(Rect2(-10, -24, 4, 4), Color.ORANGE, false, 1.0)

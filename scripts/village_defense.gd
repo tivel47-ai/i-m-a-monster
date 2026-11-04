@@ -7,6 +7,7 @@ const ESCORT = preload("res://scripts/civilian_escort.gd")
 @export var safety_spacing: float = 24.0
 @export var safety_radius: float = 75.0
 var safety_reservations: Dictionary = {}
+var guard_contact_points: Array[Vector2] = []
 var elapsed: float = 0.0
 var alert: Node
 var bell: Node2D
@@ -25,6 +26,13 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 				ai.name = "GuardAI"
 				actor.add_child(ai)
 			actor.guard_ai = ai
+			var post = actor.guard_patrol.get_node_or_null(actor.guard_patrol.post_center_path)
+			if post is Node2D and not guard_contact_points.has(post.global_position): guard_contact_points.append(post.global_position)
+			var route = actor.guard_patrol._route()
+			if route != null:
+				var points: PackedVector2Array = route.world_points()
+				for index in range(0, points.size(), maxi(points.size() / 3, 1)):
+					if not guard_contact_points.has(points[index]): guard_contact_points.append(points[index])
 		else:
 			var escort = actor.get_node_or_null("CivilianEscort")
 			if escort == null:

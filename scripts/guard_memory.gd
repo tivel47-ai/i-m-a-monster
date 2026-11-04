@@ -54,6 +54,7 @@ func finish(task: Dictionary, status: String, reason: String) -> void:
 
 func expire(now: float) -> void:
 	for task in tasks.duplicate():
+		if task.get("inspection", false): continue # bounded by the response controller
 		if now - float(task.report.observed_at) > lifetime:
 			finish(task, "expired", "stale evidence")
 	for id in incidents.keys():
