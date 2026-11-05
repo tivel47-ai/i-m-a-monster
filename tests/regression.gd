@@ -67,7 +67,7 @@ func run() -> void:
 	zombie.move_speed = 100.0
 	for unit in units:
 		unit.set_selected(true)
-	map._issue_point_move_order(Vector2(430, 360))
+	map._issue_area_move_order(Vector2(430, 360))
 	var destinations: Array[Vector2] = []
 	for unit in units:
 		check(not destinations.has(unit.target_position), "Group receives distinct destinations")

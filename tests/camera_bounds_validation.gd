@@ -149,16 +149,16 @@ func run() -> void:
 			var target: Vector2 = area[1] + Vector2(-20, 0)
 			mouse(MOUSE_BUTTON_RIGHT, true, screen(target))
 			mouse(MOUSE_BUTTON_RIGHT, false, screen(target))
-			check(units[0].target_position.is_equal_approx(target), "RMB world destination" + label)
+			check(units[0].target_position.distance_to(target) <= map.command_initial_radius, "RMB world destination" + label)
 			var start := screen(units[0].global_position - Vector2(20, 30))
 			var end := screen(units[1].global_position + Vector2(20, 30))
 			mouse(MOUSE_BUTTON_LEFT, true, start)
 			mouse(MOUSE_BUTTON_LEFT, false, end)
 			await frames(2)
 			check(units[0].is_selected and units[1].is_selected and not units[2].is_selected, "Marquee selection" + label)
-			mouse(MOUSE_BUTTON_RIGHT, true, screen(target), true)
-			mouse(MOUSE_BUTTON_RIGHT, false, screen(target), true)
-			check(units[0].has_player_order and units[1].has_player_order and not units[0].target_position.is_equal_approx(units[1].target_position), "Shift RMB distinct group targets" + label)
+			mouse(MOUSE_BUTTON_RIGHT, true, screen(target))
+			mouse(MOUSE_BUTTON_RIGHT, false, screen(target))
+			check(units[0].has_player_order and units[1].has_player_order and not units[0].target_position.is_equal_approx(units[1].target_position), "RMB area distinct group targets" + label)
 
 	# Drag while pressing into the lower edge and zooming out, then change zoom
 	# once more before deferred selection executes.

@@ -1,6 +1,5 @@
 extends Node2D
 
-const AREA_ORDER_RADIUS := 100.0
 const AREA_POSITION_SAMPLE_COUNT := 384
 const AREA_GOLDEN_ANGLE := 2.399963229728653
 const AREA_COLLISION_PADDING := Vector2(2.6, 2.6)
@@ -11,7 +10,7 @@ const NAVIGATION_PATH_ENDPOINT_TOLERANCE := 2.0
 func _get_area_position_candidates(
 	center: Vector2,
 	navigation_map: RID,
-	selected_units: Array[Node]
+	selected_units: Array[Node], radius: float = 100.0
 ) -> Array[Vector2]:
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0:
 		return []
@@ -35,7 +34,7 @@ func _get_area_position_candidates(
 		var radial_fraction := (
 			(float(sample_index) + 0.5) / float(AREA_POSITION_SAMPLE_COUNT)
 		)
-		var sample_radius := AREA_ORDER_RADIUS * sqrt(radial_fraction)
+		var sample_radius := radius * sqrt(radial_fraction)
 		var sample_angle := AREA_GOLDEN_ANGLE * float(sample_index)
 		var sample_position := center + Vector2(
 			cos(sample_angle),
@@ -48,7 +47,7 @@ func _get_area_position_candidates(
 		if (
 			sample_position.distance_to(navigation_position)
 			> NAVIGATION_POSITION_TOLERANCE
-			or navigation_position.distance_to(center) > AREA_ORDER_RADIUS
+			or navigation_position.distance_to(center) > radius
 			or _is_too_close_to_existing_body(
 				navigation_position,
 				collision_query
@@ -78,13 +77,13 @@ func _is_too_close_to_existing_body(
 func _get_area_preferred_position(
 	center: Vector2,
 	unit_index: int,
-	unit_count: int
+	unit_count: int, radius: float = 100.0
 ) -> Vector2:
 	if unit_count == 1:
 		return center
 
 	var radial_fraction := (float(unit_index) + 0.5) / float(unit_count)
-	var preferred_radius := AREA_ORDER_RADIUS * 0.9 * sqrt(radial_fraction)
+	var preferred_radius := radius * 0.9 * sqrt(radial_fraction)
 	var preferred_angle := AREA_GOLDEN_ANGLE * float(unit_index)
 	return center + Vector2(cos(preferred_angle), sin(preferred_angle)) * preferred_radius
 

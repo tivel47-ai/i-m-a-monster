@@ -132,6 +132,10 @@ func run() -> void:
 	check(first == app.mission and get_nodes_in_group("player_units").size() == 3, "Rapid launch cannot duplicate mission")
 	check(app.mission.get_meta("race_id") == "zombie" and app.mission.get_node("Camera2D").move_speed == app.settings.camera_speed, "Loader passes race and camera setting")
 	var unit: Node2D = get_nodes_in_group("player_units")[0]
+	unit.set_selected(true)
+	app.mission.command_active = true
+	esc()
+	check(not app.mission.command_active and not paused and app.screen == app.Screen.GAMEPLAY, "Esc cancels command preview before opening pause")
 	unit.issue_player_move_order(Vector2(160, 420))
 	await frames(5)
 	esc()

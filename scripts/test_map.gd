@@ -28,6 +28,16 @@ var marquee_active: bool = false
 var selection_start_screen: Vector2
 var selection_current_screen: Vector2
 
+@export var command_initial_radius: float = 24.0
+@export var command_max_radius: float = 180.0
+@export var command_growth_speed: float = 80.0
+var command_overlay := Node2D.new()
+var command_active := false
+var command_radius := 24.0
+var command_center := Vector2.ZERO
+var command_screen_position := Vector2.ZERO
+
+
 @onready var residents_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Residents
 @onready var infected_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Infected
 @onready var killed_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Killed
@@ -38,6 +48,9 @@ var selection_current_screen: Vector2
 
 
 func _ready() -> void:
+	add_child(command_overlay)
+	command_overlay.z_index = 100
+	command_overlay.draw.connect(_draw_command_overlay)
 	add_child(placement)
 	for resident in find_children("*", "", true, false):
 		if not resident.has_method("is_converted"):
@@ -74,16 +87,26 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if command_active and event is InputEventMouseMotion:
+		command_screen_position = event.position
 	if (
 		event is InputEventMouseButton
 		and event.button_index == MOUSE_BUTTON_RIGHT
-		and event.pressed
 	):
-		var destination := _screen_to_world(event.position)
-		if event.shift_pressed:
-			_issue_area_move_order(destination)
-		else:
-			_issue_point_move_order(destination)
+		if event.pressed:
+			command_active = not _command_units().is_empty()
+			command_radius = command_initial_radius
+			command_screen_position = event.position
+			command_center = _screen_to_world(event.position)
+		elif command_active:
+			command_active = false
+			_issue_command(_screen_to_world(event.position), command_radius)
+		command_overlay.queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
+	if command_active and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		command_active = false
+		command_overlay.queue_redraw()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -122,6 +145,7 @@ func cancel_selection() -> void:
 
 
 func _process(_delta: float) -> void:
+	_update_command_preview(_delta)
 	if mission_state != MissionState.ACTIVE:
 		return
 	for unit in get_tree().get_nodes_in_group("player_units"):
@@ -224,18 +248,7 @@ func _screen_to_world(screen_position: Vector2) -> Vector2:
 	return get_viewport().get_canvas_transform().affine_inverse() * screen_position
 
 
-func _issue_point_move_order(destination: Vector2) -> void:
-	var selected: Array[Node] = []
-	for unit in get_tree().get_nodes_in_group("player_units"):
-		if unit.is_selected and not unit.is_dead:
-			selected.append(unit)
-	if selected.size() == 1:
-		selected[0].issue_player_move_order(destination)
-	elif selected.size() > 1:
-		_issue_area_move_order(destination)
-
-
-func _issue_area_move_order(center: Vector2) -> void:
+func _issue_area_move_order(center: Vector2, radius: float = 100.0) -> void:
 	var selected_units: Array[Node] = []
 	for unit in get_tree().get_nodes_in_group("player_units"):
 		if (
@@ -261,7 +274,7 @@ func _issue_area_move_order(center: Vector2) -> void:
 	var candidates: Array[Vector2] = placement._get_area_position_candidates(
 		center,
 		navigation_map,
-		selected_units
+		selected_units, radius
 	)
 	var assigned_positions: Array[Vector2] = []
 	for unit_index in range(selected_units.size()):
@@ -277,7 +290,7 @@ func _issue_area_move_order(center: Vector2) -> void:
 		var preferred_position: Vector2 = placement._get_area_preferred_position(
 			center,
 			unit_index,
-			selected_units.size()
+			selected_units.size(), radius
 		)
 		var destination: Array[Vector2] = placement._choose_area_position(
 			candidates,
@@ -373,3 +386,50 @@ func _refresh_mission_progress() -> void:
 			TARGET_PERCENT,
 			maxi(required_residents - completed_residents, 0)
 		]
+
+
+func _command_units() -> Array[Node]:
+	var result: Array[Node] = []
+	for unit in get_tree().get_nodes_in_group("player_units"):
+		if unit.is_selected and not unit.is_dead: result.append(unit)
+	return result
+
+func _command_targets(center: Vector2, radius: float) -> Array[Node2D]:
+	var result: Array[Node2D] = []
+	for resident in villagers:
+		if is_instance_valid(resident) and resident.is_alive() and resident.global_position.distance_to(center) <= radius:
+			result.append(resident)
+	return result
+
+func _issue_command(center: Vector2, radius: float) -> void:
+	var units := _command_units()
+	if units.is_empty(): return
+	var targets := _command_targets(center, radius)
+	if targets.is_empty(): _issue_area_move_order(center, radius)
+	else:
+		for i in range(units.size()): units[i].issue_player_attack_order(targets, i % targets.size())
+
+func _update_command_preview(delta: float) -> void:
+	if command_active:
+		if _command_units().is_empty(): command_active = false
+		else:
+			command_center = _screen_to_world(command_screen_position)
+			command_radius = minf(command_radius + command_growth_speed * delta, command_max_radius)
+	command_overlay.queue_redraw()
+
+func _draw_command_overlay() -> void:
+	if command_active:
+		var color := Color(0.2, 0.8, 1.0, 0.8) if _command_targets(command_center, command_radius).is_empty() else Color(1.0, 0.2, 0.2, 0.8)
+		command_overlay.draw_circle(to_local(command_center), command_radius, Color(color, 0.12))
+		command_overlay.draw_arc(to_local(command_center), command_radius, 0, TAU, 96, color, 2.0)
+	var marked: Dictionary = {}
+	for unit in get_tree().get_nodes_in_group("player_units"):
+		if unit.is_dead: continue
+		for target in unit.priority_targets:
+			if is_instance_valid(target) and target.is_alive(): marked[target] = true
+	for target in marked: command_overlay.draw_circle(to_local(target.global_position + Vector2(0, -25)), 3.0, Color.RED)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		command_active = false

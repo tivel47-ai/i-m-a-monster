@@ -161,7 +161,7 @@ func run() -> void:
 	units[0].set_selected(true)
 	units[1].set_selected(false)
 	units[2].set_selected(false)
-	map._issue_point_move_order(Vector2(2880,1180))
+	map._issue_area_move_order(Vector2(2880,1180))
 	await frames(330)
 	check(units[0].last_move_reached and units[0].position.x>2850,"Real zombie crosses bridge with existing point order")
 	reset_units(Vector2(2580,1180))

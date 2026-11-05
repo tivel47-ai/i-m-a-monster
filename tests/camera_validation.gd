@@ -129,7 +129,7 @@ func run() -> void:
 	var destination := Vector2(240, 350)
 	mouse(MOUSE_BUTTON_RIGHT, true, screen(destination))
 	mouse(MOUSE_BUTTON_RIGHT, false, screen(destination))
-	check(units[0].target_position.is_equal_approx(destination) and units[0].has_player_order, "RMB uses world destination after pan")
+	check(units[0].target_position.distance_to(destination) <= map.command_initial_radius and units[0].has_player_order, "RMB uses world destination after pan")
 
 	var start := screen(Vector2(100, 330))
 	mouse(MOUSE_BUTTON_LEFT, true, start)
@@ -148,9 +148,9 @@ func run() -> void:
 	check(units[0].is_selected and units[1].is_selected and not units[2].is_selected, "Marquee selects release-time visible world region after pan during drag")
 	check(not map.selection_rect.visible, "Marquee hides on release")
 
-	mouse(MOUSE_BUTTON_RIGHT, true, screen(Vector2(400, 360)), true)
-	mouse(MOUSE_BUTTON_RIGHT, false, screen(Vector2(400, 360)), true)
-	check(units[0].has_player_order and units[1].has_player_order and not units[0].target_position.is_equal_approx(units[1].target_position), "Shift + RMB assigns distinct group destinations after pan")
+	mouse(MOUSE_BUTTON_RIGHT, true, screen(Vector2(400, 360)))
+	mouse(MOUSE_BUTTON_RIGHT, false, screen(Vector2(400, 360)))
+	check(units[0].has_player_order and units[1].has_player_order and not units[0].target_position.is_equal_approx(units[1].target_position), "RMB area assigns distinct group destinations after pan")
 	main.queue_free()
 	await frames(2)
 	print("Camera validation failures: ", failures)

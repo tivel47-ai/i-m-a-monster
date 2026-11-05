@@ -111,14 +111,14 @@ func run() -> void:
 			unit.position = starts[route] + Vector2(0, (index - 1) * 38)
 			unit.set_selected(index == 0)
 		await frames(3)
-		map._issue_point_move_order(goals[route])
+		map._issue_area_move_order(goals[route])
 		await frames(600)
 		check(zombie.last_move_reached and not zombie.has_player_order, route_names[route] + " individual order arrives: %s -> %s" % [zombie.position, zombie.target_position])
 		for index in range(units.size()):
 			units[index].position = starts[route] + Vector2(0, (index - 1) * 38)
 			units[index].set_selected(true)
 		await frames(3)
-		map._issue_point_move_order(goals[route])
+		map._issue_area_move_order(goals[route])
 		var destinations: Array[Vector2] = []
 		for unit in units:
 			check(unit.has_player_order and not destinations.has(unit.target_position), route_names[route] + " group receives distinct reachable targets")

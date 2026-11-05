@@ -43,6 +43,7 @@ var current_health: float
 var is_dead: bool = false
 var target_position: Vector2
 var has_target: bool = false
+var priority_targets: Array[Node2D] = []
 var has_player_order: bool = false
 var aggro_reacquire_delay: float = 0.0
 var aggro_target: Node2D
@@ -136,6 +137,7 @@ func take_damage(amount: float) -> void:
 
 
 func _die() -> void:
+	priority_targets.clear()
 	if is_dead:
 		return
 
@@ -221,6 +223,7 @@ func issue_player_area_hold_order() -> void:
 
 
 func _prepare_for_player_order() -> void:
+	priority_targets.clear()
 	detour_remaining = 0.0
 	recovery_attempts = 0
 	recovery_target_id = 0
@@ -251,7 +254,8 @@ func on_encounter_ended(villager: Node) -> void:
 	if attack_timer != null:
 		attack_timer.stop()
 	aggro_target = null
-	has_target = false
+	if not has_player_order:
+		has_target = false
 	velocity = Vector2.ZERO
 
 
@@ -308,6 +312,9 @@ func _on_aggro_area_body_exited(body: Node2D) -> void:
 
 
 func _update_aggro_target(delta: float) -> void:
+	if not priority_targets.is_empty():
+		_update_priority_attack()
+		return
 	if is_dead:
 		return
 	if has_player_order:
@@ -735,3 +742,35 @@ func _finish_movement_target() -> void:
 	queue_redraw()
 	if notify_order:
 		move_order_finished.emit(last_move_reached)
+
+
+
+func issue_player_attack_order(targets: Array[Node2D], first: int = 0) -> void:
+	if is_dead: return
+	_prepare_for_player_order()
+	has_player_order = false
+	for i in range(targets.size()): priority_targets.append(targets[(i + first) % targets.size()])
+	_update_priority_attack()
+
+func _update_priority_attack() -> void:
+	priority_targets = priority_targets.filter(func(target): return is_instance_valid(target) and target.is_alive())
+	if priority_targets.is_empty():
+		if is_instance_valid(aggro_target): aggro_target.leave_encounter(self)
+		aggro_target = null
+		has_target = false
+		aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
+		return
+	var target := priority_targets[0]
+	if aggro_target != target:
+		if is_instance_valid(aggro_target): aggro_target.leave_encounter(self)
+		aggro_target = target
+		has_target = false
+	if target.is_encounter_owner(self):
+		has_target = false
+		return
+	if global_position.distance_to(target.global_position) <= INFECTION_DISTANCE and _has_line_of_sight(target):
+		if target.begin_encounter(zombie_visual.color, self):
+			has_target = false
+			_start_encounter_attack_timer()
+			return
+	if detour_remaining <= 0.0 and (not has_target or aggro_destination_origin.distance_squared_to(target.global_position) >= 64.0): _set_aggro_destination()

@@ -40,6 +40,10 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		if event.is_echo():
 			return
+		if screen == Screen.GAMEPLAY and is_instance_valid(mission) and mission.command_active:
+			mission.command_active = false
+			mission.command_overlay.queue_redraw()
+			return
 		match screen:
 			Screen.SETTINGS, Screen.MISSIONS: _show(Screen.MAIN)
 			Screen.RACES: _show(Screen.MISSIONS)
@@ -330,7 +334,7 @@ func _update_preview() -> void:
 	race_preview.add_child(preview)
 	_text(race_preview, "Как играется", 24)
 	_text(race_preview, race.gameplay, 18)
-	_text(race_preview, "ЛКМ и рамка — выбор. ПКМ — движение. Shift+ПКМ — распределение группы.", 16)
+	_text(race_preview, "ЛКМ и рамка — выбор. Удерживайте ПКМ: круг растёт. Отпустите: движение или атака. Esc — отмена.", 16)
 	_text(race_details, race.name, 26)
 	_text(race_details, race.description, 18)
 	_text(race_details, "Сильные стороны", 22)
