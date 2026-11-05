@@ -7,15 +7,17 @@ enum Reaction { NONE, FLEEING, SEEKING_SHELTER, WARNING, FROZEN, REPORTING }
 @export var reactions_enabled: bool = true
 @export var flee_weight: float = 50.0
 @export var shelter_weight: float = 25.0
-@export var warning_weight: float = 20.0
-@export var frozen_weight: float = 5.0
-## Split the existing escape weight so warning and freezing keep their odds.
+## Obsolete serialized W/weight settings, retained only for old resources.
+@export_storage var warning_weight: float = 20.0
+@export_storage var frozen_weight: float = 5.0
+@export_range(0.0, 1.0) var hesitation_probability: float = 0.05
+## Post-flight reporting weight; the initial choice preserves W/Z odds.
 @export_range(0.0, 1.0) var reporting_share_of_escape: float = 0.5
 @export var fleeing_speed: float = 85.0
 @export var escape_distance: float = 180.0
 @export var threat_clearance: float = 40.0
 @export var home_approach_radius: float = 36.0
-@export var warning_duration: float = 1.0
+@export_storage var warning_duration: float = 1.0 # obsolete; no warning timer
 @export var frozen_duration: Vector2 = Vector2(1.0, 3.0)
 @export var safety_timeout: float = 3.0
 ## Reassessment interval, not an end condition while danger remains visible.
@@ -64,21 +66,12 @@ func _ready() -> void:
 	reaction_random.randomize()
 
 
-func choose_reaction(allow_reporting: bool = false) -> Reaction:
-	var escape := maxf(flee_weight, 0)
-	var reporting := escape * clampf(reporting_share_of_escape, 0, 1) if allow_reporting else 0.0
-	var weights := [escape - reporting, maxf(shelter_weight, 0), maxf(warning_weight, 0), maxf(frozen_weight, 0), reporting]
-	var total: float = weights.reduce(func(a: float, b: float): return a + b, 0.0)
-	var roll := reaction_random.randf() * total
-	for index in range(weights.size()):
-		roll -= weights[index]
-		if roll < 0:
-			return index + 1 as Reaction
-	return Reaction.FLEEING
+func choose_reaction(_allow_reporting: bool = false) -> Reaction:
+	return Reaction.FROZEN if reaction_random.randf() < hesitation_probability else Reaction.FLEEING
 
 
 func recognize_threat(target: Node2D) -> void:
-	if not reactions_enabled or not villager.autonomous_movement_enabled or not villager.is_available_for_infection():
+	if _guard_controls_reaction() or not reactions_enabled or not villager.autonomous_movement_enabled or not villager.is_available_for_infection():
 		return
 	if not sensor._is_visible_target(target):
 		return
@@ -106,11 +99,8 @@ func recognize_threat(target: Node2D) -> void:
 	freeze_used = false
 	warning_sent = false
 	reassessment_remaining = 0
-	var selected := choose_reaction(_can_report(threat_id))
-	if selected == Reaction.REPORTING:
-		if _start_reporting(): return
-		selected = Reaction.SEEKING_SHELTER
-	after_flight = Reaction.SEEKING_SHELTER if selected == Reaction.SEEKING_SHELTER else Reaction.NONE
+	var selected := choose_reaction()
+	after_flight = Reaction.NONE
 	_enter_reaction(selected)
 
 
@@ -153,7 +143,7 @@ func finish_guard_run(retry_after_flight: bool = false) -> void:
 
 
 func respond_to_report(point: Vector2) -> void:
-	if not reactions_enabled or not villager.autonomous_movement_enabled or not villager.is_available_for_infection():
+	if _guard_controls_reaction() or not reactions_enabled or not villager.autonomous_movement_enabled or not villager.is_available_for_infection():
 		return
 	seeking_home = true
 	var direct: Node2D = villager.get_recognized_threat()
@@ -191,7 +181,12 @@ func finish_heard_report() -> void:
 	home_retry_remaining = 0
 
 
+func _guard_controls_reaction() -> bool:
+	return villager.guard_ai != null and villager.guard_ai.enabled
+
+
 func update_response(delta: float) -> bool:
+	if _guard_controls_reaction(): return false
 	if not reactions_enabled:
 		cancel_response()
 		return false
@@ -252,14 +247,9 @@ func update_response(delta: float) -> bool:
 				or not _route_is_safe(route_destination))):
 				_plan_route()
 		refresh_remaining = maxf(reassess_interval, 0.1)
-	if reaction_state in [Reaction.WARNING, Reaction.FROZEN]:
+	if reaction_state == Reaction.FROZEN:
 		action_remaining = maxf(0, action_remaining - delta)
 		if action_remaining == 0:
-			if reaction_state == Reaction.WARNING and not warning_sent and not report_based:
-				warning_sent = true
-				warning_attempted.emit(threat_position)
-				if not villager.is_available_for_infection():
-					return true
 			_enter_reaction(Reaction.FLEEING)
 	elif has_route:
 		var result: int = villager._advance_navigation(route_destination, fleeing_speed, delta)
@@ -294,13 +284,13 @@ func _consider_target(candidate: Node2D) -> void:
 
 
 func _enter_reaction(state: Reaction) -> void:
+	# Legacy W requests no longer create a stationary action.
+	if state == Reaction.WARNING: state = Reaction.FLEEING
 	reaction_state = state
 	has_route = false
 	_stop_velocity()
 	refresh_remaining = maxf(reassess_interval, 0.1)
-	if state == Reaction.WARNING:
-		action_remaining = maxf(warning_duration, 0)
-	elif state == Reaction.FROZEN:
+	if state == Reaction.FROZEN:
 		freeze_used = true
 		var minimum := maxf(frozen_duration.x, 0)
 		action_remaining = reaction_random.randf_range(minimum, maxf(frozen_duration.y, minimum))
@@ -358,8 +348,6 @@ func _plan_route() -> void:
 		_stop_velocity()
 		if reaction_state == Reaction.SEEKING_SHELTER:
 			_enter_reaction(Reaction.FLEEING)
-		elif not freeze_used:
-			_enter_reaction(Reaction.FROZEN)
 		return
 	route_destination = best[0]
 	route_threat_position = threat_position

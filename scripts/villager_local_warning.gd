@@ -60,7 +60,7 @@ func _update_escape_warning() -> void:
 	if escape_warning_interval <= 0 or local_time < next_escape_warning or not villager.autonomous_movement_enabled or not villager.is_available_for_infection(): return
 	if villager.guard_ai != null and villager.guard_ai.enabled: return # guards use their own local protocol
 	var reaction = villager.threat_reaction
-	if not reaction.seeking_home or reaction.report_based or reaction.reaction_state in [reaction.Reaction.WARNING, reaction.Reaction.FROZEN]: return
+	if not reaction.seeking_home or reaction.report_based or reaction.reaction_state == reaction.Reaction.FROZEN: return
 	next_escape_warning = local_time + maxf(escape_warning_interval, duplicate_refresh_interval + 0.01)
 	var target = villager.get_recognized_threat()
 	if is_instance_valid(target) and sensor._is_visible_target(target): _remember_observation(target)

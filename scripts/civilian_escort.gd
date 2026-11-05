@@ -322,7 +322,9 @@ func update_escort(delta: float) -> bool:
 					enemy.engage_defender(actor)
 					return true
 			var supported_enemy: Node2D = actor.get_recognized_threat()
-			if armed and visible_leader and leader.actor.is_in_collision() and not leader.dangerous() and is_instance_valid(supported_enemy) and actor.threat_detection._is_visible_target(supported_enemy) and supported_enemy.global_position.distance_to(last_leader_point) < contact_radius * 0.5:
+			# Join the guard's engagement before melee contact; unarmed assistance stays close.
+			var assistance_radius: float = contact_radius * 0.5 if armed else follow_distance
+			if visible_leader and leader.state == leader.State.COMBAT and not leader.dangerous() and is_instance_valid(supported_enemy) and actor.threat_detection._is_visible_target(supported_enemy) and supported_enemy.global_position.distance_to(last_leader_point) <= assistance_radius:
 				if actor.global_position.distance_to(supported_enemy.global_position) <= supported_enemy.INFECTION_DISTANCE:
 					supported_enemy.engage_defender(actor)
 				else: move_to(supported_enemy.global_position, delta)

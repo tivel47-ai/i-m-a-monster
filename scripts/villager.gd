@@ -117,7 +117,7 @@ func _physics_process(delta: float) -> void:
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0:
 		return
 	if escort != null and escort.update_escort(delta): return
-	if threat_reaction.update_response(delta):
+	if (guard_ai == null or not guard_ai.enabled) and threat_reaction.update_response(delta):
 		return
 	if guard_patrol!=null and guard_patrol.update_patrol(delta):
 		return

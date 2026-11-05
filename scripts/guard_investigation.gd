@@ -103,6 +103,11 @@ func sense() -> void:
 func escalate() -> bool:
 	if phase in [Phase.NONE, Phase.ESCALATING]: return false
 	phase = Phase.ESCALATING
+	# End civilian membership immediately; each survivor owns their escape/home plan.
+	for follower in guard.followers.duplicate():
+		if not is_instance_valid(follower): continue
+		follower.release("superior threat; civilians disperse")
+		follower.actor.threat_reaction.respond_to_report(report.point)
 	task.status = "interrupted"
 	return true
 
@@ -178,8 +183,10 @@ func update(delta: float) -> bool:
 			guard.halt()
 			guard.bell_elapsed += delta
 			if guard.bell_elapsed >= guard.actor.defense.bell_interaction_seconds: guard.actor.defense.ring(guard.actor)
-		elif guard.move_to(point, delta) == guard.actor.NavigationResult.FAILED:
-			end("infeasible", "bell path blocked")
+		else:
+			guard.bell_elapsed = 0.0
+			if guard.move_to(point, delta) == guard.actor.NavigationResult.FAILED:
+				end("infeasible", "bell path blocked")
 		return true
 	if phase == Phase.CONTACT:
 		guard.set_state(guard.State.INVESTIGATE)
@@ -187,7 +194,7 @@ func update(delta: float) -> bool:
 		if not is_instance_valid(source) or source.escort.reporter.assigned_guard() != guard:
 			end("expired", "witness meeting expired")
 			return true
-		if guard.actor.defense.visible(guard.actor, source, guard.recruitment_radius):
+		if guard.actor.defense.visible(guard.actor, source, guard.witness_contact_radius):
 			if not source.escort.reporter.report.is_empty():
 				report = source.escort.reporter.report.duplicate(true)
 				task.report = report.duplicate(true)

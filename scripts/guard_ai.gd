@@ -24,6 +24,7 @@ const INVESTIGATION = preload("res://scripts/guard_investigation.gd")
 @export var follower_wait_seconds: float = 5.0
 @export var escort_speed_factor: float = 0.9
 @export var recruitment_radius: float = 60.0
+@export var witness_contact_radius: float = 24.0
 @export var recruitment_interval: float = 4.0
 @export var mobilization_seconds: float = 30.0
 @export var alliance_wait_seconds: float = 6.0
@@ -568,7 +569,7 @@ func update_ai(delta: float) -> bool:
 			offer_alarm(_report(last_seen_id, last_seen_point, visible_enemies.size()))
 			# Once physically caught, defend with the real combat timers. Repeated
 			# cancellation every decision tick made a wounded guard unhittable.
-			if not actor.is_in_collision() and now() >= retreat_until and (investigation.phase != investigation.Phase.ESCALATING or first_escalation):
+			if not actor.is_in_collision() and now() >= retreat_until and state not in [State.RETREAT, State.RAISE_ALARM] and (investigation.phase != investigation.Phase.ESCALATING or first_escalation):
 				retreat_point = retreat_destination()
 				retreat_until = now() + commitment_seconds
 				suspend()
@@ -594,6 +595,23 @@ func update_ai(delta: float) -> bool:
 		else: halt() # trapped: retain self-defense through the existing encounter hooks
 		return true
 	if investigation.phase == investigation.Phase.ESCALATING: return investigation.update(delta)
+	# A reachable bell takes precedence over renewed pursuit of a superior enemy.
+	if not visible_enemies.is_empty() and dangerous() and actor.defense.alert.level < actor.defense.alert.Level.ALARM:
+		var alarm_point: Vector2 = actor.defense.alarm_point(actor)
+		if alarm_point.is_finite():
+			set_state(State.RAISE_ALARM)
+			if actor.global_position.distance_to(actor.defense.bell.global_position) <= actor.defense.bell_reach and actor.defense.bell_visible(actor):
+				halt()
+				bell_elapsed += delta
+				if bell_elapsed >= actor.defense.bell_interaction_seconds: actor.defense.ring(actor)
+			else:
+				bell_elapsed = 0.0
+				move_to(alarm_point, delta)
+		else:
+			set_state(State.RETREAT)
+			if retreat_point.is_finite(): move_to(retreat_point, delta)
+			else: halt()
+		return true
 	var imminent = false
 	for enemy in visible_enemies:
 		if actor.global_position.distance_to(enemy.global_position) <= search_radius: imminent = true

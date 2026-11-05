@@ -42,8 +42,6 @@ func observe(message: Dictionary) -> bool:
 func contact_distance(guard: Node) -> float:
 	if failed_meetings.has(guard.get_instance_id()): return INF
 	var actor = escort.actor
-	if actor.defense.visible(actor, guard.actor, guard.recruitment_radius):
-		return actor.global_position.distance_to(guard.actor.global_position)
 	var distance: float = actor.threat_reaction._safe_route_length(guard.actor.global_position, true, true)
 	return distance if distance <= escort.reporting_search_distance else INF
 
@@ -107,11 +105,11 @@ func update(delta: float) -> bool:
 	if responder != null:
 		if actor.defense.visible(actor, responder.actor, escort.contact_radius) and not responder.investigation.can_receive(actor):
 			cancel_meeting(responder)
-		elif actor.defense.visible(actor, responder.actor, responder.recruitment_radius):
+		elif actor.defense.visible(actor, responder.actor, responder.witness_contact_radius):
 			escort.move_to(actor.global_position, delta)
 			goal = meeting_point
 			return true
-		elif _travel_to(meeting_point, delta) != actor.NavigationResult.FAILED:
+		elif _travel_to(responder.actor.global_position if actor.defense.visible(actor, responder.actor, escort.contact_radius) else meeting_point, delta) != actor.NavigationResult.FAILED:
 			return true
 		else:
 			cancel_meeting(responder)
