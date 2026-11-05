@@ -16,7 +16,7 @@ The first large village has approximately 30 inhabitants: 19 peasants, 5 artisan
 |---|---|---|
 | Local knowledge and ordinary LOS/reaction foundations | Confirmed; perception foundation implemented | §2; §13 |
 | B2 — Reasonable Defender, contextual combat/retreat/pursuit | Confirmed; prototype integrated, numerical combat balance deferred | §2, §4 |
-| Four alert levels, physical bell activation | Confirmed; physical bell integrated; organized defense deferred | §3, §13 |
+| Four alert levels, physical bell activation | Confirmed; physical bell integrated; defense trigger approved, implementation pending | §3, §13 |
 | Nine conceptual guard states, separate behavioral dimensions | Confirmed; integrated in GuardAI | §5 |
 | Bounded relevant tasks, interruption and contextual priorities | Confirmed; prototype integrated | §6 |
 | Existing peaceful routes and post relief | Confirmed foundation; implemented | §3, §13 |
@@ -26,7 +26,7 @@ The first large village has approximately 30 inhabitants: 19 peasants, 5 artisan
 | Provenance, one retransmission, assistance and local acknowledgements | Confirmed; guard relay protocol integrated; civilian legacy delivery retained | §7, §13 |
 | Peer patrol cooperation and genuinely agreed dynamic waypoints | Confirmed; prototype integrated | §11 |
 | Priest influence / non-combat boundary | Confirmed high-level boundary; morale/command details deferred | §12 |
-| ORGANIZED_DEFENSE general level and civilian arming | Confirmed high-level intent; full behavior/activation deferred | §3, §9, §14 |
+| ORGANIZED_DEFENSE general level and civilian arming | Confirmed trigger and arming intent; detailed mobilization deferred | §3, §9, §14 |
 | ALARM reduction, precise tuning, task capacity, numerical balance | Deferred | §14 |
 | Proposed alternatives | None approved or added by this record | Do not treat future proposals as confirmed |
 
@@ -53,17 +53,19 @@ Village alert is separate from any guard's state, task, group, or local knowledg
 | Village level | Meaning | Guard patrol response |
 |---|---|---|
 | `NORMAL` | Ordinary village life | Established patrol routes and guard-post/shift duties |
-| `SUSPICION` | Heightened vigilance from suspicious events/reports | Intensified patrol, generally keeping familiar routes and territorial responsibilities; investigate, search, fight, or warn locally as justified |
-| `ALARM` | A credible village-wide notification has successfully been physically activated, primarily through the bell | Defensive, flexible territorial patrol; adjust local routes to known incidents and accessible paths; watch civilians/nearby guards, recruit suitable companions, and cooperate temporarily when justified |
-| `ORGANIZED_DEFENSE` | Accepted later defense level | Complete activation, command, patrol and coordination rules deferred; only separately confirmed mobilization constraints in §9 apply |
+| `SUSPICION` | Первое личное обнаружение монстра или тела жителя стражником либо принятый им достоверный местный доклад | Intensified patrol, generally keeping familiar routes and territorial responsibilities; investigate, search, fight, or warn locally as justified |
+| `ALARM` | Успешное физическое взаимодействие с колоколом | Defensive, flexible territorial patrol; adjust local routes to known incidents and accessible paths; watch civilians/nearby guards, recruit suitable companions, and cooperate temporarily when justified |
+| `ORGANIZED_DEFENSE` | Немедленный переход при достижении порога отдельной шкалы после колокола | Физическая мобилизация с вооружением по §9. Командование, патруль и координация требуют дальнейшего дизайна |
 
-**Physical notification is mandatory:** incident scores, repeated sightings, accumulated reports, or information alone must not remotely or automatically activate village-wide ALARM. A guard, priest, or civilian in serious circumstances must physically reach and interact with the alarm mechanism. The bell can be inaccessible, the attempt interrupted, or the warning too late. ALARM does not automatically constitute ORGANIZED_DEFENSE.
+**Physical notification is mandatory:** incident scores, repeated sightings, accumulated reports, or information alone must not remotely or automatically activate village-wide ALARM. Подходящий NPC должен физически добраться до колокола и завершить взаимодействие. The bell can be inaccessible, the attempt interrupted, or the warning too late. ALARM does not automatically constitute ORGANIZED_DEFENSE.
 
-Guards and the priest have priority for raising a credible alarm. Peasants and artisans may also attempt it in serious circumstances. Once the bell has already been activated, a duplicate raise-alarm task is unnecessary. Any guard learning that it has sounded must reevaluate the task using plausible information; the bell still does not disclose enemy coordinates.
+Guards and the priest have priority for raising a credible alarm. Крестьяне и ремесленники также могут попытаться поднять тревогу, в том числе по редкой ветке личного обнаружения монстра, описанной ниже. Once the bell has already been activated, a duplicate raise-alarm task is unnecessary. Any guard learning that it has sounded must reevaluate the task using plausible information; the bell still does not disclose enemy coordinates.
 
 At ALARM, a guard keeps general responsibility for the assigned territory, rather than automatically discarding every old route. Local detours, aid, recruitment, and cooperation are contextual. Do not concentrate all five guards at one incident or permanently abandon village sectors without a real reason. Patrols return through ordinary navigation, never teleportation.
 
-The exact conditions for lowering or ending village-wide ALARM are **DEFERRED**. Current score decay is not an approved stand-down mechanism. See §13 for the explicit mismatch between the prototype's score-driven ALARM and this physical notification requirement.
+**Уточнение утверждённого дизайна от 05.11.2026.** [GDD §8.1](game_design.md#81-утверждённый-дизайн-эскалации) задаёт актуальные переходы и заменяет прежние правила общего счёта, затухания и отложенного условия входа в `ORGANIZED_DEFENSE`. Для стражи первое личное распознавание монстра, обнаружение тела жителя или достоверный местный доклад об одном из них сразу даёт `SUSPICION`. При теле стражник сохраняет местные сведения, сверяет уникальную регистрацию и проверяет доступную окрестность. Пустой ограниченный поиск возвращает к патрулю по текущему уровню. Живой противник возвращает приоритет B2. Одна новая регистрация до колокола допускает одну проверку шанса на физический звон. Скрытый счётчик повышает этот шанс по мере новых регистраций и не сообщает стражнику о других телах. После звона такие проверки прекращаются.
+
+B2, местная связь и память, прерывания, временные союзы, состав патрулей и обращение со спутниками действуют по остальным разделам этой спецификации. Местная победа или истечение личной задачи не понижают общий уровень. Редкое решение крестьян и ремесленников (2% при личном обнаружении живого монстра до колокола) остаётся отдельным от B2 и реакции священника. При достижении порога после звона меняется уровень. Командование и исполнение мобилизации остаются открытыми.
 
 **Подтверждённое уточнение пользователя 04.11.2026:** после колокола подготовительный сбор спутников имеет приоритет над старым SEARCH/INVESTIGATE. Личный непосредственный бой и необходимое отступление сохраняют приоритет безопасности. Без готового спутника стражник не выбирает добровольный поиск/расследование старого следа при ALARM; после ограниченной попытки сбора продолжает защитный патруль и приглашения, а не бесконечное ожидание.
 
@@ -182,7 +184,7 @@ A guard's presence increases courage/willingness to resist without removing temp
 
 At ALARM, each civilian recruitment has a **60% probability of arming**, with **40% remaining unarmed companions**. This is an individual recruitment decision, not a guaranteed distribution within each two-follower group. The same recruitment must not reroll equipment every frame. Unarmed followers may still attempt limited assistance/self-defense.
 
-At ORGANIZED_DEFENSE, all available living, non-converted peasants and artisans are intended to become armed as part of broader mobilization. They do not instantly become professional guards. This accepted rule does not settle the level's activation or command system.
+At ORGANIZED_DEFENSE, all available living, non-converted peasants and artisans are intended to become armed as part of broader mobilization. They do not instantly become professional guards. Условие активации определено в §3. Место вооружения в последовательности мобилизации и командование остаются открытыми.
 
 For the first prototype, equipment acquisition is **instant**; do not require trips to stores, houses or workshops. Random weapon selection is weighted by civilian role: peasants favor pitchforks, axes, clubs, torches and agricultural implements; artisans favor hammers, axes, clubs and profession-related tools. Simple differences in damage, attack speed and reach are allowed by the selected high-level weapon system; special effects are outside the first prototype. No values or formulas are established here.
 
@@ -273,7 +275,7 @@ Detailed Priest AI, exact morale mechanics, the relationship to guard command, a
 | `scripts/guard_memory.gd` | Ограниченная память задач, источник/достоверность/исходное время/incident ID, pending/active/interrupted/completed/canceled/expired/infeasible, дедупликация и последние исходы | Incident ID основан на личности наблюдаемого противника; объединение разных неизвестных противников в один крупный инцидент не реализовано. |
 | `scripts/guard_patrol.gd` | Прежние пять стражников, три маршрута, пост и физическая смена; при SUSPICION короче остановки наблюдения | Мирный учёт мест у поста остаётся прежним общим служебным механизмом и не используется как источник тактического знания. ALARM использует динамические точки территории своего маршрута. |
 | `scripts/village_defense.gd` | Миссионные часы, локальные физические запросы, проверка видимости/доступности, динамические точки, местная доставка и физический колокол на обеих картах | Инициализация не является общим трекером угроз. Нет координат при ALARM. При произвольной плотности неподвижных тел возможен затор; неудачная навигация завершается как infeasible, не как достижение цели. |
-| `scripts/village_alert.gd` | SUSPICION учитывает принятые местные сообщения по исходному incident ID; частные события не начисляют очки. ALARM устанавливается физическим колоколом | Прежний `alarm_threshold` оставлен для сериализации и не используется для ALARM. Автоматического отбоя нет: правило не согласовано. ORGANIZED_DEFENSE автоматически не назначается. |
+| `scripts/village_alert.gd` | SUSPICION учитывает принятые местные сообщения по исходному incident ID; частные события не начисляют очки. ALARM устанавливается физическим колоколом | Прежний `alarm_threshold` оставлен для сериализации и не используется для ALARM. Колокол удерживает ALARM. До звона очки затухают и могут вернуть NORMAL, а гражданская передача может повысить подозрение. Это расхождения с §3. ORGANIZED_DEFENSE автоматически не назначается. |
 | `scripts/villager_local_warning.gd`, `villager_threat_detection.gd`, `villager_threat_reaction.gd` | Прежние гражданские реакции сохранены; зрение использует локальный физический запрос. Предупреждение гражданского даёт GuardAI происхождение настоящего наблюдения. Стража использует одну наследованную ретрансляцию, запросы помощи и местные подтверждения ответа | Гражданские получатели сохраняют прежнюю однопереходную реакцию. Подтверждение ответа не является наблюдением и не ретранслируется. Соглашение патрулей не обходит предел ретрансляции. |
 | `scripts/civilian_escort.gd` | Приглашение/отказ, два спутника, один лидер, индивидуальная навигация, паника/условное возвращение, резервирование места, распад связи и местный поиск замены лидера, местная деятельность и личная память опасных мест при ALARM | У места сбора без лидера не возникает организованное ополчение. Нет удалённого знания смерти лидера. |
 | Оружие спутников | Одно решение 60% при вступлении, мгновенный выбор инструмента по роли, `armed` и метаданные `civilian_weapon`; внешний hook `mobilize_civilians()` при уже установленном ORGANIZED_DEFENSE | В проекте нет предметной системы. Идентификатор оружия не меняет прежние урон/скорость/дальность атак. Направленный баланс «здоровый страж сильнее одного зомби» не обеспечивается новыми числами и не объявляется проверенным. |
@@ -289,8 +291,8 @@ Detailed Priest AI, exact morale mechanics, the relationship to guard command, a
 Do not invent answers to these questions:
 
 - Detailed Priest AI, morale effects, guard-command relationship, and defense role.
-- Full ORGANIZED_DEFENSE behavior, activation conditions, command structure, exact patrol/coordination and wider mobilization process. Universal eligible civilian arming is already confirmed (§9).
-- Exact conditions for lowering/ending village-wide ALARM; current score decay does not answer this.
+- Полное поведение при ORGANIZED_DEFENSE, командование, распределение патрулей, координация и порядок мобилизации. Universal eligible civilian arming is already confirmed (§9).
+- Будущий общий отбой. В MVP все глобальные уровни сохраняются до конца миссии.
 - Numerical waiting, search, task expiry, commitment and cooldown durations; reaction tuning specific to future guards.
 - Exact perception/communication/cohesion radii, pursuit limits, search-area sizes and movement distances.
 - Exact bounded task-list capacity and retention/eviction tuning; 3–5 was illustrative.
@@ -337,7 +339,7 @@ These rows preserve the original design acceptance criteria. Automated contract 
 | 28 | Bell activates ALARM with unknown monster positions | Danger awareness without coordinates, enemy references or invented sighting; guards use existing local evidence. Score alone cannot substitute. |
 | 29 | Alarmed civilian at leaderless gathering site | Generally waits for defenders; may flee/hide from immediate danger; no spontaneous organized militia. |
 | 30 | Pending task expires or route proves infeasible | Remove/cancel/mark infeasible as appropriate without claiming underlying threat eliminated. |
-| 31 | ORGANIZED_DEFENSE mobilization | All eligible living non-converted peasants/artisans intended to arm instantly; priest remains unarmed; trigger/command still deferred. |
+| 31 | ORGANIZED_DEFENSE mobilization | Доступные живые необращённые крестьяне и ремесленники вооружаются в ходе физической мобилизации, священник остаётся безоружным. Переход по порогу утверждён, порядок мобилизации и командование открыты. |
 | 32 | Living leader lost behind obstacles | Follower uses last-known direction/location and accessible reunion attempt, eventually gives up; no magical coordinates. |
 | 33 | Bell already raised while alarm task pending | Duplicate raise-alarm objective becomes unnecessary; reassess tasks without resolving unrelated threats. |
 | 34 | Cooperation would pull every guard from other sectors | Consider actual local need and territorial duties; no automatic village-wide concentration. |
