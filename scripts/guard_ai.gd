@@ -173,14 +173,19 @@ func receive_message(message: Dictionary, sender: Node2D) -> bool:
 		acknowledgements[message.incident] = now()
 		return true
 	if int(message.get("relay", 0)) > 1: return false
+	if not memory.valid_report(message, now()): return false
 	if cleared_incidents.has(message.incident) and float(message.observed_at) <= float(cleared_incidents[message.incident]): return false
-	if not memory.remember(message, now()): return false
-	acknowledgements.erase(message.incident) # new material danger invalidates old deployment assumptions
+	var new_evidence: bool = memory.remember(message, now())
+	if new_evidence: acknowledgements.erase(message.incident)
 	var civilian_witness = sender.escort != null and sender.escort.report_to_guard_enabled and sender.escort.can_recruit() and not is_instance_valid(sender.escort.leader) and int(message.get("source", 0)) == sender.get_instance_id()
 	if (message.get("witness", false) or civilian_witness) and sender.escort != null and actor.defense.alert.level < actor.defense.alert.Level.ALARM:
-		investigation.begin(message, sender)
-		actor.defense.alert.report_delivered(sender, actor, message)
-		return true # one responding group; no automatic village-wide convergence
+		var reporter = sender.escort.reporter
+		var new_meeting := false
+		if investigation.phase == investigation.Phase.NONE and reporter.has_live_report() and reporter.report.incident == message.incident:
+			new_meeting = investigation.begin(message, sender)
+		if new_evidence or new_meeting: actor.defense.alert.report_delivered(sender, actor, message)
+		return new_evidence or new_meeting
+	if not new_evidence: return false
 	var kind = State.ASSIST if message.get("help", false) else State.INVESTIGATE
 	var task = memory.offer(kind, message, now())
 	if not task.is_empty() and kind == State.ASSIST and message.get("retreating", false) and message.has("caller_point"):
@@ -553,7 +558,7 @@ func update_ai(delta: float) -> bool:
 			if now() - float(acknowledgements[id]) > memory_seconds: acknowledgements.erase(id)
 		sense()
 		investigation.sense()
-		if investigation.phase in [investigation.Phase.CONTACT, investigation.Phase.APPROACH]: investigation.recruit_locally()
+		if investigation.phase == investigation.Phase.APPROACH: investigation.recruit_locally()
 		for message in outbox: actor.defense.broadcast(actor, message, communication_radius)
 		outbox.clear()
 		if visible_enemies.is_empty() and last_seen_id != 0 and investigation.phase == investigation.Phase.NONE: start_search()

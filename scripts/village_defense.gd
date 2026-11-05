@@ -7,7 +7,8 @@ const ESCORT = preload("res://scripts/civilian_escort.gd")
 @export var safety_spacing: float = 24.0
 @export var safety_radius: float = 75.0
 var safety_reservations: Dictionary = {}
-var guard_contact_points: Array[Vector2] = []
+var has_guards: bool = false
+var guard_posts: Array[Vector2] = []
 var elapsed: float = 0.0
 var alert: Node
 var bell: Node2D
@@ -20,19 +21,17 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 	for actor in residents:
 		actor.defense = self
 		if actor.guard_patrol != null:
+			has_guards = true
 			var ai = actor.get_node_or_null("GuardAI")
 			if ai == null:
 				ai = GUARD.new()
 				ai.name = "GuardAI"
 				actor.add_child(ai)
 			actor.guard_ai = ai
-			var post = actor.guard_patrol.get_node_or_null(actor.guard_patrol.post_center_path)
-			if post is Node2D and not guard_contact_points.has(post.global_position): guard_contact_points.append(post.global_position)
-			var route = actor.guard_patrol._route()
-			if route != null:
-				var points: PackedVector2Array = route.world_points()
-				for index in range(0, points.size(), maxi(points.size() / 3, 1)):
-					if not guard_contact_points.has(points[index]): guard_contact_points.append(points[index])
+			var access = actor.guard_patrol._access()
+			if access != null:
+				var approach: PackedVector2Array = access.world_points()
+				if not approach.is_empty() and not guard_posts.has(approach[-1]): guard_posts.append(approach[-1])
 		else:
 			var escort = actor.get_node_or_null("CivilianEscort")
 			if escort == null:
@@ -61,7 +60,7 @@ func nearby(actor: Node2D, radius: float, mask: int = 8) -> Array[Node2D]:
 func release_safety(actor: Node2D) -> void:
 	safety_reservations.erase(actor.get_instance_id())
 
-func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator, local: bool = false, local_radius: float = 40.0, marker_radius: float = INF) -> Vector2:
+func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator, local: bool = false, local_radius: float = 40.0, marker_radius: float = INF, allowed: Callable = Callable()) -> Vector2:
 	# Movement reservations only, never enemy knowledge or an NPC command bus.
 	var reserved = PackedVector2Array()
 	for id in safety_reservations.keys():
@@ -89,11 +88,12 @@ func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator
 			var snapped = NavigationServer2D.map_get_closest_point(actor.navigation_agent.get_navigation_map(), point)
 			if snapped.distance_to(point) > actor.arrival_tolerance: continue
 			point = snapped
-		if point.distance_to(marker.global_position) > marker_radius or not reachable(actor, point): continue
+		if point.distance_to(marker.global_position) > marker_radius: continue
 		var free = true
 		for other in reserved:
 			if point.distance_to(other) < safety_spacing: free = false
 		if not free: continue
+		if not (allowed.call(point) if allowed.is_valid() else reachable(actor, point)): continue
 		safety_reservations[actor.get_instance_id()] = {"owner": weakref(actor), "point": point}
 		return point
 	return Vector2.INF

@@ -39,7 +39,7 @@ func begin(message: Dictionary, source: Node2D) -> bool:
 	supporting = false
 	origin = report.point
 	witness = weakref(source)
-	contact_point = source.global_position # actual local speech, not remote tracking
+	contact_point = source.escort.reporter.meeting_point
 	started = guard.now()
 	task = guard.memory.offer(guard.State.INVESTIGATE, report, guard.now())
 	if task.is_empty():
@@ -116,15 +116,15 @@ func start_sweep() -> void:
 	guard.halt()
 
 func recruit_locally() -> void:
+	if phase == Phase.CONTACT: return
 	# A peer defender is preferred; other civilians retain voluntary acceptance.
 	if peer == null or not is_instance_valid(peer.get_ref()):
 		for other in guard.local_allies:
 			if other.guard_ai != null and other.guard_ai.investigation.join(self): break
 	if guard.now() < guard.next_recruitment or not guard.visible_enemies.is_empty(): return
 	guard.next_recruitment = guard.now() + guard.recruitment_interval
-	var capacity = 1 if phase == Phase.CONTACT else 2 # reserve the eyewitness's place
 	for other in guard.local_allies:
-		if guard.followers.size() >= capacity: break
+		if guard.followers.size() >= 2: break
 		if witness != null and witness.get_ref() == other: continue
 		if other.local_warning.cleared_incidents.has(report.incident): continue
 		if other.escort != null: other.escort.invite(guard, true)
@@ -142,8 +142,8 @@ func end(status: String, reason: String, reassure: bool = false) -> void:
 		if reassure and guard.actor.defense.visible(guard.actor, follower.actor, guard.communication_radius): follower.finish_investigation(incident, resolved)
 		elif guard.actor.defense.alert.level < guard.actor.defense.alert.Level.ALARM: follower.release("local investigation ended")
 	var source = witness.get_ref() if witness != null else null
-	if is_instance_valid(source) and source.escort != null and source.escort.reporter.assigned != null and source.escort.reporter.assigned.get_ref() == guard:
-		source.escort.reporter.assigned = null
+	if is_instance_valid(source) and source.escort != null:
+		source.escort.reporter.cancel_meeting(guard)
 	if reassure:
 		completed_responses += 1
 		if resolved.has(guard.last_seen_id): guard.last_seen_id = 0
@@ -184,21 +184,20 @@ func update(delta: float) -> bool:
 	if phase == Phase.CONTACT:
 		guard.set_state(guard.State.INVESTIGATE)
 		var source = witness.get_ref() if witness != null else null
-		if is_instance_valid(source) and guard.actor.defense.visible(guard.actor, source, guard.communication_radius):
-			contact_point = source.global_position
-			if guard.actor.global_position.distance_to(contact_point) <= guard.recruitment_radius:
-				if not source.escort.reporter.report.is_empty():
-					report = source.escort.reporter.report.duplicate(true)
-					task.report = report.duplicate(true)
-					task.point = report.point
-				if source.escort.invite(guard, true, true):
-					source.escort.reporter.complete(report.incident)
-					phase = Phase.APPROACH
-				else: end("canceled", "witness unavailable for escort")
-				return true
-		if not is_instance_valid(source) or guard.now() - started > guard.memory_seconds:
-			end("expired", "witness contact lost")
-		else: guard.move_to(contact_point, delta)
+		if not is_instance_valid(source) or source.escort.reporter.assigned_guard() != guard:
+			end("expired", "witness meeting expired")
+			return true
+		if guard.actor.defense.visible(guard.actor, source, guard.recruitment_radius):
+			if not source.escort.reporter.report.is_empty():
+				report = source.escort.reporter.report.duplicate(true)
+				task.report = report.duplicate(true)
+				task.point = report.point
+			if source.escort.invite(guard, true, true):
+				source.escort.reporter.complete(report.incident)
+				phase = Phase.APPROACH
+			else: end("canceled", "witness unavailable for escort")
+		elif guard.move_to(contact_point, delta) == guard.actor.NavigationResult.FAILED:
+			end("infeasible", "meeting point unreachable")
 		return true
 	recruit_locally()
 	if guard.maintain_followers(): return true

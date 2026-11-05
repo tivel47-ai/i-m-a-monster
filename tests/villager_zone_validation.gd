@@ -326,7 +326,8 @@ func check_local_warning() -> void:
 		await frames(1)
 		if actor.threat_reaction.has_route:
 			owns_route = owns_route and actor.navigation_agent.target_position == actor.threat_reaction.route_destination
-	check(owns_route and actor.current_zone == null, "Report-based fleeing retains target ownership after local timers would have expired")
+	check(owns_route and actor.current_zone == null and actor.threat_reaction.reaction_state == actor.threat_reaction.Reaction.SEEKING_SHELTER,
+		"Warning sends the resident home in S and preserves target ownership over local zone timers")
 	await frames(600)
 	check(not actor.local_warning.has_report() and not actor.threat_reaction.episode_active and actor.current_zone == null
 		and actor.threat_reaction.seeking_home and actor.threat_reaction.reaction_state == actor.threat_reaction.Reaction.SEEKING_SHELTER,

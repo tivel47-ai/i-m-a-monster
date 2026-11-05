@@ -8,11 +8,13 @@ var lifetime: float = 45.0
 var material_distance: float = 24.0
 var serial: int = 0
 
-func remember(report: Dictionary, now: float) -> bool:
+func valid_report(report: Dictionary, now: float) -> bool:
 	if not report.has("incident") or not report.has("point") or not report.has("observed_at"):
 		return false
-	if not (report.point as Vector2).is_finite() or now - float(report.observed_at) > lifetime or float(report.observed_at) > now + 0.1:
-		return false
+	return report.point is Vector2 and report.point.is_finite() and now - float(report.observed_at) <= lifetime and float(report.observed_at) <= now + 0.1
+
+func remember(report: Dictionary, now: float) -> bool:
+	if not valid_report(report, now): return false
 	var id = report.incident
 	var previous: Dictionary = incidents.get(id, {})
 	if not previous.is_empty():

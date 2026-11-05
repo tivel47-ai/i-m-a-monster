@@ -4,6 +4,7 @@ enum Mode { INDEPENDENT, FOLLOWING, FLEEING, REUNION }
 const REPORTER = preload("res://scripts/civilian_reporter.gd")
 @export var report_to_guard_enabled: bool = true
 @export var reporting_seconds: float = 45.0
+@export var reporting_search_distance: float = 900.0
 @export_range(0, 1) var courage: float = 0.55
 @export_range(0, 1) var arming_probability: float = 0.60
 @export var guard_courage_bonus: float = 0.2
@@ -74,6 +75,7 @@ func invite(guard: Node, investigation: bool = false, eyewitness: bool = false) 
 	if not guard.actor.is_available_for_infection(): return false
 	if not can_recruit() or is_instance_valid(leader) or (not eyewitness and now < next_invitation) or guard.followers.size() >= 2: return false
 	if actor.defense.alert.level < actor.defense.alert.Level.ALARM and not investigation: return false
+	if investigation and not eyewitness and actor.threat_reaction.seeking_home: return false
 	if investigation and guard.investigation.phase == guard.investigation.Phase.NONE: return false
 	if not actor.defense.visible(actor, guard.actor, guard.recruitment_radius): return false
 	next_invitation = now + refusal_seconds
@@ -350,6 +352,7 @@ func update_escort(delta: float) -> bool:
 			if other.guard_ai != null and actor.defense.visible(actor, other, contact_radius) and actor.defense.reachable(actor, other.global_position):
 				if invite(other.guard_ai): return true
 	if reporter.update(delta): return true
+	if role() != "priest" and actor.threat_reaction.episode_active: return false
 	if actor.defense.alert.level < actor.defense.alert.Level.ALARM:
 		# Serious first-person danger may motivate a physical alarm attempt. Priest
 		# has priority; civilians defer to a locally available guard/priest.

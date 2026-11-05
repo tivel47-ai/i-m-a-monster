@@ -37,7 +37,7 @@ func _remember_observation(target: Node2D) -> void:
 	for enemy in sensor.nearby_threats():
 		if sensor._is_visible_target(enemy): count += 1
 	firsthand_report = {"incident": target.get_instance_id(), "point": target.global_position, "count": maxi(count, 1), "source": villager.get_instance_id(), "observed_at": villager.defense.elapsed, "credibility": 0.75, "relay": 0, "help": false}
-	if villager.escort != null and not villager.defense.guard_contact_points.is_empty() and villager.escort.reporter.observe(firsthand_report):
+	if villager.escort != null and villager.escort.reporter.has_live_report() and villager.escort.reporter.observe(firsthand_report):
 		firsthand_report.witness = true
 
 
@@ -64,10 +64,16 @@ func _update_escape_warning() -> void:
 	next_escape_warning = local_time + maxf(escape_warning_interval, duplicate_refresh_interval + 0.01)
 	var target = villager.get_recognized_threat()
 	if is_instance_valid(target) and sensor._is_visible_target(target): _remember_observation(target)
-	if firsthand_report.is_empty() or villager.defense.elapsed - float(firsthand_report.observed_at) > report_duration: return
+	var fresh: bool = not firsthand_report.is_empty() and villager.defense.elapsed - float(firsthand_report.observed_at) <= report_duration
+	var guard_report: Dictionary = {}
+	if villager.escort != null and villager.escort.reporter.has_live_report():
+		guard_report = villager.escort.reporter.report
+	if not fresh and guard_report.is_empty(): return
 	# This flag is scoped to synchronous delivery, never inherited by recipients.
 	sending_escape_warning = true
-	_deliver_warning(firsthand_report.point)
+	if fresh: _deliver_warning(firsthand_report.point)
+	if not guard_report.is_empty() and (not fresh or guard_report.incident != firsthand_report.incident):
+		_deliver_warning(guard_report.point, guard_report)
 	sending_escape_warning = false
 
 
@@ -106,26 +112,31 @@ func _on_warning_attempted(source: Node2D, point: Vector2) -> void:
 	_deliver_warning(point)
 
 
-func _deliver_warning(point: Vector2) -> void:
+func _deliver_warning(point: Vector2, guard_report: Dictionary = {}) -> void:
 	# Both a completed W action and an escape cry use the same local delivery.
 	var listeners: Array[Node2D] = []
+	var distances := {}
 	for candidate in get_tree().get_nodes_in_group("civilian_warning_receivers"):
 		if candidate == villager or not candidate is Node2D or candidate.is_queued_for_deletion():
 			continue
 		if candidate.get_world_2d() != villager.get_world_2d():
 			continue
+		if not guard_report.is_empty() and candidate.guard_ai == null: continue
 		var receiver = candidate.get_node_or_null("LocalWarning")
-		if receiver != null and candidate.global_position.distance_to(villager.global_position) <= receiver.hearing_radius: listeners.append(candidate)
-	# The nearest audible defender gets the first opportunity to respond. This
-	# orders actual physical delivery; no distant actor positions become NPC knowledge.
-	listeners.sort_custom(func(a, b): return villager.global_position.distance_squared_to(a.global_position) < villager.global_position.distance_squared_to(b.global_position))
+		var distance: float = candidate.global_position.distance_to(villager.global_position)
+		if receiver == null or distance > receiver.hearing_radius: continue
+		listeners.append(candidate)
+		if candidate.guard_ai != null and villager.escort != null and not villager.escort.reporter.report.is_empty():
+			distance = villager.escort.reporter.contact_distance(candidate.guard_ai)
+		distances[candidate] = distance
+	listeners.sort_custom(func(a, b): return distances[a] < distances[b])
 	for candidate in listeners:
 		var receiver = candidate.get_node("LocalWarning")
-		if receiver != null and receiver.receive_warning(villager, point):
+		if receiver != null and receiver.receive_warning(villager, point, guard_report):
 			notifications_delivered += 1
 
 
-func receive_warning(source: Variant, point: Vector2) -> bool:
+func receive_warning(source: Variant, point: Vector2, guard_report: Dictionary = {}) -> bool:
 	if not communication_enabled or not _can_receive() or not is_instance_valid(source) or source == villager:
 		return false
 	if source.is_queued_for_deletion() or not source.is_in_group("civilian_warning_receivers") or not source.is_available_for_infection():
@@ -136,13 +147,14 @@ func receive_warning(source: Variant, point: Vector2) -> bool:
 		return false
 	if hearing_radius <= 0 or source.global_position.distance_to(villager.global_position) > hearing_radius or not _valid_position(point):
 		return false
-	var incoming: Dictionary = source.local_warning.firsthand_report
+	var incoming: Dictionary = source.local_warning.firsthand_report if guard_report.is_empty() else guard_report
 	if not incoming.is_empty() and cleared_incidents.has(incoming.incident) and float(incoming.observed_at) <= float(cleared_incidents[incoming.incident]): return false
-	if villager.guard_ai != null and not source.local_warning.firsthand_report.is_empty():
-		var accepted: bool = villager.guard_ai.receive_message(source.local_warning.firsthand_report, source)
+	if villager.guard_ai != null and not incoming.is_empty():
+		var accepted: bool = villager.guard_ai.receive_message(incoming, source)
 		if accepted:
 			reports_received += 1
 		return accepted
+	if not guard_report.is_empty(): return false
 	if has_report() and point.distance_to(reported_position) <= maxf(duplicate_distance, 0) and local_time - received_at < maxf(duplicate_refresh_interval, 0):
 		return false
 	reported_position = point
@@ -166,14 +178,12 @@ func clear_report() -> void:
 	remaining = 0
 	received_at = -1
 	reported_position = Vector2.ZERO
-	if villager.threat_reaction.report_based:
-		villager.threat_reaction.cancel_response()
-		villager.wait_remaining = 0
+	villager.threat_reaction.finish_heard_report()
 	queue_redraw()
 
 
 func _draw() -> void:
-	if villager.escort != null and not villager.escort.reporter.report.is_empty() and (debug_enabled or sensor.debug_enabled):
+	if villager.escort != null and villager.escort.reporter.goal.is_finite() and villager.escort.reporter.has_live_report() and (debug_enabled or sensor.debug_enabled):
 		draw_string(ThemeDB.fallback_font, Vector2(6, -32), "R", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.ORANGE)
 	if has_report() and (debug_enabled or sensor.debug_enabled):
 		draw_rect(Rect2(-10, -24, 4, 4), Color.ORANGE, false, 1.0)

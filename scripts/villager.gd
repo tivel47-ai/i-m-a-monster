@@ -270,18 +270,22 @@ func _activity_duration(activity: Activity) -> Vector2:
 
 
 func _is_destination_valid(point: Vector2, navigation_map: RID) -> bool:
+	return not _validated_path_to(point, navigation_map).is_empty()
+
+
+func _validated_path_to(point: Vector2, navigation_map: RID) -> PackedVector2Array:
 	if global_position.distance_to(point) <= maxf(arrival_tolerance, 0.5):
-		return false
+		return PackedVector2Array()
 	if NavigationServer2D.map_get_closest_point(navigation_map, point).distance_to(point) > 1.0:
-		return false
+		return PackedVector2Array()
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = $CollisionShape2D.shape
 	query.transform = Transform2D(0.0, point)
 	query.collision_mask = 1
 	if not get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty():
-		return false
+		return PackedVector2Array()
 	var path := NavigationServer2D.map_get_path(navigation_map, global_position, point, true, navigation_agent.navigation_layers)
-	return not path.is_empty() and path[-1].distance_to(point) <= 1.0
+	return path if not path.is_empty() and path[-1].distance_to(point) <= 1.0 else PackedVector2Array()
 
 
 func _stop_movement() -> void:

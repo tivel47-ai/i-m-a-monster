@@ -45,10 +45,16 @@ func run() -> void:
 		"Warning does not forge direct visual awareness or a zombie reference")
 	check(receiver.threat_reaction.report_based and receiver.threat_reaction.threat_target == null
 		and receiver.current_activity == receiver.Activity.NONE, "Report interrupts peaceful activity using existing response without fake target")
-	var distance_before: float = receiver.position.distance_to(snapshot)
-	await frames(45)
-	check(receiver.position.distance_to(snapshot) > distance_before + 10 and not overlaps_building(receiver, receiver.position),
-		"Warned villager moves away from reported danger through existing navigation")
+	var refuge: Vector2 = receiver.threat_reaction.home_destination
+	var home = receiver.get_node(receiver.home_point_path)
+	var distance_before: float = receiver.position.distance_to(refuge)
+	var shelter_only := true
+	for frame in range(45):
+		await frames(1)
+		shelter_only = shelter_only and receiver.threat_reaction.reaction_state == receiver.threat_reaction.Reaction.SEEKING_SHELTER
+	check(shelter_only and refuge.distance_to(home.global_position) <= receiver.threat_reaction.home_approach_radius
+		and receiver.position.distance_to(refuge) < distance_before - 10 and not overlaps_building(receiver, receiver.position),
+		"Warned villager immediately moves toward its own exterior home in S without a flight leg")
 	check(receiver.local_warning.notifications_delivered == 0 and not map.villagers[3].local_warning.has_report(),
 		"Second-hand information does not create a recursive warning cascade")
 	# Freeze parent navigation only; local knowledge clock continues independently.
@@ -78,8 +84,8 @@ func run() -> void:
 		and receiver.get_recognized_threat() == null, "Moving hidden zombie does not update second-hand snapshot")
 	await frames(610)
 	check(not report.has_report() and report.get_knowledge() == report.Knowledge.NORMAL
-		and not receiver.threat_reaction.episode_active and not receiver.threat_reaction.has_route,
-		"Unrefreshed report expires and clears warning-only navigation lock")
+		and not receiver.threat_reaction.episode_active and receiver.threat_reaction.home_destination == refuge,
+		"Unrefreshed report expires without discarding the chosen home approach")
 	receiver.set_physics_process(true)
 	await frames(10)
 	check(receiver.threat_reaction.seeking_home and receiver.threat_reaction.reaction_state == receiver.threat_reaction.Reaction.SEEKING_SHELTER
@@ -115,14 +121,17 @@ func check_radius_and_invalid_reports() -> void:
 func check_failed_report_response() -> void:
 	await warning_fixture()
 	report.report_duration = 0.5
-	receiver.threat_reaction.escape_distance = 100000
+	var home = receiver.get_node(receiver.home_point_path)
+	home.global_position = zombie.global_position
+	var initial: Vector2 = receiver.global_position
 	await frames(28)
-	check(report.has_report() and receiver.threat_reaction.episode_active and not receiver.threat_reaction.has_route,
-		"Unavailable escape route uses existing bounded fallback for a report")
+	check(report.has_report() and receiver.threat_reaction.reaction_state == receiver.threat_reaction.Reaction.SEEKING_SHELTER
+		and not receiver.threat_reaction.has_route and receiver.global_position.is_equal_approx(initial),
+		"Warned resident waits in S while all approaches to its home lie inside the reported danger")
 	await frames(60)
 	check(not report.has_report() and not receiver.threat_reaction.episode_active
 		and receiver.threat_reaction.seeking_home and receiver.threat_reaction.reaction_state == receiver.threat_reaction.Reaction.SEEKING_SHELTER,
-		"Failed immediate escape expires into home seeking rather than ordinary work")
+		"An expired report preserves the home plan while removing the stale danger constraint")
 	await clear_map()
 
 

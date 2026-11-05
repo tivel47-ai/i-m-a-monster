@@ -14,6 +14,7 @@ func prepare() -> Node2D:
 	source.threat_reaction.shelter_weight = 0
 	source.threat_reaction.warning_weight = 0
 	source.threat_reaction.frozen_weight = 0
+	source.threat_reaction.reporting_share_of_escape = 1.0
 	source.threat_reaction.reaction_random.seed = 501
 	civilians[0].courage = 1
 	civilians[0].arming_probability = 1
@@ -81,7 +82,7 @@ func run() -> void:
 	var report = report_for(90001, Vector2(1570,1000))
 	source.position = g.actor.position + Vector2(25,0)
 	source.threat_reaction.seeking_home = true
-	source.escort.reporter.report = report.duplicate(true)
+	source.escort.reporter.observe(report)
 	source.local_warning.firsthand_report = report.duplicate(true)
 	check(g.receive_eyewitness(report,source), "A physical firsthand meeting creates one bounded local response")
 	for i in [1,2]:
@@ -90,6 +91,7 @@ func run() -> void:
 		civilians[i].actor.autonomous_movement_enabled=true
 	g.sense()
 	g.investigation.recruit_locally()
+	check(g.followers.is_empty() and g.investigation.peer == null, "The guard waits for the witness before inviting help for the investigation")
 	await frames(5)
 	check(civilians[0].leader==g and g.followers.size()<=2, "Nearby volunteers cannot take the reserved eyewitness's group slot")
 	var started: float = g.investigation.started
@@ -111,7 +113,7 @@ func run() -> void:
 	source.position = g.actor.position + Vector2(25,0)
 	report = report_for(enemies[0].get_instance_id(), Vector2(1570,1000))
 	source.threat_reaction.seeking_home = true
-	source.escort.reporter.report = report.duplicate(true)
+	source.escort.reporter.observe(report)
 	source.local_warning.firsthand_report = report.duplicate(true)
 	g.receive_eyewitness(report, source)
 	for tick in range(2400):
@@ -133,20 +135,131 @@ func run() -> void:
 	for guard in guards:
 		guard.actor.autonomous_movement_enabled = false
 		guard.actor.position = Vector2(2600,1700)
-	defense.guard_contact_points.clear()
-	defense.guard_contact_points.append(Vector2(1400,1000))
-	defense.guard_contact_points.append(Vector2(1300,1000))
+	# The western witness sees a real zombie, but cannot reach the post within the time budget.
+	source.escort.reporting_seconds = 1.0
 	await frames(30)
 	var snapshot: Vector2 = source.local_warning.firsthand_report.point
+	var showed_route: bool = source.escort.reporter.goal.is_finite()
 	enemies[0].position = Vector2(100,100)
-	await frames(240)
-	check(source.escort.reporter.visited.size()>=2 and source.local_warning.firsthand_report.point==snapshot,
-		"Without a visible guard the messenger physically checks successive known duty points, without tracking a hidden monster")
-	source.escort.reporting_seconds = 0.1
-	await frames(10)
-	check(source.escort.reporter.report.is_empty() and source.threat_reaction.seeking_home and alert.score==0,
-		"A bounded unsuccessful guard search falls back to home refuge without inventing a delivered report")
+	for frame in range(240):
+		await frames(1)
+		showed_route = showed_route or source.escort.reporter.goal.is_finite()
+	check(not showed_route and source.escort.reporter.report.is_empty() and source.local_warning.firsthand_report.point == snapshot
+		and source.threat_reaction.reaction_state == source.threat_reaction.Reaction.SEEKING_SHELTER and alert.score == 0,
+		"A witness with no local guard or reachable post takes shelter without a blind R detour")
+	await check_guard_choice_and_meeting()
+	await check_post_search()
+	await check_late_guard_reply()
 	map.queue_free()
 	await frames(3)
 	print("Eyewitness response validation failures: ",failures)
 	quit(1 if failures else 0)
+
+func check_guard_choice_and_meeting() -> void:
+	for both_guards in [true, false]:
+		var source = await prepare()
+		var across_wall = guards[0]
+		var open_route = guards[1]
+		source.position = Vector2(1376, 868)
+		across_wall.actor.position = Vector2(1484, 868)
+		open_route.actor.position = Vector2(1376, 996)
+		open_route.actor.autonomous_movement_enabled = both_guards
+		across_wall.actor.set_physics_process(false)
+		source.set_physics_process(false)
+		source.threat_detection.detection_enabled = false
+		enemies[0].position = Vector2(100, 100)
+		await frames(3)
+		var reaction = source.threat_reaction
+		reaction.seeking_home = true
+		reaction.episode_active = true
+		reaction.warning_sent = true
+		reaction.threat_position = Vector2(1300, 830)
+		var message = report_for(90123, reaction.threat_position)
+		message.source = source.get_instance_id()
+		message.witness = true
+		source.escort.reporter.observe(message)
+		source.local_warning.firsthand_report = message
+		var hidden_length: float = source.escort.reporter.contact_distance(across_wall)
+		var open_length: float = source.escort.reporter.contact_distance(open_route)
+		check(not defense.visible(source, across_wall.actor, 180) and hidden_length < INF and hidden_length > open_length
+			and source.position.distance_to(across_wall.actor.position) < source.position.distance_to(open_route.actor.position),
+			"The well makes the geometrically closer guard slower to reach by a real route")
+		source.warning_attempted.emit(source, reaction.threat_position)
+		if both_guards:
+			check(source.escort.reporter.assigned_guard() == open_route and across_wall.investigation.phase == across_wall.investigation.Phase.NONE,
+				"The shorter accessible route wins the actual audible response over a closer guard behind a wall")
+		else:
+			var point: Vector2 = source.escort.reporter.meeting_point
+			check(source.escort.reporter.assigned_guard() == across_wall and point == across_wall.investigation.contact_point,
+				"An audible reply across the wall gives both participants the same fixed meeting point")
+			source.set_physics_process(true)
+			across_wall.actor.set_physics_process(true)
+			for frame in range(360):
+				await frames(1)
+				if source.escort.leader == across_wall: break
+			check(source.escort.leader == across_wall and not source.escort.reporter.post_target.is_finite(),
+				"The hidden responding guard meets the witness before a trip to the post")
+
+func check_post_search() -> void:
+	var source = await prepare()
+	for guard in guards:
+		guard.actor.autonomous_movement_enabled = false
+		guard.actor.position = Vector2(2600, 1700)
+	enemies[0].position = Vector2(100, 100)
+	source.threat_detection.detection_enabled = false
+	source.position = Vector2(2180, 1640)
+	await frames(3)
+	var post: Vector2 = defense.guard_posts[0]
+	var message = report_for(90124, Vector2(2050, 1700))
+	source.threat_reaction.threat_position = message.point
+	source.threat_reaction.seeking_home = true
+	source.escort.reporter.observe(message)
+	await frames(3)
+	check(source.escort.reporter.goal == post, "Without a local responder the witness walks to the actual exterior post approach")
+	for frame in range(480):
+		await frames(1)
+		if source.escort.reporter.report.is_empty(): break
+	check(source.escort.reporter.post_arrived_at >= 0 and source.escort.reporter.report.is_empty()
+		and source.threat_reaction.seeking_home and alert.score == 0,
+		"After checking the empty post the witness goes to shelter without another detour")
+
+func check_late_guard_reply() -> void:
+	var source = await prepare()
+	var guard = guards[0]
+	guard.actor.position = Vector2(1330, 1000)
+	guard.actor.autonomous_movement_enabled = false
+	guard.actor.set_physics_process(false)
+	source.set_physics_process(false)
+	source.threat_detection.detection_enabled = false
+	enemies[0].position = Vector2(100, 100)
+	var listener = civilians[1].actor
+	listener.position = Vector2(1510, 1040)
+	await frames(3)
+	var message = report_for(90125, Vector2(1580, 1000))
+	message.source = source.get_instance_id()
+	message.witness = true
+	source.local_warning.firsthand_report = message
+	source.threat_reaction.seeking_home = true
+	source.threat_reaction.threat_position = message.point
+	source.escort.reporter.observe(message)
+	await frames(75)
+	check(guard.memory.incidents.has(message.incident) and source.escort.reporter.assigned_guard() == null and listener.local_warning.has_report(),
+		"The first call records evidence while the nearby guard is unavailable")
+	await frames(615)
+	guard.actor.autonomous_movement_enabled = true
+	await frames(70)
+	check(source.escort.reporter.assigned_guard() == guard and not listener.local_warning.has_report()
+		and float(guard.memory.incidents[message.incident].observed_at) == float(message.observed_at),
+		"A guard can answer an already known call after civilian warnings expire, without refreshing the report")
+	var point: Vector2 = source.escort.reporter.meeting_point
+	source.set_physics_process(true)
+	guard.actor.set_physics_process(true)
+	var held_point := true
+	var used_route := false
+	for frame in range(360):
+		await frames(1)
+		if source.escort.leader == guard: break
+		held_point = held_point and guard.actor.global_position.distance_to(point) < 2.0
+		used_route = used_route or source.escort.reporter.goal == point
+	check(source.escort.leader == guard and held_point and used_route,
+		"The running witness reaches the stationary responder on one fixed meeting route")
