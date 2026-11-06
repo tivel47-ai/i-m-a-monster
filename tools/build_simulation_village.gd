@@ -650,6 +650,15 @@ func build_guard_routes() -> void:
 		road_section("ChurchLane",Vector2(1400,580),Vector2(1470,880)),
 		road_section("MainStreet",Vector2(1470,880),Vector2(1980,820)),
 		road_section("ArtisanLink",Vector2(1980,820),Vector2(2060,1320))])
+	patrol_route("WestCircuit",[
+		road_section("ArtisanLink",Vector2(2060,1320),Vector2(1980,820)),
+		road_section("MainStreet",Vector2(1980,820),Vector2(400,1010)),
+		road_section("WestLane",Vector2(400,1010),Vector2(850,580)),
+		road_section("NorthLane",Vector2(850,580),Vector2(790,960)),
+		road_section("MainStreet",Vector2(790,960),Vector2(650,940)),
+		road_section("WestCrossLane",Vector2(650,940),Vector2(840,1360)),
+		road_section("FarmLane",Vector2(840,1360),Vector2(430,1270)),
+		road_section("SouthBypass",Vector2(430,1270),Vector2(2060,1320))])
 	var door: PackedVector2Array=village.get_node("Roads/GuardDoorPath0").get_meta("centerline")
 	var reversed_door:=door.duplicate()
 	reversed_door.reverse()

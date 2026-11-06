@@ -45,6 +45,11 @@ var unsafe_sites: Dictionary = {}
 var prefer_private_until: float = 0.0
 var goal: Vector2 = Vector2.INF
 var bell_elapsed: float = 0.0
+var rare_bell_pending: bool = false
+var rare_bell_ready: bool = false
+var rare_bell_started: float = 0.0
+var bell_rolls: int = 0
+var bell_targets: Dictionary = {}
 var reported_danger: Dictionary = {}
 var leader_lost: bool = false
 var reporter: RefCounted
@@ -54,9 +59,11 @@ var rng = RandomNumberGenerator.new()
 func _ready() -> void:
 	rng.randomize()
 	reporter = REPORTER.new(self)
+	actor.defense.alert.level_changed.connect(_alert_changed)
 
 func role() -> String:
-	return str(actor.get_meta("village_role", "artisan" if actor.civilian_profile == "Craftsman" else "peasant"))
+	var ordinary_profiles := {"Villager": "peasant", "Peasant": "peasant", "Craftsman": "artisan"}
+	return str(actor.get_meta("village_role", ordinary_profiles.get(actor.civilian_profile, "")))
 
 func can_recruit() -> bool:
 	return role() in ["peasant", "artisan"] and actor.is_available_for_infection()
@@ -81,6 +88,7 @@ func invite(guard: Node, investigation: bool = false, eyewitness: bool = false) 
 	next_invitation = now + refusal_seconds
 	var danger = 0.0 if actor.get_recognized_threat() == null else perceived_risk_penalty
 	if not eyewitness and rng.randf() > clampf(courage + guard_courage_bonus - danger, 0.0, 1.0): return false
+	cancel_rare_bell()
 	leader = guard
 	reporter.report.clear()
 	reporter.assigned = null
@@ -119,6 +127,7 @@ func release(_reason: String) -> void:
 	idle_walking = false
 
 func receive_message(message: Dictionary, sender: Node2D) -> bool:
+	if message.get("kind", "") == "corpse": return false
 	if not is_instance_valid(sender) or not sender.is_alive() or sender.defense != actor.defense or actor.global_position.distance_to(sender.global_position) > actor.local_warning.hearing_radius: return false
 	if not actor.is_alive() or not actor.local_warning.communication_enabled or message.get("ack", false): return false
 	if actor.local_warning.cleared_incidents.has(message.incident) and float(message.observed_at) <= float(actor.local_warning.cleared_incidents[message.incident]): return false
@@ -256,6 +265,7 @@ func panic(contact: Node2D = null) -> void:
 	if target != null: actor.threat_reaction._enter_reaction(actor.threat_reaction.Reaction.FLEEING)
 
 func update_combat() -> void:
+	cancel_rare_bell()
 	# The zombie explicitly releases its primary opponent on death. Additional
 	# civilian defenders must also leave their now-ended local encounter.
 	for enemy in actor.encounter_participants.duplicate():
@@ -353,9 +363,11 @@ func update_escort(delta: float) -> bool:
 		for other in actor.defense.nearby(actor, contact_radius):
 			if other.guard_ai != null and actor.defense.visible(actor, other, contact_radius) and actor.defense.reachable(actor, other.global_position):
 				if invite(other.guard_ai): return true
+	if update_rare_bell(delta): return true
 	if reporter.update(delta): return true
 	if role() != "priest" and actor.threat_reaction.episode_active: return false
 	if actor.defense.alert.level < actor.defense.alert.Level.ALARM:
+		if role() != "priest": return false
 		# Serious first-person danger may motivate a physical alarm attempt. Priest
 		# has priority; civilians defer to a locally available guard/priest.
 		if actor.get_recognized_threat() == null or not is_instance_valid(actor.defense.bell): return false
@@ -400,3 +412,58 @@ func update_escort(delta: float) -> bool:
 		actor.velocity = Vector2.ZERO
 		return true
 	return false
+
+func consider_rare_bell(target: Node2D) -> void:
+	if not can_recruit() or actor.defense.alert.level >= actor.defense.alert.Level.ALARM or is_instance_valid(leader):
+		return
+	var id := target.get_instance_id()
+	if rare_bell_pending or bell_targets.has(id):
+		return
+	bell_targets[id] = true
+	bell_rolls += 1
+	rare_bell_pending = rng.randf() < 0.02
+	rare_bell_ready = false
+	rare_bell_started = actor.defense.elapsed
+
+func cancel_rare_bell() -> void:
+	rare_bell_pending = false
+	rare_bell_ready = false
+	bell_elapsed = 0.0
+
+func _alert_changed(_previous: int, current: int) -> void:
+	if current >= actor.defense.alert.Level.ALARM:
+		var traveling := rare_bell_ready
+		cancel_rare_bell()
+		if traveling:
+			actor._stop_movement()
+			actor.threat_reaction.seeking_home = true
+		if reporter.report.get("kind", "") == "corpse":
+			reporter.cancel()
+			actor.threat_reaction.finish_guard_run()
+
+func update_rare_bell(delta: float) -> bool:
+	if not rare_bell_pending:
+		return false
+	if actor.defense.elapsed - rare_bell_started > reporting_seconds or actor.defense.alert.level >= actor.defense.alert.Level.ALARM:
+		cancel_rare_bell()
+		actor.threat_reaction.seeking_home = true
+		return false
+	if not rare_bell_ready:
+		return false
+	var point: Vector2 = actor.defense.alarm_point(actor)
+	if not actor.threat_reaction._visible_threats().is_empty() or not point.is_finite() or actor.threat_reaction._safe_route_length(point, true, true) == INF:
+		cancel_rare_bell()
+		actor.threat_reaction.seeking_home = true
+		return false
+	reporter.cancel()
+	if actor.global_position.distance_to(actor.defense.bell.global_position) <= actor.defense.bell_reach and actor.defense.bell_visible(actor):
+		actor._stop_movement()
+		bell_elapsed += delta
+		if bell_elapsed >= actor.defense.bell_interaction_seconds:
+			actor.defense.ring(actor)
+	else:
+		bell_elapsed = 0.0
+		if move_to(point, delta, actor.threat_reaction.fleeing_speed) == actor.NavigationResult.FAILED:
+			cancel_rare_bell()
+			actor.threat_reaction.seeking_home = true
+	return true

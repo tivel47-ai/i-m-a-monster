@@ -99,6 +99,8 @@ func recognize_threat(target: Node2D) -> void:
 	freeze_used = false
 	warning_sent = false
 	reassessment_remaining = 0
+	if villager.escort != null:
+		villager.escort.consider_rare_bell(target)
 	var selected := choose_reaction()
 	after_flight = Reaction.NONE
 	_enter_reaction(selected)
@@ -392,6 +394,12 @@ func _stop_velocity() -> void:
 
 
 func _finish_episode() -> void:
+	if villager.escort != null:
+		villager.escort.bell_targets.clear()
+	if villager.escort != null and villager.escort.rare_bell_pending:
+		cancel_response()
+		villager.escort.rare_bell_ready = true
+		return
 	var warn_guard := false
 	if reaction_state == Reaction.FLEEING and after_flight != Reaction.SEEKING_SHELTER:
 		var observation: Dictionary = villager.local_warning.firsthand_report

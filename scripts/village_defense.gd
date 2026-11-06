@@ -1,5 +1,6 @@
 extends Node
 ## Mission-scoped clock and physical queries, never a shared tactical blackboard.
+const CORPSE = preload("res://scripts/corpse_perception.gd")
 const GUARD = preload("res://scripts/guard_ai.gd")
 const ESCORT = preload("res://scripts/civilian_escort.gd")
 @export var bell_reach: float = 24.0
@@ -20,6 +21,9 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 	if bell == null: bell = get_parent().get_node_or_null("NavigationRegion2D/Solids/Bell")
 	for actor in residents:
 		actor.defense = self
+		var perception = CORPSE.new()
+		perception.name = "CorpsePerception"
+		actor.add_child(perception)
 		if actor.guard_patrol != null:
 			has_guards = true
 			var ai = actor.get_node_or_null("GuardAI")

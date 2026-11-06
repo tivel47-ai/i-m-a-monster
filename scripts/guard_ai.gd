@@ -144,6 +144,7 @@ func observe(target: Node2D) -> void:
 	if not enabled: return
 	if not actor.threat_detection._is_visible_target(target): return
 	last_seen_id = target.get_instance_id()
+	actor.defense.alert.confirm_threat(actor, last_seen_id)
 	if not seen_since.has(last_seen_id): next_decision = 0.0
 	seen_since[last_seen_id] = now()
 	last_seen_point = target.global_position
@@ -165,6 +166,7 @@ func observe(target: Node2D) -> void:
 		memory.incidents[last_seen_id].observed_at = now()
 
 func receive_message(message: Dictionary, sender: Node2D) -> bool:
+	if message.get("kind", "") == "corpse": return receive_corpse(message, sender)
 	if not enabled or not actor.local_warning.communication_enabled or not actor.is_alive() or not is_instance_valid(sender) or sender == actor or sender.defense != actor.defense:
 		return false
 	if not sender.is_alive() or actor.global_position.distance_to(sender.global_position) > minf(communication_radius, actor.local_warning.hearing_radius): return false
@@ -203,6 +205,7 @@ func receive_message(message: Dictionary, sender: Node2D) -> bool:
 	return true
 
 func receive_eyewitness(message: Dictionary, sender: Node2D) -> bool:
+	if message.get("kind", "") == "corpse": return receive_corpse(message, sender)
 	if sender.escort == null or sender.defense != actor.defense or not sender.is_available_for_infection(): return false
 	if not sender.local_warning.communication_enabled or not actor.local_warning.communication_enabled: return false
 	if not message.has("point") or not message.has("incident") or not message.has("observed_at"): return false
@@ -233,6 +236,9 @@ func sense() -> void:
 	for id in seen_since.keys():
 		if not present.has(id): seen_since.erase(id)
 	for enemy in visible_enemies: observe(enemy)
+	actor.defense.alert.observe_combat(actor, actor)
+	for ally in local_allies:
+		actor.defense.alert.observe_combat(actor, ally)
 	# A target's death is only resolved when directly visible at this location.
 	for other in candidates:
 		if other.has_method("is_alive") and not other.is_alive() and actor.defense.visible(actor, other, actor.threat_detection.detection_radius):
@@ -559,6 +565,7 @@ func update_ai(delta: float) -> bool:
 			if now() - float(acknowledgements[id]) > memory_seconds: acknowledgements.erase(id)
 		sense()
 		investigation.sense()
+		investigation.start_pending_corpse()
 		if investigation.phase == investigation.Phase.APPROACH: investigation.recruit_locally()
 		for message in outbox: actor.defense.broadcast(actor, message, communication_radius)
 		outbox.clear()
@@ -703,3 +710,17 @@ func update_ai(delta: float) -> bool:
 		return true
 	set_state(State.ALERT_PATROL if actor.defense.alert.level == actor.defense.alert.Level.SUSPICION else State.PATROL)
 	return false # established road patrol and physical post relief remain authoritative
+
+func receive_corpse(message: Dictionary, sender: Node2D) -> bool:
+	if not enabled or not actor.is_available_for_infection() or not is_instance_valid(sender) or sender == actor:
+		return false
+	if not actor.local_warning.communication_enabled or not sender.local_warning.communication_enabled:
+		return false
+	if not actor.defense.visible(actor, sender, witness_contact_radius):
+		return false
+	if not actor.defense.alert.valid_corpse_report(sender, message):
+		return false
+	if actor.guard_patrol != null:
+		actor.guard_patrol.release_for_incident()
+	actor.defense.alert.confirm_corpse(actor, message, sender)
+	return true

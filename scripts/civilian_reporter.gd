@@ -27,7 +27,7 @@ func can_start(incident: int) -> bool:
 func observe(message: Dictionary) -> bool:
 	if not can_start(int(message.get("incident", 0))): return false
 	var actor = escort.actor
-	if actor.defense.elapsed - float(message.observed_at) >= escort.reporting_seconds: return false
+	if message.get("kind", "") != "corpse" and actor.defense.elapsed - float(message.observed_at) >= escort.reporting_seconds: return false
 	if not report.is_empty() and message.incident != report.incident: return false
 	if report.is_empty():
 		actor.threat_reaction.start_guard_run(message.point)
@@ -42,7 +42,7 @@ func observe(message: Dictionary) -> bool:
 func contact_distance(guard: Node) -> float:
 	if failed_meetings.has(guard.get_instance_id()): return INF
 	var actor = escort.actor
-	var distance: float = actor.threat_reaction._safe_route_length(guard.actor.global_position, true, true)
+	var distance: float = actor.threat_reaction._safe_route_length(guard.actor.global_position, report.get("kind", "") != "corpse", true)
 	return distance if distance <= escort.reporting_search_distance else INF
 
 func assigned_guard() -> Node:
@@ -91,6 +91,10 @@ func update(delta: float) -> bool:
 	goal = Vector2.INF
 	if report.is_empty(): return false
 	var now: float = actor.defense.elapsed
+	if report.get("kind", "") == "corpse" and actor.get_recognized_threat() != null:
+		_abandon_search()
+		actor.threat_reaction.recognize_threat(actor.get_recognized_threat())
+		return false
 	if not has_live_report():
 		_abandon_search()
 		return false # personal home refuge remains the fallback
@@ -106,6 +110,12 @@ func update(delta: float) -> bool:
 		if actor.defense.visible(actor, responder.actor, escort.contact_radius) and not responder.investigation.can_receive(actor):
 			cancel_meeting(responder)
 		elif actor.defense.visible(actor, responder.actor, responder.witness_contact_radius):
+			if report.get("kind", "") == "corpse":
+				if responder.receive_corpse(report, actor):
+					complete(int(report.incident))
+					actor.threat_reaction.finish_guard_run()
+					actor.threat_reaction.seeking_home = true
+				return false
 			escort.move_to(actor.global_position, delta)
 			goal = meeting_point
 			return true
@@ -139,13 +149,14 @@ func has_live_report() -> bool:
 
 func _remaining_seconds() -> float:
 	var now: float = escort.actor.defense.elapsed
-	return escort.reporting_seconds - maxf(now - started, now - float(report.observed_at))
+	return escort.reporting_seconds - (now - started if report.get("kind", "") == "corpse" else maxf(now - started, now - float(report.observed_at)))
 
 func _request_visible_guard() -> void:
 	var actor = escort.actor
 	var nearest: Node
 	var distance := INF
-	for other in actor.defense.nearby(actor, escort.contact_radius):
+	for other in actor.defense.get_parent().villagers:
+		if not is_instance_valid(other): continue
 		if other.guard_ai == null or not other.is_available_for_infection() or not actor.defense.visible(actor, other, escort.contact_radius): continue
 		if not other.guard_ai.investigation.can_receive(actor): continue
 		var reach: float = minf(other.guard_ai.communication_radius, other.local_warning.hearing_radius)
@@ -155,22 +166,28 @@ func _request_visible_guard() -> void:
 			nearest = other.guard_ai
 			distance = candidate
 	if nearest != null:
+		if report.get("kind", "") == "corpse":
+			claim(nearest)
+			return
 		if not nearest.receive_eyewitness(report, actor):
 			nearest.receive_message(report, actor)
 
 func _travel_to(point: Vector2, delta: float) -> int:
 	var actor = escort.actor
 	var reaction = actor.threat_reaction
-	if reaction._safe_route_length(point, true, true) == INF:
+	if reaction._safe_route_length(point, report.get("kind", "") != "corpse", true) == INF:
 		return actor.NavigationResult.FAILED
 	var result: int = escort.move_to(point, delta, reaction.fleeing_speed)
 	if result != actor.NavigationResult.FAILED: goal = point
 	return result
 
 func _abandon_search() -> void:
+	var corpse_report: bool = report.get("kind", "") == "corpse"
 	failed = report.incident
 	cancel()
 	escort.actor.threat_reaction.finish_guard_run()
+	if corpse_report:
+		escort.actor.threat_reaction.seeking_home = true
 
 func _choose_post() -> Vector2:
 	var actor = escort.actor
@@ -178,7 +195,7 @@ func _choose_post() -> Vector2:
 	var target := Vector2.INF
 	var travel_budget := maxf(_remaining_seconds() - POST_LISTEN_SECONDS, 0.0) * maxf(actor.threat_reaction.fleeing_speed, 0.0)
 	for point in actor.defense.guard_posts:
-		var length: float = actor.threat_reaction._safe_route_length(point, true, true)
+		var length: float = actor.threat_reaction._safe_route_length(point, report.get("kind", "") != "corpse", true)
 		if length <= travel_budget and length < best:
 			best = length
 			target = point

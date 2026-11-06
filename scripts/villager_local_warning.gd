@@ -67,7 +67,8 @@ func _update_escape_warning() -> void:
 	var fresh: bool = not firsthand_report.is_empty() and villager.defense.elapsed - float(firsthand_report.observed_at) <= report_duration
 	var guard_report: Dictionary = {}
 	if villager.escort != null and villager.escort.reporter.has_live_report():
-		guard_report = villager.escort.reporter.report
+		if villager.escort.reporter.report.get("kind", "") != "corpse":
+			guard_report = villager.escort.reporter.report
 	if not fresh and guard_report.is_empty(): return
 	# This flag is scoped to synchronous delivery, never inherited by recipients.
 	sending_escape_warning = true

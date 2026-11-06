@@ -21,6 +21,8 @@ var verified_victory: bool = false
 var completed_checks: int = 0
 var completed_responses: int = 0
 var supporting: bool = false
+var corpse_queue: Array[Dictionary] = []
+var corpse_ids: Array[int] = []
 
 func _init(owner: Node) -> void:
 	guard = owner
@@ -51,9 +53,12 @@ func begin(message: Dictionary, source: Node2D) -> bool:
 	guard.active = task
 	task.status = "active"
 	phase = Phase.CONTACT
+	if guard.actor.guard_patrol != null:
+		guard.actor.guard_patrol.release_for_incident()
 	return true
 
 func join(other: RefCounted) -> bool:
+	if other.report.get("kind", "") == "corpse": return false
 	if phase != Phase.NONE or not guard.actor.autonomous_movement_enabled or not guard.actor.is_available_for_infection() or not guard.active.is_empty() or not guard.alliance.is_empty(): return false
 	if not guard.visible_enemies.is_empty(): return false
 	if not guard.actor.defense.visible(guard.actor, other.guard.actor, guard.communication_radius): return false
@@ -136,6 +141,9 @@ func recruit_locally() -> void:
 
 func end(status: String, reason: String, reassure: bool = false) -> void:
 	if phase == Phase.NONE: return
+	var corpse_report: Dictionary = report.duplicate(true)
+	var completed_corpses: Array = corpse_ids.duplicate()
+	corpse_ids.clear()
 	var incident: int = report.incident
 	var resolved: Array = observed.keys()
 	if not resolved.has(incident): resolved.append(incident)
@@ -166,6 +174,13 @@ func end(status: String, reason: String, reassure: bool = false) -> void:
 	defeated.clear()
 	saw_enemy = false
 	guard.halt()
+	var already_ringing := false
+	for pending in guard.memory.tasks:
+		if pending.kind == guard.State.RAISE_ALARM:
+			already_ringing = true
+	if status == "completed" and not already_ringing and not completed_corpses.is_empty() and guard.actor.defense.alert.decide_corpse_alarm(completed_corpses):
+		corpse_report.observed_at = guard.now() # the decision is new, even when the body is old
+		guard.offer_alarm(corpse_report)
 
 func update(delta: float) -> bool:
 	if phase == Phase.NONE: return false
@@ -230,3 +245,41 @@ func update(delta: float) -> bool:
 				look = 0.0
 				if progress >= points.size(): end("completed", "nearby area physically checked after contact" if saw_enemy else "reported area physically checked; enemy not found", true)
 	return true
+
+func queue_corpse(message: Dictionary) -> void:
+	# Typed evidence is kept separate from monster incident IDs in tactical memory.
+	if phase in [Phase.APPROACH, Phase.SWEEP] and origin.distance_to(message.point) <= guard.search_radius:
+		corpse_ids.append(int(message.incident))
+		return
+	var pending := message.duplicate(true)
+	pending.received_at = guard.now()
+	corpse_queue.append(pending)
+
+func start_pending_corpse() -> void:
+	if guard.actor.defense.alert.level >= guard.actor.defense.alert.Level.ALARM:
+		corpse_queue.clear()
+		corpse_ids.clear()
+		return
+	if corpse_queue.is_empty() or phase != Phase.NONE or not guard.active.is_empty() or not guard.alliance.is_empty() or not guard.visible_enemies.is_empty():
+		return
+	var message: Dictionary = corpse_queue.pop_front()
+	if guard.now() - float(message.received_at) > guard.investigation_seconds:
+		return
+	report = message.duplicate(true)
+	report.incident = -int(message.incident)
+	task = guard.memory.offer(guard.State.INVESTIGATE, report, guard.now())
+	if task.is_empty():
+		report = {}
+		return
+	corpse_ids.append(int(message.incident))
+	origin = message.point
+	for other in corpse_queue.duplicate():
+		if origin.distance_to(other.point) <= guard.search_radius:
+			corpse_ids.append(int(other.incident))
+			corpse_queue.erase(other)
+	task.inspection = true
+	task.status = "active"
+	guard.active = task
+	supporting = false
+	started = guard.now()
+	phase = Phase.APPROACH

@@ -28,6 +28,7 @@ var _steps := PackedVector2Array()
 var _cursor := 0
 var _retries := 0
 var _first_update := true
+var _route_change_pending := false
 @onready var actor = get_parent()
 
 func _ready() -> void:
@@ -93,6 +94,9 @@ func _set_steps(points: PackedVector2Array, mode: State, cursor: int = 0) -> voi
 	actor.current_activity=actor.Activity.WANDER
 
 func _begin_patrol() -> void:
+	if _route_change_pending:
+		_select_next_route()
+		_route_change_pending = false
 	var points := _route().world_points()
 	var closest := 0
 	for index in range(points.size()):
@@ -202,7 +206,23 @@ func update_patrol(delta: float) -> bool:
 		_begin_patrol()
 	else:
 		completed_laps+=1
+		_route_change_pending = true
 		var incumbent := _stationed()
 		if patrol_elapsed>=maxf(minimum_patrol_seconds,0.0) and (incumbent==null or incumbent.duty_remaining==0) and _begin_return(): return true
-		_cursor=0
+		_begin_patrol()
 	return true
+
+func release_for_incident() -> void:
+	# Emergency duties may leave the post vacant until ordinary relief arrives.
+	_first_update = false
+	actor._stop_movement()
+
+func _select_next_route() -> void:
+	var current := _route()
+	var routes: Array[Node] = []
+	for candidate in current.get_parent().get_children():
+		if candidate is GuardPatrolRoute2D and candidate != _access() and candidate.points.size() >= 2:
+			routes.append(candidate)
+	if routes.size() < 2: return
+	var next: Node = routes[(routes.find(current) + 1) % routes.size()]
+	route_path = get_path_to(next)
