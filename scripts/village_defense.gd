@@ -24,6 +24,8 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 		var perception = CORPSE.new()
 		perception.name = "CorpsePerception"
 		actor.add_child(perception)
+		if actor.priest_guard != null:
+			continue
 		if actor.guard_patrol != null:
 			has_guards = true
 			var ai = actor.get_node_or_null("GuardAI")

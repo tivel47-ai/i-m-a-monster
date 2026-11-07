@@ -44,7 +44,7 @@ func run() -> void:
 	quit(1 if failures else 0)
 
 func check_assignments() -> void:
-	var expected := [["HomeChapel","WorkChurch","SocialChurch","WalkChurch"],["WorkCemetery","WalkCemetery"],["SocialSquare","SocialWell"]]
+	var expected := [["HomeChapel","WorkChurch","SocialChurch","WalkChurch"],["WorkCemetery","WalkCemetery"],["SocialSquare"]]
 	var paths := [routine.chapel_zone_paths,routine.cemetery_zone_paths,routine.public_zone_paths]
 	var safe := true
 	for territory in range(3):
@@ -60,7 +60,7 @@ func check_assignments() -> void:
 				var sample:=zone.sample_destination(priest,PackedVector2Array(),null,5,5)
 				safe=safe and not sample.is_empty()
 				if not sample.is_empty(): safe=safe and body_clear(sample[0],priest.get_node("CollisionShape2D").shape) and clear_path(path_to(priest.position,sample[0]))
-		check(names==expected[territory],"Existing assigned territories resolve without new polygons: "+str(names))
+		check(names==expected[territory],"Assigned territories resolve correctly: "+str(names))
 	check(safe,"All priest territories offer navigable outdoor destinations outside walls, gravestones and fences")
 
 func observe_roles() -> void:
@@ -146,7 +146,7 @@ func observe_roles() -> void:
 	var total: float=activity_time[0]+activity_time[1]+activity_time[2]
 	var percent: float=100*(activity_time[0]+activity_time[1])/maxf(total,0.01)
 	print("PRIEST METRICS seed=",test_seed," activity_seconds=",activity_time," primary_activity_percent=",percent," primary_spatial_seconds=",spatial_primary," visits=",visits," completed=",routine.completed_activities," cemetery_completed=",routine.completed_cemetery_visits," public_completed=",routine.completed_public_visits," local_distance=",local_distance," resting=",resting," min_durations=",duration_min," failed_routes=",failed_routes," clock_ended_walks=",clock_ended_walks," longest_unplanned_idle=",longest_idle)
-	check(percent>=80 and activity_time[0]>activity_time[1] and activity_time[1]>activity_time[2],"Actual peaceful activity time stays predominantly at chapel/cemetery, with chapel the principal workplace")
+	check(percent>=80 and activity_time[0]>activity_time[2] and activity_time[1]>activity_time[2],"Actual peaceful activity time stays predominantly at chapel/cemetery, with both primary territories exceeding public activity")
 	check(visits[0]>=3 and visits[1]>=2 and visits[2]>=1 and routine.completed_cemetery_visits>=2 and routine.completed_public_visits>=1 and transitions_safe,"Completed chapel/cemetery alternation, return after cemetery and occasional public visit occur physically")
 	check(duration_min[0]>=routine.chapel_duration.x-0.02 and duration_min[1]>=routine.cemetery_duration.x-0.02 and duration_min[2]>=routine.public_duration.x-0.02,"All three territories start their configured long/short activity clocks only on arrival")
 	check(clocks_safe and geometry_safe and longest_idle<10,"Activity timers finish without resets; real local and inter-zone movement stays safe with no prolonged unplanned inactivity")
@@ -158,7 +158,7 @@ func observe_roles() -> void:
 		print("STAGE4 GUARD ",guard.name," patrol=",patrol.patrol_seconds," post=",patrol.post_seconds," laps=",patrol.completed_laps," visits=",patrol.post_visits)
 		rotation=rotation and patrol.patrol_seconds>patrol.post_seconds and patrol.completed_laps>=1
 	print("STAGE4 GUARD SUMMARY peak=",guard_peak," empty_frames=",guard_empty," failed_route_attempts=",guard_failures)
-	check(guard_peak<=2 and guard_empty==0 and rotation,"Full thirty-resident simulation retains guard occupancy, meaningful patrols and actual rotation for 900 seconds")
+	check(guard_peak<=2 and guard_empty==0 and rotation,"Full thirty-two-resident simulation retains guard occupancy, meaningful patrols and actual rotation for 900 seconds")
 
 func await_activity(max_frames: int=3600) -> bool:
 	for tick in range(max_frames):

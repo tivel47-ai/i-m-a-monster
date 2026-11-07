@@ -58,7 +58,7 @@ func _physics_process(delta: float) -> void:
 
 func _update_escape_warning() -> void:
 	if escape_warning_interval <= 0 or local_time < next_escape_warning or not villager.autonomous_movement_enabled or not villager.is_available_for_infection(): return
-	if villager.guard_ai != null and villager.guard_ai.enabled: return # guards use their own local protocol
+	if villager.has_tactical_controller(): return # guards use their own local protocol
 	var reaction = villager.threat_reaction
 	if not reaction.seeking_home or reaction.report_based or reaction.reaction_state == reaction.Reaction.FROZEN: return
 	next_escape_warning = local_time + maxf(escape_warning_interval, duplicate_refresh_interval + 0.01)
@@ -138,6 +138,7 @@ func _deliver_warning(point: Vector2, guard_report: Dictionary = {}) -> void:
 
 
 func receive_warning(source: Variant, point: Vector2, guard_report: Dictionary = {}) -> bool:
+	if villager.priest_guard != null: return false
 	if not communication_enabled or not _can_receive() or not is_instance_valid(source) or source == villager:
 		return false
 	if source.is_queued_for_deletion() or not source.is_in_group("civilian_warning_receivers") or not source.is_available_for_infection():

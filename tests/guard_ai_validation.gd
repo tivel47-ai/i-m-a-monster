@@ -28,7 +28,7 @@ func fixture() -> void:
 			guards.append(actor.guard_ai)
 			guard_spawns.append(actor.position)
 			actor.guard_ai.rng.seed = 100 + guards.size()
-		else:
+		elif actor.escort != null:
 			civilians.append(actor.escort)
 			actor.escort.rng.seed = 200 + civilians.size()
 	for enemy in get_nodes_in_group("player_units"):

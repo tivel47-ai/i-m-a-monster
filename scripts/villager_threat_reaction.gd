@@ -184,7 +184,7 @@ func finish_heard_report() -> void:
 
 
 func _guard_controls_reaction() -> bool:
-	return villager.guard_ai != null and villager.guard_ai.enabled
+	return villager.has_tactical_controller()
 
 
 func update_response(delta: float) -> bool:

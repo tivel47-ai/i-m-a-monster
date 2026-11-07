@@ -7,13 +7,17 @@ enum Territory { CHAPEL, CEMETERY, PUBLIC }
 @export var cemetery_zone_paths: Array[NodePath] = []
 @export var public_zone_paths: Array[NodePath] = []
 @export var chapel_duration: Vector2 = Vector2(60, 90)
-@export var cemetery_duration: Vector2 = Vector2(40, 65)
+@export var cemetery_duration: Vector2 = Vector2(65, 90)
 @export var public_duration: Vector2 = Vector2(15, 25)
 ## Completed cemetery visits between public outings; interrupts do not advance the routine.
 @export var cemetery_visits_per_public: Vector2i = Vector2i(2, 3)
 @export var chapel_local_rules: Vector3 = Vector3(0.65, 2.0, 0.6)
-@export var cemetery_local_rules: Vector3 = Vector3(0.9, 2.0, 0.9)
+@export var cemetery_local_rules: Vector3 = Vector3(1.3, 1.0, 1.5)
 @export var primary_local_speed: float = 22.0
+
+var protectors: Array[Node] = []
+var is_preaching: bool = false
+var sermon_label: Label
 
 var territory: Territory = Territory.CHAPEL
 var completed_activities: int = 0
@@ -24,6 +28,27 @@ var _next_public: int = 2
 
 func _ready() -> void:
 	_schedule_public()
+
+func _create_sermon_label() -> void:
+	sermon_label = Label.new()
+	sermon_label.text = "Проповедь"
+	sermon_label.position = Vector2(-23, -30)
+	sermon_label.add_theme_font_size_override("font_size", 8)
+	sermon_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sermon_label.visible = false
+	get_parent().add_child(sermon_label)
+
+func _process(_delta: float) -> void:
+	if sermon_label == null: _create_sermon_label()
+	var actor = get_parent()
+	is_preaching = (
+		routine_enabled and actor.autonomous_movement_enabled
+		and actor.is_available_for_infection() and actor.is_performing_activity
+		and not actor.has_destination
+		and zone_territory(actor.current_zone) in [Territory.CHAPEL, Territory.PUBLIC]
+		and actor.current_activity in [actor.Activity.WORK, actor.Activity.SOCIAL]
+	)
+	sermon_label.visible = is_preaching
 
 func _schedule_public() -> void:
 	var minimum := maxi(cemetery_visits_per_public.x, 1)

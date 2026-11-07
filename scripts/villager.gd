@@ -79,6 +79,7 @@ var encounter_participants: Array[Node2D] = []
 var defense: Node
 var guard_ai: Node
 var escort: Node
+@onready var priest_guard = get_node_or_null("PriestGuard")
 
 @onready var polygon: Polygon2D = $Polygon2D
 @onready var transformation_timer: Timer = $TransformationTimer
@@ -105,6 +106,8 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if defense != null and priest_guard != null and autonomous_movement_enabled:
+		if priest_guard.update_ai(delta): return
 	if defense != null and guard_ai != null and autonomous_movement_enabled:
 		if guard_ai.update_ai(delta): return
 	if escort != null and autonomous_movement_enabled and infection_state == InfectionState.IN_COLLISION:
@@ -117,7 +120,7 @@ func _physics_process(delta: float) -> void:
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0:
 		return
 	if escort != null and escort.update_escort(delta): return
-	if (guard_ai == null or not guard_ai.enabled) and threat_reaction.update_response(delta):
+	if (not has_tactical_controller()) and threat_reaction.update_response(delta):
 		return
 	if guard_patrol!=null and guard_patrol.update_patrol(delta):
 		return
@@ -425,13 +428,17 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 	move_and_slide()
 
 
+func has_tactical_controller() -> bool:
+	return priest_guard != null or (guard_ai != null and guard_ai.enabled)
+
+
 func get_recognized_threat() -> Node2D:
 	return threat_detection.get_recognized_target()
 
 
 func _on_threat_recognized(zombie: Node2D) -> void:
 	if is_available_for_infection():
-		if guard_ai == null or not guard_ai.enabled: threat_reaction.recognize_threat(zombie)
+		if not has_tactical_controller(): threat_reaction.recognize_threat(zombie)
 		threat_recognized.emit(zombie)
 
 
@@ -561,7 +568,7 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 
 	var starting_encounter := infection_state == InfectionState.AVAILABLE
 	if starting_encounter:
-		if guard_ai == null or not guard_ai.enabled:
+		if not has_tactical_controller():
 			threat_reaction.seeking_home = true
 			threat_reaction.threat_position = zombie.global_position
 			local_warning._remember_observation(zombie)
@@ -601,7 +608,7 @@ func leave_encounter(zombie: Variant) -> void:
 		encounter_attack_timer.stop()
 	if encounter_participants.is_empty() and infection_state == InfectionState.IN_COLLISION:
 		infection_state = InfectionState.AVAILABLE
-		if guard_ai == null or not guard_ai.enabled: threat_reaction.request_reassessment()
+		if not has_tactical_controller(): threat_reaction.request_reassessment()
 	elif encounter_participants.is_empty() and infection_state == InfectionState.TRANSFORMING:
 		collision_layer = 0
 		collision_mask = 0

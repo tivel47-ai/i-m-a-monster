@@ -488,7 +488,7 @@ func read_npc_preferences() -> void:
 		if not previous.has_node("ActivityZones"):
 			for key in ["activity_zone_paths", "marker_activity_fallback_enabled", "preferred_district", "district_zone_preference", "nearby_zone_distance"]: values.erase(key)
 		var preferences := {"color":npc.get_node("Polygon2D").color,"exports":values,"components":{}}
-		for component in ["ThreatDetection","ThreatReaction","LocalWarning","GuardPatrol","PriestRoutine"]:
+		for component in ["ThreatDetection","ThreatReaction","LocalWarning","GuardPatrol","PriestRoutine","PriestGuard"]:
 			if npc.has_node(component): preferences.components[component] = exported_values(npc.get_node(component))
 		npc_preferences[str(npc.name)] = preferences
 	if previous.has_node("ActivityZones"):
@@ -575,10 +575,10 @@ func build_activity_zones() -> void:
 	var priest := PackedStringArray(["priest"])
 	zone_box("HomeChapel",0,Vector2(1405,595),Vector2(100,90),"church","NavigationRegion2D/Buildings/Public/Church",priest)
 	zone_box("WorkChurch",1,Vector2(1400,598),Vector2(110,95),"church","NavigationRegion2D/Buildings/Public/Church",priest)
-	zone_box("WorkCemetery",1,Vector2(1730,365),Vector2(350,70),"church","Environment/CemeteryYard",priest)
+	zone_box("WorkCemetery",1,Vector2(1730,290),Vector2(310,220),"church","Environment/CemeteryYard",priest)
 	for entry in [["Northwest",Vector2(710,653),Vector2(90,105),"northwest","Roads/WestLane0"],["Square",Vector2(1530,965),Vector2(150,100),"center","Roads/Square"],["Well",Vector2(1380,970),Vector2(110,80),"center","NavigationRegion2D/Buildings/Public/Well"],["Farm",Vector2(735,1445),Vector2(120,100),"farm","Environment/EastField"],["Artisan",Vector2(2230,900),Vector2(120,100),"artisan","Environment/WorkYard"],["South",Vector2(1500,1635),Vector2(120,90),"south","Roads/FarmLane0"],["Tavern",Vector2(1710,1290),Vector2(180,60),"south","NavigationRegion2D/Buildings/Public/Tavern"],["Guard",Vector2(2230,1650),Vector2(140,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost"],["Church",Vector2(1540,530),Vector2(120,70),"church","NavigationRegion2D/Buildings/Public/Church"]]:
 		zone_box("Social"+entry[0],2,entry[1],entry[2],entry[3],entry[4],guards if entry[0] == "Guard" else PackedStringArray())
-	for entry in [["Northwest",Vector2(780,790),Vector2(70,160),"northwest"],["Center",Vector2(1540,1125),Vector2(100,110),"center"],["Farm",Vector2(505,1400),Vector2(130,100),"farm"],["Artisan",Vector2(2045,990),Vector2(70,120),"artisan"],["South",Vector2(1595,1745),Vector2(150,90),"south"],["Guard",Vector2(2155,1455),Vector2(110,110),"guard"],["Church",Vector2(1520,635),Vector2(90,100),"church"],["Cemetery",Vector2(1730,365),Vector2(350,70),"church"]]:
+	for entry in [["Northwest",Vector2(780,790),Vector2(70,160),"northwest"],["Center",Vector2(1540,1125),Vector2(100,110),"center"],["Farm",Vector2(505,1400),Vector2(130,100),"farm"],["Artisan",Vector2(2045,990),Vector2(70,120),"artisan"],["South",Vector2(1595,1745),Vector2(150,90),"south"],["Guard",Vector2(2155,1455),Vector2(110,110),"guard"],["Church",Vector2(1520,635),Vector2(90,100),"church"],["Cemetery",Vector2(1730,290),Vector2(310,220),"church"]]:
 		zone_box("Walk"+entry[0],3,entry[1],entry[2],entry[3],"",guards if entry[0] == "Guard" else (priest if entry[0] == "Cemetery" else PackedStringArray()))
 
 func road_section(title: String, start: Vector2, end: Vector2) -> PackedVector2Array:
@@ -772,7 +772,7 @@ func populate() -> void:
 			attach(npc,routine,"PriestRoutine")
 			for title in ["HomeChapel","WorkChurch","SocialChurch","WalkChurch"]: routine.chapel_zone_paths.append(routine.get_path_to(zones[title]))
 			for title in ["WorkCemetery","WalkCemetery"]: routine.cemetery_zone_paths.append(routine.get_path_to(zones[title]))
-			for title in ["SocialSquare","SocialWell"]: routine.public_zone_paths.append(routine.get_path_to(zones[title]))
+			for title in ["SocialSquare"]: routine.public_zone_paths.append(routine.get_path_to(zones[title]))
 		if npc_preferences.has(str(npc.name)):
 			var preferences: Dictionary = npc_preferences[str(npc.name)]
 			for property_name in preferences.exports:
@@ -784,6 +784,15 @@ func populate() -> void:
 			npc.get_node("Polygon2D").color = preferences.color
 			for component in preferences.components:
 				for property_name in preferences.components[component]: npc.get_node(component).set(property_name, preferences.components[component][property_name])
+	load("res://tools/priest_guard_setup.gd").install(village)
+	for title in ["PriestGuard1","PriestGuard2"]:
+		if not npc_preferences.has(title): continue
+		var npc = residents.get_node(title)
+		var preferences: Dictionary = npc_preferences[title]
+		for key in preferences.exports: npc.set(key, preferences.exports[key])
+		npc.get_node("Polygon2D").color = preferences.color
+		for component in preferences.components:
+			for key in preferences.components[component]: npc.get_node(component).set(key, preferences.components[component][key])
 	var zombies := container(village,"Zombies")
 	for i in range(3):
 		var zombie := load("res://scenes/zombie.tscn").instantiate() as CharacterBody2D

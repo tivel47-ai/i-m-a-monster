@@ -1,0 +1,22 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/villager.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/priest_guard.gd" id="2"]
+
+[node name="PriestGuard" instance=ExtResource("1")]
+metadata/village_role = "priest_guard"
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+home_point_path = NodePath("../../VillagePointsOfInterest/Church")
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/SocialChurch")])
+marker_activity_fallback_enabled = false
+
+[node name="Polygon2D" parent="." index="0"]
+color = Color(0.88, 0.87, 0.8, 1)
+polygon = PackedVector2Array(-3.9,-7.8,3.9,-7.8,3.9,-4,3,0,1.8,4,0,7.8,-1.8,4,-3,0,-3.9,-4)
+
+[node name="Cross" type="Polygon2D" parent="Polygon2D"]
+color = Color(0.9,0.04,0.04,1)
+polygon = PackedVector2Array(-0.55,-5.5,0.55,-5.5,0.55,-2,2.6,-2,2.6,-0.9,0.55,-0.9,0.55,3.8,-0.55,3.8,-0.55,-0.9,-2.6,-0.9,-2.6,-2,-0.55,-2)
+
+[node name="PriestGuard" type="Node" parent="."]
+script = ExtResource("2")
