@@ -32,7 +32,7 @@ The first large village has approximately 30 inhabitants: 19 peasants, 5 artisan
 | Individual follower behavior, cohesion and recovery | Confirmed; prototype integrated | §8, §10 |
 | Provenance, one retransmission, assistance and local acknowledgements | Confirmed; guard relay protocol integrated; civilian legacy delivery retained | §7, §13 |
 | Peer patrol cooperation and genuinely agreed dynamic waypoints | Confirmed; prototype integrated | §11 |
-| Priest influence / non-combat boundary | Confirmed high-level boundary; точные эффекты морали отложены; военного командования нет | §12 |
+| Priest influence / non-combat boundary | Утверждены правила морали без численной формулы; реализация отложена; военного командования нет | [ИИ священника](priest_ai_design.md), §12 |
 | ORGANIZED_DEFENSE general level and civilian arming | Реализована внешняя оборона; ручная приёмка ожидается | [отдельная спецификация](organized_defense.md) |
 | Автоматическое затухание глобальной тревоги | Отключено по утверждённому дизайну MVP | §3 |
 | Точная настройка, вместимость очереди задач и числовой баланс | Отложены | §14 |
@@ -272,9 +272,9 @@ After separation each patrol reevaluates its relevant tasks and territorial duti
 
 ## 12. Priest boundary — CONFIRMED HIGH-LEVEL DESIGN
 
-The priest is an unarmed, non-combat morale/leadership NPC. His high-level presence can suppress ordinary civilian flight and help organize defense; he has high priority for raising a credible alarm. These are confirmed design boundaries, not claims of implemented influence.
+Священник — безоружный небоевой духовный лидер, а не тактический командир. Утверждённые правила морали, ограниченного сбора только самостоятельно пришедших гражданских и физического поднятия тревоги описаны в [каноническом дизайне ИИ священника](priest_ai_design.md). Влияние на мораль пока не реализовано.
 
-При ORGANIZED_DEFENSE священник остаётся безоружным центром духовной и моральной поддержки, не командует стражей; его смерть не вызывает всеобщую панику. Подробности — [ORGANIZED_DEFENSE](organized_defense.md). Точные механики морали, радиус влияния и специальные способности не определены. Existing peaceful PriestRoutine is an implementation foundation only (§13).
+При ORGANIZED_DEFENSE священник остаётся безоружным центром духовной и моральной поддержки, не командует стражей; его смерть не вызывает всеобщую панику. Утверждены два разных фиксированных для своих уровней радиуса морали (увеличение при ORGANIZED_DEFENSE), прохождение эффекта сквозь стены и около 10 секунд индивидуального остаточного действия. Численные радиусы и формула не определены; специальных боевых способностей нет. `PriestRoutine` — уже реализованный мирный распорядок. Общая оборона подчиняется [58 решениям](organized_defense.md).
 
 ## 13. CURRENT IMPLEMENTATION and discrepancy register
 
