@@ -126,6 +126,8 @@ func _physics_process(delta: float) -> void:
 	var navigation_map := navigation_agent.get_navigation_map()
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0:
 		return
+	if priest_routine != null and defense != null and is_instance_valid(defense.priest_ai) and defense.priest_ai.actor == self:
+		if defense.priest_ai.update_priest(delta): return
 	if escort != null and escort.update_escort(delta): return
 	if (not has_tactical_controller()) and threat_reaction.update_response(delta):
 		return
@@ -436,6 +438,8 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 
 
 func has_tactical_controller() -> bool:
+	if priest_routine != null and defense != null and is_instance_valid(defense.priest_ai) and defense.priest_ai.actor == self and defense.priest_ai.alarm_active():
+		return true
 	return priest_guard != null or (guard_ai != null and guard_ai.enabled) or (defense != null and defense.organized != null and defense.organized.active())
 
 
@@ -586,7 +590,7 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 		converted_color = result_color
 	if not encounter_participants.has(zombie):
 		encounter_participants.append(zombie)
-		if encounter_attack_timer.is_stopped():
+		if priest_routine == null and encounter_attack_timer.is_stopped():
 			encounter_attack_timer.start()
 	if starting_encounter:
 		encounter_started.emit(zombie)
@@ -628,7 +632,9 @@ func _end_encounter() -> void:
 
 
 func _on_encounter_attack_timer_timeout() -> void:
-	if priest_routine != null and defense != null and defense.organized != null and defense.organized.active(): return
+	if priest_routine != null:
+		encounter_attack_timer.stop()
+		return
 	if not is_alive() or encounter_participants.is_empty():
 		encounter_attack_timer.stop()
 		return

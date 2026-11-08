@@ -258,12 +258,23 @@ func update_safe_activity(delta: float) -> void:
 		idle_moves += 1
 
 func panic(contact: Node2D = null) -> void:
+	if steadfast(): return
 	if separated_at < 0: separated_at = actor.defense.elapsed
 	mode = Mode.FLEEING
 	actor.threat_reaction.cancel_response()
 	var target: Node2D = contact if is_instance_valid(contact) else actor.get_recognized_threat()
 	if target != null: actor.threat_reaction.recognize_threat(target)
 	if target != null: actor.threat_reaction._enter_reaction(actor.threat_reaction.Reaction.FLEEING)
+
+func steadfast() -> bool:
+	var priest = actor.defense.priest_ai
+	return is_instance_valid(priest) and priest.steadfast(actor)
+
+func panic_occurs(resistance: float) -> bool:
+	if steadfast(): return false
+	var priest = actor.defense.priest_ai
+	var calming: float = priest.calming(actor) if is_instance_valid(priest) else 0.0
+	return rng.randf() > 1.0 - (1.0 - clampf(resistance, 0.0, 1.0)) * (1.0 - calming)
 
 func update_combat() -> void:
 	cancel_rare_bell()
@@ -282,7 +293,7 @@ func update_combat() -> void:
 			enemies.append(enemy)
 			incoming = maxf(incoming, enemy.attack_damage)
 	var support: int = leader.known_support() if actor.defense.visible(actor, leader.actor, contact_radius) else 1
-	if not enemies.is_empty() and (enemies.size() > support or actor.current_health <= incoming) and rng.randf() > courage * panic_courage_factor:
+	if not enemies.is_empty() and (enemies.size() > support or actor.current_health <= incoming) and panic_occurs(courage * panic_courage_factor):
 		actor.cancel_encounter()
 		panic(enemies[0])
 
@@ -325,7 +336,7 @@ func update_escort(delta: float) -> bool:
 				for enemy in enemies:
 					if actor.threat_detection._is_visible_target(enemy): visible_count += 1
 				var support: int = leader.known_support() if visible_leader else 1
-				if (visible_count > support and rng.randf() > courage * panic_courage_factor) or (not visible_leader and rng.randf() > courage):
+				if (visible_count > support and panic_occurs(courage * panic_courage_factor)) or (not visible_leader and panic_occurs(courage)):
 					panic()
 					return false
 				var enemy: Node2D = actor.get_recognized_threat()
@@ -403,6 +414,8 @@ func update_escort(delta: float) -> bool:
 			safety_point = actor.defense.reserve_safety(actor, safety_marker, rng)
 			reset_idle_pause()
 	if safety_point.is_finite():
+		var priest = actor.defense.priest_ai
+		if is_instance_valid(priest) and priest.update_member(self, delta): return true
 		update_safe_activity(delta)
 		return true
 	if actor.defense.elapsed < prefer_private_until:

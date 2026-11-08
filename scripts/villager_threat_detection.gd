@@ -35,6 +35,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if awareness == Awareness.AWARE:
 		if _is_visible_target(recognized_target):
+			_record_alarm_sighting()
 			return
 		reset_awareness()
 	if awareness == Awareness.RECOGNIZING and not _is_visible_target(pending_target):
@@ -58,6 +59,14 @@ func _physics_process(delta: float) -> void:
 		awareness = Awareness.AWARE
 		queue_redraw()
 		threat_recognized.emit(recognized_target)
+		_record_alarm_sighting()
+
+
+func _record_alarm_sighting() -> void:
+	if villager.defense != null:
+		var alert = villager.defense.alert
+		if alert.level == alert.Level.ALARM:
+			alert.observe_monster(villager, recognized_target)
 
 
 func _is_valid_zombie(target: Variant) -> bool:

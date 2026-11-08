@@ -130,6 +130,26 @@ func confirm_threat(guard: Node2D, incident: int) -> void:
 	if not known:
 		guards.append(weakref(guard))
 	advance_level(Level.SUSPICION)
+	_record_monster(incident)
+
+
+func observe_monster(observer: Node2D, enemy: Node2D) -> void:
+	# Direct recognition is sufficient after the bell, independent of reporting.
+	if not _can_record_direct_sighting(observer) or not is_instance_valid(enemy):
+		return
+	var incident := enemy.get_instance_id()
+	if _seen.has("monster:%d" % incident) or not observer.threat_detection._is_visible_target(enemy):
+		return
+	_record_monster(incident)
+
+
+func _can_record_direct_sighting(observer: Node2D) -> bool:
+	return level == Level.ALARM and can_process() and is_instance_valid(observer) \
+		and _registered.has(observer.get_instance_id()) and observer.is_available_for_infection() \
+		and observer.threat_detection.detection_enabled
+
+
+func _record_monster(incident: int) -> void:
 	var key := "monster:%d" % incident
 	if _seen.has(key):
 		return
@@ -245,15 +265,31 @@ func confirm_corpse(guard: Node2D, message: Dictionary, source: Node2D = null) -
 	if not _registered.has(guard.get_instance_id()) or not corpses.has(id):
 		return
 	advance_level(Level.SUSPICION)
+	if _register_corpse(id) and level < Level.ALARM:
+		corpse_decisions[id] = false
+		guard.guard_ai.investigation.queue_corpse(message)
+
+
+func observe_corpse(observer: Node2D, message: Dictionary) -> void:
+	if not _can_record_direct_sighting(observer) or not valid_corpse_report(observer, message):
+		return
+	var id := int(message.incident)
 	if registered_corpses.has(id):
 		return
+	var body = corpses[id].get_ref()
+	if is_instance_valid(body) and body.infection_state == body.InfectionState.DEAD \
+		and observer.defense.visible(observer, body, observer.threat_detection.detection_radius):
+		_register_corpse(id)
+
+
+func _register_corpse(id: int) -> bool:
+	if registered_corpses.has(id):
+		return false
 	registered_corpses[id] = true
 	var body = corpses[id].get_ref()
 	var loss: bool = is_instance_valid(body) and body.guard_ai != null
 	record_danger("death:%d" % id, &"defender_loss" if loss else &"corpse", id, defender_loss_danger if loss else corpse_danger)
-	if level < Level.ALARM:
-		corpse_decisions[id] = false
-		guard.guard_ai.investigation.queue_corpse(message)
+	return true
 
 func corpse_probability() -> float:
 	return clampf(first_corpse_probability + maxf(registered_corpses.size() - 1, 0) * corpse_probability_step, 0.0, 1.0)

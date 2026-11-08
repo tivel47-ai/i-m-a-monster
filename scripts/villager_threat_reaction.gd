@@ -50,6 +50,7 @@ var freeze_used: bool = false
 var warning_sent: bool = false
 var report_based: bool = false
 var after_flight: Reaction = Reaction.NONE
+var calm_home: bool = false
 ## Surviving an encounter changes the civilian's plan for the rest of this mission.
 ## Cancelling a movement/combat response must not erase this personal decision.
 var seeking_home: bool = false
@@ -103,7 +104,28 @@ func recognize_threat(target: Node2D) -> void:
 		villager.escort.consider_rare_bell(target)
 	var selected := choose_reaction()
 	after_flight = Reaction.NONE
+	if selected == Reaction.FLEEING and _try_calm_home(): return
 	_enter_reaction(selected)
+
+func _try_calm_home() -> bool:
+	if villager.defense == null: return false
+	var priest = villager.defense.priest_ai
+	if not is_instance_valid(priest): return false
+	var chance: float = priest.calming(villager)
+	if chance <= 0.0: return false
+	if _immediate_danger(_visible_threats()): return false
+	var home = villager.get_node_or_null(villager.home_point_path) if not villager.home_point_path.is_empty() else null
+	if not home is Node2D or _safe_route_length(home.global_position, true, true) == INF: return false
+	if reaction_random.randf() >= chance: return false
+	_update_home(0.0)
+	calm_home = home_destination.is_finite()
+	return calm_home
+
+func _immediate_danger(visible: Array[Node2D]) -> bool:
+	for enemy in visible:
+		if villager.global_position.distance_to(enemy.global_position) <= maxf(threat_clearance, enemy.INFECTION_DISTANCE):
+			return true
+	return false
 
 
 func _can_report(incident: int) -> bool:
@@ -227,6 +249,13 @@ func update_response(delta: float) -> bool:
 	if safe_elapsed >= maxf(safety_timeout, 0.1):
 		_finish_episode()
 		return true
+	if calm_home:
+		if not _immediate_danger(visible):
+			_update_home(delta)
+			if home_destination.is_finite(): return true
+		calm_home = false
+		_consider_visible(visible)
+		_enter_reaction(Reaction.FLEEING)
 	# A time limit is a reassessment boundary, never evidence that danger ended.
 	if episode_elapsed >= maxf(max_response_duration, 0.1):
 		episode_elapsed = 0
@@ -239,10 +268,7 @@ func update_response(delta: float) -> bool:
 	refresh_remaining = maxf(0, refresh_remaining - delta)
 	if refresh_remaining == 0:
 		if not report_based:
-			for candidate in visible:
-				_consider_target(candidate)
-			if is_instance_valid(threat_target) and sensor._is_visible_target(threat_target):
-				threat_position = threat_target.global_position
+			_consider_visible(visible)
 		if reaction_state in [Reaction.FLEEING, Reaction.SEEKING_SHELTER]:
 			if (not has_route and reaction_state == Reaction.FLEEING) or (has_route and villager.global_position.distance_to(route_destination) > maxf(villager.arrival_tolerance, 0.5) and (
 				threat_position.distance_to(route_threat_position) >= maxf(threat_movement_threshold, 1)
@@ -274,6 +300,12 @@ func _visible_threats() -> Array[Node2D]:
 		if candidate is Node2D and sensor._is_visible_target(candidate):
 			result.append(candidate)
 	return result
+
+func _consider_visible(visible: Array[Node2D]) -> void:
+	for candidate in visible:
+		_consider_target(candidate)
+	if is_instance_valid(threat_target) and sensor._is_visible_target(threat_target):
+		threat_position = threat_target.global_position
 
 
 func _consider_target(candidate: Node2D) -> void:
@@ -482,6 +514,7 @@ func cancel_response() -> void:
 	episode_active = false
 	report_based = false
 	after_flight = Reaction.NONE
+	calm_home = false
 	reaction_state = Reaction.NONE
 	has_route = false
 	threat_target = null

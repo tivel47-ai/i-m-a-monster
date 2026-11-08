@@ -27,6 +27,8 @@ func _physics_process(delta: float) -> void:
 			known[id] = {"kind": "corpse", "incident": id, "point": body.global_position,
 				"source": actor.get_instance_id(), "observed_at": actor.defense.elapsed,
 				"credibility": 1.0, "relay": 0}
+		if alert.level == alert.Level.ALARM:
+			alert.observe_corpse(actor, known[id])
 		if actor.priest_guard != null:
 			actor.priest_guard.observe_corpse()
 		elif actor.guard_ai != null:

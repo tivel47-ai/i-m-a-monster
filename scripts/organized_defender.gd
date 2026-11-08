@@ -405,6 +405,13 @@ func update(delta: float) -> bool:
 		var escorted_goal = escort_destination()
 		travel(escorted_goal if escorted_goal.is_finite() else formation.center, delta)
 		return true
+	if actor.priest_routine != null:
+		# Once arrived, move only to the assigned place in the common geometry.
+		var priest_place: Vector2 = formation.position_for(actor)
+		mode = "position"
+		if priest_place.is_finite() and safe_path(priest_place): move_to(priest_place, delta)
+		else: halt()
+		return true
 	if not defending:
 		# Rejoin physically before reserving an interior place from a distant position.
 		formation.release_place(actor)

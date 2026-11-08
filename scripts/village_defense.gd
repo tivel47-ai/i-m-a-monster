@@ -3,6 +3,7 @@ extends Node
 const CORPSE = preload("res://scripts/corpse_perception.gd")
 const GUARD = preload("res://scripts/guard_ai.gd")
 const ESCORT = preload("res://scripts/civilian_escort.gd")
+const PRIEST = preload("res://scripts/priest_ai.gd")
 @export var bell_reach: float = 24.0
 @export var bell_interaction_seconds: float = 1.0
 @export var safety_spacing: float = 24.0
@@ -14,6 +15,7 @@ var elapsed: float = 0.0
 var alert: Node
 var bell: Node2D
 var organized: Node
+var priest_ai: Node
 
 func initialize(residents: Array[Node], village_alert: Node) -> void:
 	alert = village_alert
@@ -52,9 +54,19 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 		organized.name = "OrganizedDefense"
 		add_child(organized)
 	organized.initialize(residents)
+	for actor in residents:
+		if actor.priest_routine == null: continue
+		priest_ai = actor.get_node_or_null("PriestAI")
+		if priest_ai == null:
+			priest_ai = PRIEST.new()
+			priest_ai.name = "PriestAI"
+			actor.add_child(priest_ai)
+		priest_ai.initialize(actor, self)
+		break
 
 func _physics_process(delta: float) -> void:
 	elapsed += delta
+	if is_instance_valid(priest_ai): priest_ai.refresh(organized.residents)
 
 func nearby(actor: Node2D, radius: float, mask: int = 8) -> Array[Node2D]:
 	var result: Array[Node2D] = []
@@ -73,7 +85,7 @@ func nearby(actor: Node2D, radius: float, mask: int = 8) -> Array[Node2D]:
 func release_safety(actor: Node2D) -> void:
 	safety_reservations.erase(actor.get_instance_id())
 
-func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator, local: bool = false, local_radius: float = 40.0, marker_radius: float = INF, allowed: Callable = Callable()) -> Vector2:
+func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator, local: bool = false, local_radius: float = 40.0, marker_radius: float = INF, allowed: Callable = Callable(), area_center: Vector2 = Vector2.INF, area_radius: float = 0.0, area_spacing: float = 0.0) -> Vector2:
 	# Movement reservations only, never enemy knowledge or an NPC command bus.
 	var reserved = PackedVector2Array()
 	for id in safety_reservations.keys():
@@ -83,13 +95,19 @@ func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator
 			safety_reservations.erase(id)
 		elif id != actor.get_instance_id(): reserved.append(entry.point)
 	var zones: Array[Node] = []
-	for path in actor.activity_zone_paths:
-		var zone = actor.get_node_or_null(path)
-		if zone == null or not zone.allows_resident(actor): continue
-		if zone.get_node_or_null(zone.location_path) == marker or zone.contains_world_point(marker.global_position): zones.append(zone)
+	if not area_center.is_finite():
+		for path in actor.activity_zone_paths:
+			var zone = actor.get_node_or_null(path)
+			if zone == null or not zone.allows_resident(actor): continue
+			if zone.get_node_or_null(zone.location_path) == marker or zone.contains_world_point(marker.global_position): zones.append(zone)
+	var separation := maxf(safety_spacing, area_spacing)
 	for attempt in range(40):
 		var point: Vector2
-		if not zones.is_empty():
+		if area_center.is_finite():
+			var desired := area_center + Vector2.from_angle(random.randf() * TAU) * sqrt(random.randf()) * area_radius
+			point = NavigationServer2D.map_get_closest_point(actor.navigation_agent.get_navigation_map(), desired)
+			if point.distance_to(desired) > actor.arrival_tolerance or point.distance_to(area_center) > area_radius: continue
+		elif not zones.is_empty():
 			var zone = zones[attempt % zones.size()]
 			var sample = zone.sample_local_destination(actor, local_radius, 10.0, Vector2.INF, reserved, random) if local else zone.sample_destination(actor, reserved, random, actor.arrival_tolerance + 1, actor.arrival_tolerance + 1)
 			if sample.is_empty(): continue
@@ -104,7 +122,7 @@ func reserve_safety(actor: Node2D, marker: Node2D, random: RandomNumberGenerator
 		if point.distance_to(marker.global_position) > marker_radius: continue
 		var free = true
 		for other in reserved:
-			if point.distance_to(other) < safety_spacing: free = false
+			if point.distance_to(other) < separation: free = false
 		if not free: continue
 		if not (allowed.call(point) if allowed.is_valid() else reachable(actor, point)): continue
 		safety_reservations[actor.get_instance_id()] = {"owner": weakref(actor), "point": point}
