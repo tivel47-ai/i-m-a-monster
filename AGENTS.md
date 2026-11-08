@@ -91,13 +91,19 @@ For every future development task:
 
 1. Read the relevant documentation before making changes.
 2. Implement the requested functionality.
-3. Run available tests and validation.
+3. Check code correctness and logic, run focused checks where useful, and verify that the Godot project starts without errors.
 4. Review whether the implementation affects documented systems.
 5. Update all affected documentation.
 6. Check consistency between code and documentation.
 7. Leave code and documentation changes uncommitted for user review; commit or publish only upon an explicit request for that action.
 
 Do not postpone documentation updates to a separate future task.
+
+### Validation scope — user agreement, 2026-11-08
+
+- At the end of development work, review the changed code for syntax, correctness, and logical consistency, and check that the Godot project starts without errors.
+- Do not run long gameplay scenarios, full simulation runs, or broad Godot regression suites as a routine completion step. The user will perform full gameplay testing in Godot.
+- Run a focused automated check only when it is needed to validate the specific change or investigate a concrete failure. Report exactly which checks were run and which gameplay behavior remains untested.
 
 ## 7. Git and Commit Requirements
 
