@@ -74,6 +74,11 @@ func update_ai(delta: float) -> bool:
 		return false
 	if NavigationServer2D.map_get_iteration_id(actor.navigation_agent.get_navigation_map()) == 0: return true
 	if actor.defense.alert.level >= actor.defense.alert.Level.ALARM: permanent = true
+	var organized = actor.defense.organized
+	var defending = organized != null and organized.active()
+	if defending:
+		organized.check_arrival(actor)
+		church_position = organized.center
 	var alive := priest_alive()
 	var anchor: Vector2 = priest.global_position if alive else church_position
 	if not alive:
@@ -92,6 +97,7 @@ func update_ai(delta: float) -> bool:
 		if not is_instance_valid(enemy) or not enemy.is_alive() or actor.global_position.distance_to(enemy.global_position) > enemy.INFECTION_DISTANCE + actor.arrival_tolerance:
 			actor.leave_encounter(enemy)
 	if actor.is_in_collision():
+		if defending: organized.controller(actor).immediate_until = actor.defense.elapsed + organized.decision_interval * 2.0
 		# Fight while physically engaged; never cancel melee to evade incoming damage.
 		halt()
 		return true
@@ -105,6 +111,10 @@ func update_ai(delta: float) -> bool:
 		if (joined or state == State.CHURCH_DEFENSE) and actor.global_position.distance_to(anchor) <= protection_radius and enemy.global_position.distance_to(anchor) <= protection_radius:
 			if target == null or enemy.global_position.distance_to(anchor) < target.global_position.distance_to(anchor): target = enemy
 	if target != null:
+		if defending:
+			var behavior = organized.controller(actor)
+			behavior.target = target
+			if behavior.shoot(target): return true
 		move_to(target.global_position, tactical_speed, delta)
 		return true
 	if state == State.PATROL:
@@ -119,6 +129,9 @@ func update_ai(delta: float) -> bool:
 	var offset := -escort_heading * 32.0 + escort_heading.orthogonal() * (-22 if slot == 0 else 22)
 	if not alive: offset = Vector2(-22 if slot == 0 else 22,22)
 	var goal: Vector2 = anchor + offset
+	if defending and organized.arrived(actor) and (not alive or organized.arrived(priest)):
+		var place: Vector2 = organized.position_for(actor, anchor, protection_radius * 0.8)
+		if place.is_finite(): goal = place
 	var nav: RID = actor.navigation_agent.get_navigation_map()
 	goal = NavigationServer2D.map_get_closest_point(nav, goal)
 	if not actor.defense.reachable(actor, goal): goal = anchor

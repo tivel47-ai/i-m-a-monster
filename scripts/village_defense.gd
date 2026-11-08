@@ -13,6 +13,7 @@ var guard_posts: Array[Vector2] = []
 var elapsed: float = 0.0
 var alert: Node
 var bell: Node2D
+var organized: Node
 
 func initialize(residents: Array[Node], village_alert: Node) -> void:
 	alert = village_alert
@@ -45,6 +46,12 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 				escort.name = "CivilianEscort"
 				actor.add_child(escort)
 			actor.escort = escort
+	organized = get_node_or_null("OrganizedDefense")
+	if organized == null:
+		organized = preload("res://scripts/organized_defense.gd").new()
+		organized.name = "OrganizedDefense"
+		add_child(organized)
+	organized.initialize(residents)
 
 func _physics_process(delta: float) -> void:
 	elapsed += delta
@@ -165,8 +172,9 @@ func broadcast(sender: Node2D, message: Dictionary, radius: float) -> void:
 		elif other.escort != null: other.escort.receive_message(message, sender)
 
 func mobilize_civilians() -> void:
-	# Extension hook only: callers must already establish ORGANIZED_DEFENSE.
+	# Compatibility hook: equipment is only granted at physical church arrival.
 	if alert.level != alert.Level.ORGANIZED_DEFENSE: return
+	if organized == null or not organized.active(): return
 	for actor in get_parent().villagers:
-		if is_instance_valid(actor) and actor.escort != null and actor.is_available_for_infection() and actor.escort.can_recruit():
+		if is_instance_valid(actor) and organized.members.has(actor.get_instance_id()) and actor.escort != null and actor.is_available_for_infection() and actor.escort.can_recruit():
 			actor.escort.arm()

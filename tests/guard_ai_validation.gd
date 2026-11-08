@@ -185,13 +185,13 @@ func communication_tests() -> void:
 	alert.quiet_period = 0
 	alert._physics_process(1000)
 	check(alert.level == alert.Level.ALARM and alert.score == 0, "No invented automatic ALARM stand-down from score decay")
-	alert.level = alert.Level.ORGANIZED_DEFENSE # external integration boundary, no automatic trigger
+	alert.add_danger(alert.danger_threshold)
 	defense.mobilize_civilians()
-	var armed_all := true
-	for civilian in civilians:
-		if civilian.can_recruit(): armed_all = armed_all and civilian.armed
-		else: armed_all = armed_all and not civilian.armed
-	check(armed_all, "External ORGANIZED_DEFENSE hook arms eligible civilians while leaving the priest unarmed")
+	var civilian = civilians[0]
+	check(not civilian.armed, "Compatibility hook does not arm a distant civilian")
+	civilian.actor.global_position = defense.organized.center
+	defense.organized.check_arrival(civilian.actor)
+	check(civilian.armed and defense.organized.arrived(civilian.actor), "Physical church arrival arms and joins the defense")
 
 func companion_tests() -> void:
 	physical_alarm()

@@ -68,8 +68,9 @@ func role() -> String:
 func can_recruit() -> bool:
 	return role() in ["peasant", "artisan"] and actor.is_available_for_infection()
 
-func arm() -> void:
-	if not can_recruit() or armed: return
+func arm(at_church: bool = false) -> void:
+	var eligible_arrival = at_church and role() in ["peasant", "artisan"] and actor.is_alive() and actor.infection_state != actor.InfectionState.TRANSFORMING
+	if (not can_recruit() and not eligible_arrival) or armed: return
 	armed = true
 	var weapons = peasant_weapons if role() == "peasant" else artisan_weapons
 	if weapons.is_empty(): weapons = [&"club"]

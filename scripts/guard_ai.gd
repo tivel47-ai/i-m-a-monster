@@ -223,7 +223,8 @@ func sense() -> void:
 	var candidates = actor.defense.nearby(actor, actor.threat_detection.detection_radius, 2 | 8)
 	var present: Dictionary = {}
 	for other in candidates:
-		if other.is_in_group("player_units") and actor.threat_detection._is_visible_target(other):
+		if other.is_in_group("player_units"):
+			if not actor.threat_detection._is_visible_target(other): continue
 			var id: int = other.get_instance_id()
 			present[id] = true
 			if not seen_since.has(id):
@@ -549,6 +550,16 @@ func update_ai(delta: float) -> bool:
 	if not enabled or not actor.autonomous_movement_enabled: return false
 	if not actor.is_alive() or actor.infection_state == actor.InfectionState.TRANSFORMING: return false
 	if NavigationServer2D.map_get_iteration_id(actor.navigation_agent.get_navigation_map()) == 0: return true
+	if actor.defense.organized != null and actor.defense.organized.active():
+		if now() >= next_decision:
+			next_decision = now() + decision_interval
+			memory.expire(now())
+			sense()
+			for message in outbox: actor.defense.broadcast(actor, message, communication_radius)
+			outbox.clear()
+		# The same local B2 evidence is used by travel decisions. No old ALARM
+		# task may override church defense or repeatedly cancel physical combat.
+		return actor.defense.organized.update_actor(actor, delta)
 	memory.capacity = task_capacity
 	memory.lifetime = memory_seconds
 	var decision = now() >= next_decision

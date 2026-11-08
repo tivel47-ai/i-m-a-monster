@@ -29,6 +29,11 @@ enum NavigationResult { MOVING, ARRIVED, FAILED }
 @export var wait_duration_min: float = 2.0
 @export var wait_duration_max: float = 5.0
 @export var arrival_tolerance: float = 4.0
+@export_group("Defensive ranged equipment")
+## Opt-in equipment; existing maps keep their current melee assignments.
+@export var defense_ranged_weapon: bool = false
+@export var defense_weapon_range: float = 150.0
+@export var defense_projectile_speed: float = 280.0
 
 @export_group("Peaceful activities")
 @export_enum("Villager", "Peasant", "Craftsman") var civilian_profile: String = "Villager"
@@ -110,6 +115,8 @@ func _physics_process(delta: float) -> void:
 		if priest_guard.update_ai(delta): return
 	if defense != null and guard_ai != null and autonomous_movement_enabled:
 		if guard_ai.update_ai(delta): return
+	if defense != null and defense.organized != null and autonomous_movement_enabled:
+		if defense.organized.update_actor(self, delta): return
 	if escort != null and autonomous_movement_enabled and infection_state == InfectionState.IN_COLLISION:
 		escort.update_combat()
 	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE:
@@ -429,7 +436,7 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 
 
 func has_tactical_controller() -> bool:
-	return priest_guard != null or (guard_ai != null and guard_ai.enabled)
+	return priest_guard != null or (guard_ai != null and guard_ai.enabled) or (defense != null and defense.organized != null and defense.organized.active())
 
 
 func get_recognized_threat() -> Node2D:
@@ -621,6 +628,7 @@ func _end_encounter() -> void:
 
 
 func _on_encounter_attack_timer_timeout() -> void:
+	if priest_routine != null and defense != null and defense.organized != null and defense.organized.active(): return
 	if not is_alive() or encounter_participants.is_empty():
 		encounter_attack_timer.stop()
 		return
