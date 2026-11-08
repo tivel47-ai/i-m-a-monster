@@ -43,6 +43,7 @@ var preferences_source := OUTPUT
 var rebake_navigation := false
 var reset_zone_geometry := false
 var reset_road_geometry := false
+var reset_patrol_routes := PackedStringArray()
 var road_preferences: Dictionary = {}
 
 func _initialize() -> void:
@@ -52,6 +53,8 @@ func _initialize() -> void:
 		rebake_navigation = rebake_navigation or argument == "--rebake-navigation"
 		reset_zone_geometry = reset_zone_geometry or argument == "--reset-zone-geometry"
 		reset_road_geometry = reset_road_geometry or argument == "--reset-road-geometry"
+		if argument.begins_with("--reset-patrol-route="):
+			reset_patrol_routes.append(argument.trim_prefix("--reset-patrol-route="))
 	call_deferred("build")
 
 func attach(parent: Node, child: Node, title: String) -> Node:
@@ -507,7 +510,8 @@ func read_npc_preferences() -> void:
 	if previous.has_node("GuardPatrolRoutes"):
 		for route in previous.get_node("GuardPatrolRoutes").get_children():
 			var values := exported_values(route)
-			for key in ["points","position","rotation","scale"]: values[key]=route.get(key)
+			if not reset_patrol_routes.has(str(route.name)):
+				for key in ["points","position","rotation","scale"]: values[key]=route.get(key)
 			patrol_preferences[str(route.name)]=values
 	alert_preferences = exported_values(previous.get_node("VillageAlert"))
 	previous.placement.free()
@@ -652,13 +656,23 @@ func build_guard_routes() -> void:
 		road_section("ArtisanLink",Vector2(1980,820),Vector2(2060,1320))])
 	patrol_route("WestCircuit",[
 		road_section("ArtisanLink",Vector2(2060,1320),Vector2(1980,820)),
-		road_section("MainStreet",Vector2(1980,820),Vector2(400,1010)),
+		road_section("MainStreet",Vector2(1980,820),Vector2(0,960)),
+		road_section("MainStreet",Vector2(0,960),Vector2(400,1010)),
 		road_section("WestLane",Vector2(400,1010),Vector2(850,580)),
 		road_section("NorthLane",Vector2(850,580),Vector2(790,960)),
 		road_section("MainStreet",Vector2(790,960),Vector2(650,940)),
 		road_section("WestCrossLane",Vector2(650,940),Vector2(840,1360)),
 		road_section("FarmLane",Vector2(840,1360),Vector2(430,1270)),
+		road_section("SouthBypass",Vector2(430,1270),Vector2(400,1010)),
+		road_section("SouthBypass",Vector2(400,1010),Vector2(430,1270)),
 		road_section("SouthBypass",Vector2(430,1270),Vector2(2060,1320))])
+	patrol_route("SouthEastCircuit",[
+		road_section("SouthBypass",Vector2(2060,1320),Vector2(2600,1110)),
+		road_section("SouthBypass",Vector2(2600,1110),Vector2(2300,1350)),
+		road_section("FarmLane",Vector2(2300,1350),Vector2(1190,1730)),
+		road_section("SouthSquareLane",Vector2(1190,1730),Vector2(1500,960)),
+		road_section("SouthSquareLane",Vector2(1500,960),Vector2(1430,1230)),
+		road_section("SouthBypass",Vector2(1430,1230),Vector2(2060,1320))])
 	var door: PackedVector2Array=village.get_node("Roads/GuardDoorPath0").get_meta("centerline")
 	var reversed_door:=door.duplicate()
 	reversed_door.reverse()
@@ -761,7 +775,7 @@ func populate() -> void:
 		if role=="guard":
 			var patrol: Node=load("res://scripts/guard_patrol.gd").new()
 			attach(npc,patrol,"GuardPatrol")
-			var route_name: String=["NorthCircuit","FarmCircuit","BridgeCircuit","NorthCircuit","FarmCircuit"][i-24]
+			var route_name: String=["NorthCircuit","FarmCircuit","BridgeCircuit","NorthCircuit","SouthEastCircuit"][i-24]
 			patrol.route_path=patrol.get_path_to(patrol_root.get_node(route_name))
 			patrol.post_access_path=patrol.get_path_to(patrol_root.get_node("PostAccess"))
 			patrol.post_zone_path=patrol.get_path_to(zones["HomeGuardPost"])
@@ -792,7 +806,10 @@ func populate() -> void:
 		for key in preferences.exports: npc.set(key, preferences.exports[key])
 		npc.get_node("Polygon2D").color = preferences.color
 		for component in preferences.components:
-			for key in preferences.components[component]: npc.get_node(component).set(key, preferences.components[component][key])
+			for key in preferences.components[component]:
+				var value = preferences.components[component][key]
+				if component == "PriestGuard" and key == "patrol_points" and value.is_empty(): continue
+				npc.get_node(component).set(key, value)
 	var zombies := container(village,"Zombies")
 	for i in range(3):
 		var zombie := load("res://scenes/zombie.tscn").instantiate() as CharacterBody2D

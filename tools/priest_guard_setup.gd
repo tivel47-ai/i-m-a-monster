@@ -53,7 +53,11 @@ static func install(map: Node) -> void:
 	second.append_array(round_trip(section(map,"ChurchLane",start,Vector2(1480,720))))
 	for i in range(2):
 		var title := "PriestGuard" + str(i + 1)
-		if map.has_node("Villagers/" + title): continue
+		var route: PackedVector2Array = first if i == 0 else second
+		if map.has_node("Villagers/" + title):
+			var existing = map.get_node("Villagers/" + title).get_node_or_null("PriestGuard")
+			if existing != null and existing.patrol_points.is_empty(): existing.patrol_points = route
+			continue
 		var actor = load("res://scenes/priest_guard.tscn").instantiate(PackedScene.GEN_EDIT_STATE_INSTANCE)
 		actor.name = title
 		map.get_node("Villagers").add_child(actor)
@@ -61,4 +65,4 @@ static func install(map: Node) -> void:
 		actor.position = Vector2(1440,557) if i == 0 else Vector2(1350,580)
 		map.set_editable_instance(actor,true)
 		actor.get_node("PriestGuard").slot = i
-		actor.get_node("PriestGuard").patrol_points = first if i == 0 else second
+		actor.get_node("PriestGuard").patrol_points = route

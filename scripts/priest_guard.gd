@@ -81,6 +81,7 @@ func update_ai(delta: float) -> bool:
 		church_position = organized.center
 	var alive := priest_alive()
 	var anchor: Vector2 = priest.global_position if alive else church_position
+	var previous_state := state
 	if not alive:
 		leave_group()
 		permanent = true
@@ -91,6 +92,13 @@ func update_ai(delta: float) -> bool:
 	else:
 		leave_group()
 		state = State.PATROL
+	if state != previous_state:
+		halt()
+		if state == State.PATROL and not patrol_points.is_empty():
+			patrol_index = 0
+			for i in range(1, patrol_points.size()):
+				if actor.global_position.distance_squared_to(patrol_points[i]) < actor.global_position.distance_squared_to(patrol_points[patrol_index]):
+					patrol_index = i
 	# Retain only live, personally recognized targets still in sight.
 	recognized = recognized.filter(func(enemy): return is_instance_valid(enemy) and actor.threat_detection._is_visible_target(enemy))
 	for enemy in actor.encounter_participants.duplicate():
@@ -118,9 +126,10 @@ func update_ai(delta: float) -> bool:
 		move_to(target.global_position, tactical_speed, delta)
 		return true
 	if state == State.PATROL:
-		if not patrol_points.is_empty():
-			if move_to(patrol_points[patrol_index], actor.move_speed, delta) == actor.NavigationResult.ARRIVED:
-				patrol_index = (patrol_index + 1) % patrol_points.size()
+		if patrol_points.is_empty():
+			halt()
+		elif move_to(patrol_points[patrol_index], actor.move_speed, delta) == actor.NavigationResult.ARRIVED:
+			patrol_index = (patrol_index + 1) % patrol_points.size()
 		return true
 	# Trail the actual travel direction; fixed southern slots would block a
 	# southbound priest and repeatedly invalidate his normal navigation.
