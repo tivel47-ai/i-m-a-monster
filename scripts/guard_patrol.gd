@@ -219,10 +219,25 @@ func release_for_incident() -> void:
 
 func _select_next_route() -> void:
 	var current := _route()
-	var routes: Array[Node] = []
+	var access := _access()
+	var peers := _peers()
+	var active_patrols := {}
+	for peer in peers:
+		if peer == self or peer.state != State.PATROL:
+			continue
+		var peer_route: GuardPatrolRoute2D = peer._route()
+		active_patrols[peer_route] = active_patrols.get(peer_route, 0) + 1
+
+	var routes: Array[GuardPatrolRoute2D] = []
+	var least_patrols := peers.size()
 	for candidate in current.get_parent().get_children():
-		if candidate is GuardPatrolRoute2D and candidate != _access() and candidate.points.size() >= 2:
+		if not candidate is GuardPatrolRoute2D or candidate == current or candidate == access or candidate.points.size() < 2:
+			continue
+		var count: int = active_patrols.get(candidate, 0)
+		if count < least_patrols:
+			routes.clear()
+			least_patrols = count
+		if count == least_patrols:
 			routes.append(candidate)
-	if routes.size() < 2: return
-	var next: Node = routes[(routes.find(current) + 1) % routes.size()]
-	route_path = get_path_to(next)
+	if not routes.is_empty():
+		route_path = get_path_to(routes.pick_random())

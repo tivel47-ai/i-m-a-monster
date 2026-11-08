@@ -775,7 +775,7 @@ func populate() -> void:
 		if role=="guard":
 			var patrol: Node=load("res://scripts/guard_patrol.gd").new()
 			attach(npc,patrol,"GuardPatrol")
-			var route_name: String=["NorthCircuit","FarmCircuit","BridgeCircuit","NorthCircuit","SouthEastCircuit"][i-24]
+			var route_name: String=["WestCircuit","FarmCircuit","BridgeCircuit","NorthCircuit","SouthEastCircuit"][i-24]
 			patrol.route_path=patrol.get_path_to(patrol_root.get_node(route_name))
 			patrol.post_access_path=patrol.get_path_to(patrol_root.get_node("PostAccess"))
 			patrol.post_zone_path=patrol.get_path_to(zones["HomeGuardPost"])
