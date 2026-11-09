@@ -60,6 +60,12 @@ func initialize(actors: Array[Node]) -> void:
 func active() -> bool:
 	return configured and is_instance_valid(service.alert) and service.alert.level == service.alert.Level.ORGANIZED_DEFENSE
 
+func register_resident(actor: Node) -> void:
+	if residents.has(actor): return
+	residents.append(actor)
+	if configured:
+		controllers[actor.get_instance_id()] = DEFENDER.new(self, actor)
+
 func eligible(actor: Variant) -> bool:
 	# Mixed physical queries also return zombies and scenery. Only registered
 	# mission residents have the infection-state contract used below.

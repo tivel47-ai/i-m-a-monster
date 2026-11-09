@@ -29,6 +29,8 @@ var mission_description: Label
 var mission_objectives: Label
 var mission_preview: Control
 var choose_race_button: Button
+var developer_mode := false
+var developer_button: Button
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -58,6 +60,7 @@ func _show(next: Screen) -> void:
 	for key in pages:
 		pages[key].visible = key == screen
 	ui.visible = screen != Screen.GAMEPLAY
+	if is_instance_valid(developer_button): developer_button.visible = screen == Screen.MAIN
 	if ui.visible:
 		_focus_page(screen)
 
@@ -133,6 +136,22 @@ func _build_ui() -> void:
 		if screen == Screen.MAIN: _show(Screen.MISSIONS))
 	_button(main, "Настройки", func():
 		if screen == Screen.MAIN: _open_settings(Screen.MAIN))
+	developer_button = Button.new()
+	developer_button.text = "🔧"
+	developer_button.tooltip_text = "Включить режим разработки"
+	developer_button.custom_minimum_size = Vector2(48, 48)
+	developer_button.add_theme_font_size_override("font_size", 28)
+	developer_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	developer_button.offset_left = -64
+	developer_button.offset_top = -64
+	developer_button.offset_right = -16
+	developer_button.offset_bottom = -16
+	ui.add_child(developer_button)
+	_update_developer_button()
+	developer_button.pressed.connect(func():
+		developer_mode = not developer_mode
+		_update_developer_button()
+		if is_instance_valid(mission): mission.set_developer_mode(developer_mode))
 	var options := _page(Screen.SETTINGS, "Настройки")
 	var fullscreen := CheckButton.new()
 	fullscreen.text = "Полноэкранный режим"
@@ -352,6 +371,19 @@ func _update_preview() -> void:
 	_text(race_details, "Слабые стороны", 22)
 	_text(race_details, race.weaknesses, 18)
 
+func _update_developer_button() -> void:
+	developer_button.tooltip_text = "Выключить режим разработки" if developer_mode else "Включить режим разработки"
+	developer_button.add_theme_color_override("font_color", Color("e6d77c") if developer_mode else Color("68746b"))
+	developer_button.add_theme_color_override("font_hover_color", Color("fff0a0") if developer_mode else Color("a5b1a4"))
+	developer_button.add_theme_color_override("font_pressed_color", Color("e6d77c"))
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("56663e") if developer_mode else Color("253029")
+	style.set_border_width_all(2)
+	style.border_color = Color("d7c568") if developer_mode else Color("3c4b40")
+	style.set_corner_radius_all(4)
+	developer_button.add_theme_stylebox_override("normal", style)
+	developer_button.add_theme_stylebox_override("hover", style)
+
 func _start_mission() -> void:
 	if screen != Screen.RACES or not CATALOG.MISSIONS.has(selected_mission): return
 	if not CATALOG.MISSIONS[selected_mission].races.has(selected_race): return
@@ -359,6 +391,7 @@ func _start_mission() -> void:
 	var packed := load(CATALOG.MISSIONS[selected_mission].scene) as PackedScene
 	if packed == null: return
 	mission = packed.instantiate()
+	mission.set_meta("developer_mode", developer_mode)
 	mission.process_mode = Node.PROCESS_MODE_PAUSABLE
 	mission.set_meta("race_id", selected_race)
 	mission.mission_finished.connect(_on_mission_finished)

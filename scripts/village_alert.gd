@@ -179,6 +179,16 @@ func advance_level(next: Level) -> void:
 	level_changed.emit(previous, level)
 	_update_debug()
 
+## Mission-only developer control. Keep the ordinary evidence gates in advance_level.
+func set_debug_level(next: Level) -> void:
+	if next == level: return
+	var previous := level
+	bell_activated = next >= Level.ALARM
+	danger = danger_threshold if next == Level.ORGANIZED_DEFENSE else 0.0
+	level = next
+	level_changed.emit(previous, level)
+	_update_debug()
+
 
 func _physics_process(delta: float) -> void:
 	if level == Level.ALARM:

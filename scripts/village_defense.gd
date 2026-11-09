@@ -23,12 +23,31 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 	if bell == null: bell = get_parent().get_node_or_null("PointsOfInterest/Bell")
 	if bell == null: bell = get_parent().get_node_or_null("NavigationRegion2D/Solids/Bell")
 	for actor in residents:
-		actor.defense = self
-		var perception = CORPSE.new()
+		register_resident(actor)
+	organized = get_node_or_null("OrganizedDefense")
+	if organized == null:
+		organized = preload("res://scripts/organized_defense.gd").new()
+		organized.name = "OrganizedDefense"
+		add_child(organized)
+	organized.initialize(residents)
+	for actor in residents:
+		if actor.priest_routine == null: continue
+		priest_ai = actor.get_node_or_null("PriestAI")
+		if priest_ai == null:
+			priest_ai = PRIEST.new()
+			priest_ai.name = "PriestAI"
+			actor.add_child(priest_ai)
+		priest_ai.initialize(actor, self)
+		break
+
+func register_resident(actor: Node) -> void:
+	actor.defense = self
+	var perception = actor.get_node_or_null("CorpsePerception")
+	if perception == null:
+		perception = CORPSE.new()
 		perception.name = "CorpsePerception"
 		actor.add_child(perception)
-		if actor.priest_guard != null:
-			continue
+	if actor.priest_guard == null:
 		if actor.guard_patrol != null:
 			has_guards = true
 			var ai = actor.get_node_or_null("GuardAI")
@@ -48,21 +67,8 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 				escort.name = "CivilianEscort"
 				actor.add_child(escort)
 			actor.escort = escort
-	organized = get_node_or_null("OrganizedDefense")
-	if organized == null:
-		organized = preload("res://scripts/organized_defense.gd").new()
-		organized.name = "OrganizedDefense"
-		add_child(organized)
-	organized.initialize(residents)
-	for actor in residents:
-		if actor.priest_routine == null: continue
-		priest_ai = actor.get_node_or_null("PriestAI")
-		if priest_ai == null:
-			priest_ai = PRIEST.new()
-			priest_ai.name = "PriestAI"
-			actor.add_child(priest_ai)
-		priest_ai.initialize(actor, self)
-		break
+	if organized != null and organized.configured:
+		organized.register_resident(actor)
 
 func _physics_process(delta: float) -> void:
 	elapsed += delta

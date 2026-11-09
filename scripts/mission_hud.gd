@@ -6,6 +6,9 @@ var alert_label: Label
 var monster_button: Button
 var _refresh_elapsed := 0.0
 var _blocks: Array[Control] = []
+var developer_button: Button
+var developer_panel: PanelContainer
+var developer_tool_label: Label
 
 
 func _ready() -> void:
@@ -13,6 +16,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
+	_build_developer_tools()
 	_refresh()
 
 
@@ -78,6 +82,62 @@ func _build() -> void:
 	var commands := _panel(0.80, 0.88, 1.0, 1.0)
 	_label(commands, "Команды монстрам", 16)
 
+func _build_developer_tools() -> void:
+	developer_button = Button.new()
+	developer_button.text = "Инструменты"
+	developer_button.anchor_left = 1.0
+	developer_button.anchor_right = 1.0
+	developer_button.offset_left = -160
+	developer_button.offset_right = -8
+	developer_button.offset_top = 70
+	developer_button.offset_bottom = 105
+	developer_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(developer_button)
+	_blocks.append(developer_button)
+	developer_panel = _panel(0.78, 0.16, 1.0, 0.55)
+	developer_panel.visible = false
+	var box := VBoxContainer.new()
+	developer_panel.add_child(box)
+	_label(box, "Режим разработки", 17)
+	var resident := Button.new()
+	resident.text = "Создать жителя"
+	resident.pressed.connect(func(): _choose_developer_tool("resident"))
+	box.add_child(resident)
+	var zombie := Button.new()
+	zombie.text = "Создать зомби"
+	zombie.pressed.connect(func(): _choose_developer_tool("zombie"))
+	box.add_child(zombie)
+	developer_tool_label = _label(box, "Щёлкните по карте для создания", 13)
+	var stop := Button.new()
+	stop.text = "Отменить создание"
+	stop.pressed.connect(func(): _choose_developer_tool(""))
+	box.add_child(stop)
+	_label(box, "Этап оповещения", 14)
+	var stages := OptionButton.new()
+	for stage in ["Спокойствие", "Подозрение", "Тревога", "Организованная оборона"]:
+		stages.add_item(stage)
+	stages.select(mission.get_node("VillageAlert").level)
+	stages.item_selected.connect(func(index: int):
+		if mission.developer_mode:
+			mission.get_node("VillageAlert").set_debug_level(index))
+	mission.get_node("VillageAlert").level_changed.connect(func(_previous: int, current: int): stages.select(current))
+	box.add_child(stages)
+	developer_button.pressed.connect(func():
+		developer_panel.visible = not developer_panel.visible
+		if not developer_panel.visible: _choose_developer_tool(""))
+
+func set_developer_mode(enabled: bool) -> void:
+	developer_button.visible = enabled
+	developer_panel.visible = false
+	if not enabled: _choose_developer_tool("")
+
+func _choose_developer_tool(kind: String) -> void:
+	mission.developer_spawn = kind
+	refresh_developer_tool()
+
+func refresh_developer_tool() -> void:
+	developer_tool_label.text = "Инструмент: %s (ПКМ — отмена)" % ("житель" if mission.developer_spawn == "resident" else "зомби") if mission.developer_spawn != "" else "Выберите инструмент"
+
 
 func _process(delta: float) -> void:
 	_refresh_elapsed += delta
@@ -123,5 +183,5 @@ func _select_all_zombies() -> void:
 
 func is_pointer_over_ui(point: Vector2) -> bool:
 	for block in _blocks:
-		if block.get_global_rect().has_point(point): return true
+		if block.visible and block.get_global_rect().has_point(point): return true
 	return false

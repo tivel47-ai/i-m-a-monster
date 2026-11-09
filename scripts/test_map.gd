@@ -12,6 +12,9 @@ var placement = GROUP_PLACEMENT.new()
 var mission_hud: Control
 
 const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
+const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
+var developer_mode := false
+var developer_spawn := ""
 
 enum MissionState {
 	ACTIVE,
@@ -51,6 +54,7 @@ var command_screen_position := Vector2.ZERO
 
 
 func _ready() -> void:
+	developer_mode = bool(get_meta("developer_mode", false))
 	add_child(command_overlay)
 	command_overlay.z_index = 100
 	command_overlay.draw.connect(_draw_command_overlay)
@@ -90,11 +94,52 @@ func _ready() -> void:
 	mission_hud = MISSION_HUD.new()
 	$CanvasLayer.add_child(mission_hud)
 	$CanvasLayer/MissionPanel.hide()
+	mission_hud.set_developer_mode(developer_mode)
+
+func set_developer_mode(enabled: bool) -> void:
+	developer_mode = enabled
+	if not enabled: developer_spawn = ""
+	if is_instance_valid(mission_hud): mission_hud.set_developer_mode(enabled)
+
+func developer_place(kind: String, world_position: Vector2) -> void:
+	if not developer_mode or mission_state != MissionState.ACTIVE: return
+	var navigation_map := get_world_2d().navigation_map
+	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0: return
+	var position_on_map := NavigationServer2D.map_get_closest_point(navigation_map, world_position)
+	if position_on_map.distance_to(world_position) > 24.0: return
+	if kind == "zombie":
+		var zombie := ZOMBIE_SCENE.instantiate()
+		zombie.position = to_local(position_on_map)
+		add_child(zombie)
+	elif kind == "resident":
+		var resident := VILLAGER_SCENE.instantiate()
+		resident.position = to_local(position_on_map)
+		add_child(resident)
+		villagers.append(resident)
+		resident.converted.connect(_on_resident_converted)
+		resident.died.connect(_on_resident_died)
+		total_residents += 1
+		var added_residents: Array[Node] = [resident]
+		$VillageAlert.initialize(added_residents)
+		$VillageDefense.register_resident(resident)
+		_refresh_mission_progress()
 
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouse and is_instance_valid(mission_hud) and mission_hud.is_pointer_over_ui(event.position):
+		if selection_in_progress:
+			_finish_selection(selection_current_screen)
 		return
+	if developer_mode and developer_spawn != "" and event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed: developer_place(developer_spawn, _screen_to_world(event.position))
+			get_viewport().set_input_as_handled()
+			return
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			developer_spawn = ""
+			if is_instance_valid(mission_hud): mission_hud.refresh_developer_tool()
+			get_viewport().set_input_as_handled()
+			return
 	if command_active and event is InputEventMouseMotion:
 		command_screen_position = event.position
 	if (
@@ -126,24 +171,22 @@ func _input(event: InputEvent) -> void:
 			selection_current_screen = event.position
 			selection_rect.hide()
 		elif selection_in_progress:
-			selection_current_screen = event.position
-			_update_marquee_state()
-			if marquee_active:
-				call_deferred(
-					"_select_units_in_marquee",
-					selection_start_screen,
-					selection_current_screen,
-					get_viewport().get_canvas_transform().affine_inverse()
-				)
-			else:
-				call_deferred("_select_unit_at_screen_position", selection_current_screen, get_viewport().get_canvas_transform().affine_inverse())
-
-			selection_in_progress = false
-			marquee_active = false
-			selection_rect.hide()
+			_finish_selection(event.position)
 	elif event is InputEventMouseMotion and selection_in_progress:
 		selection_current_screen = event.position
 		_update_marquee_state()
+
+func _finish_selection(screen_position: Vector2) -> void:
+	selection_current_screen = screen_position
+	_update_marquee_state()
+	var screen_to_world := get_viewport().get_canvas_transform().affine_inverse()
+	if marquee_active:
+		call_deferred("_select_units_in_marquee", selection_start_screen, selection_current_screen, screen_to_world)
+	else:
+		call_deferred("_select_unit_at_screen_position", selection_current_screen, screen_to_world)
+	selection_in_progress = false
+	marquee_active = false
+	selection_rect.hide()
 
 
 func cancel_selection() -> void:
