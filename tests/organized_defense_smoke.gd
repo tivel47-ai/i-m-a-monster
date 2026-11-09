@@ -123,6 +123,8 @@ func run() -> void:
 	check(formation.radius > compact, "Late arrival permits re-expansion after contraction")
 	check(formation.members.has(priest.get_instance_id()), "Priest remains included in membership")
 	await tactical_checks()
+	await sector_support_check()
+	await sector_transfer_check()
 	await density_checks()
 	await ranged_checks()
 	await movement_check()
@@ -138,16 +140,16 @@ func tactical_checks() -> void:
 	var guard = guards[0]
 	var helper = guards[1]
 	var behavior = formation.controller(guard)
-	formation.radius = 180.0
-	guard.global_position = formation.center + Vector2(0, 70)
+	formation.radius = 125.0
+	guard.global_position = formation.center + Vector2(0, 75)
 	helper.global_position = guard.global_position + Vector2(0, 30)
 	formation.members[guard.get_instance_id()] = weakref(guard)
 	formation.members[helper.get_instance_id()] = weakref(helper)
 	formation.places[guard.get_instance_id()] = guard.global_position
 	behavior.allies.assign([helper])
-	units[0].global_position = formation.center + Vector2(65, 40)
-	units[1].global_position = formation.center + Vector2(-65, 40)
-	units[2].global_position = formation.center + Vector2(-55, 45)
+	units[0].global_position = formation.center + Vector2(75, 50)
+	units[1].global_position = formation.center + Vector2(-75, 50)
+	units[2].global_position = formation.center + Vector2(-85, 55)
 	behavior.enemies.assign([units[0], units[1], units[2]])
 	var bigger = formation.sector(units[1].global_position)
 	check(behavior.assistance_sector() == bigger, "Adjacent assistance prefers local zombie count")
@@ -159,8 +161,10 @@ func tactical_checks() -> void:
 	behavior.enemies.assign([units[2]])
 	behavior.allies.clear()
 	check(behavior.assistance_sector() == formation.sector(guard.global_position), "Last local defender remains in sector")
-	units[0].global_position = guard.global_position + Vector2(0, 35)
-	units[1].global_position = guard.global_position + Vector2(0, -30)
+	guard.global_position = formation.center + Vector2(0, 100)
+	formation.places[guard.get_instance_id()] = guard.global_position
+	units[0].global_position = guard.global_position + Vector2(0, 24)
+	units[1].global_position = guard.global_position + Vector2(0, -24)
 	behavior.enemies.assign([units[0], units[1]])
 	behavior.allies.clear()
 	check(behavior.choose_target(true) == units[1], "Target selection prefers deeper penetration")
@@ -169,6 +173,7 @@ func tactical_checks() -> void:
 	check(behavior.target_load(units[1]) == 1, "Local visible ally target contributes to distribution")
 	behavior.remember_failure(formation.center)
 	check(behavior.failed_point(formation.center), "Failed route endpoint remembered for reassessment")
+	units[2].global_position = Vector2(100, 100)
 	units[0].global_position = guard.global_position + Vector2(0, 16)
 	await frames(2)
 	units[0].engage_defender(guard)
@@ -178,6 +183,57 @@ func tactical_checks() -> void:
 	units[0].global_position += Vector2(200, 0)
 	behavior.update(0.016)
 	check(not guard.is_in_collision(), "Separated melee target cannot continue remote damage")
+
+func sector_support_check() -> void:
+	await fixture()
+	activate()
+	await frames(2)
+	for resident in map.villagers: resident.global_position = Vector2(900, 900)
+	var front = civilians[0]
+	var supporter = civilians[1]
+	var cover = civilians[2]
+	var enemy = units[0]
+	formation.radius = 140.0
+	front.global_position = formation.center + Vector2(135, 10)
+	supporter.global_position = front.global_position + Vector2(-30, 18)
+	cover.global_position = front.global_position + Vector2(0, 36)
+	for defender in [front, supporter, cover]:
+		formation.members[defender.get_instance_id()] = weakref(defender)
+		formation.places[defender.get_instance_id()] = defender.global_position
+	enemy.global_position = front.global_position + Vector2(16, 0)
+	await frames(2)
+	check(enemy.engage_defender(front), "Enemy physically attacks the right line")
+	var helper = formation.controller(supporter)
+	helper.sense()
+	check(helper.enemies.has(enemy) and helper.choose_target(true) == enemy, "Nearby defender reacts immediately to visible attack")
+	var reserve = formation.controller(cover)
+	reserve.sense()
+	helper.engage(enemy, 0.016)
+	check(helper.target == enemy and supporter.has_destination, "Supporter starts a reachable approach on a different side")
+	check(reserve.choose_target(true) == null, "Third defender holds when two visible allies already handle the enemy")
+
+func sector_transfer_check() -> void:
+	await fixture()
+	activate()
+	await frames(2)
+	for resident in map.villagers: resident.global_position = Vector2(900, 900)
+	formation.radius = 150.0
+	formation.slots = formation.build_slots(civilians[0], formation.radius)
+	formation.places.clear()
+	var flank: Array[Vector2] = []
+	for point in formation.slots:
+		if not formation.central_slot(point) and formation.sector(point) == 2: flank.append(point)
+	check(flank.size() >= 4, "Flank provides two rows of reachable positions")
+	if flank.size() < 4: return
+	for i in 4:
+		var defender = civilians[i]
+		formation.places[defender.get_instance_id()] = flank[i]
+		defender.global_position = flank[i]
+	await frames(1)
+	var first: Vector2 = formation.position_for(civilians[0], Vector2.INF, INF, true, true)
+	var second: Vector2 = formation.position_for(civilians[1], Vector2.INF, INF, true, true)
+	check(formation.sector(first) == 1, "Idle defender fills a gap in the neighboring underfilled line")
+	check(formation.sector(second) == 2, "Transfer cooldown prevents simultaneous reassignment")
 
 func ranged_checks() -> void:
 	await fixture()

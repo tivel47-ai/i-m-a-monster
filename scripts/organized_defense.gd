@@ -35,6 +35,7 @@ var slots: Array[Vector2] = []
 var _next_refresh: float = 0.0
 var _last_refresh: float = 0.0
 var _started: bool = false
+var _next_transfer: float = 0.0
 var _slot_radius: float = -1.0
 var _capacity_cache: Dictionary = {}
 @onready var service = get_parent()
@@ -66,13 +67,46 @@ func eligible(actor: Variant) -> bool:
 	if not controllers.has(actor.get_instance_id()): return false
 	return not actor.is_queued_for_deletion() and actor.is_alive() and actor.infection_state != actor.InfectionState.TRANSFORMING
 
-func inside(point: Vector2, extent: float = -1.0) -> bool:
-	return point.distance_to(center) <= (radius if extent < 0 else extent) and (point - center).dot(forward) >= -0.01
+func sector_rects(extent: float) -> Array[Rect2]:
+	var side := extent * 0.65
+	var front := extent * 0.55
+	var width := spacing * 2.0
+	var back := -spacing * 1.5
+	return [
+		Rect2(-side - width, back, width, front - back),
+		Rect2(-side, front, side * 2.0, width),
+		Rect2(side, back, width, front - back),
+	]
+
+func formation_local(point: Vector2) -> Vector2:
+	var offset := point - center
+	return Vector2(offset.dot(forward.orthogonal()), offset.dot(forward))
+
+func formation_world(point: Vector2) -> Vector2:
+	return center + forward.orthogonal() * point.x + forward * point.y
+
+func inside(point: Vector2, margin: float = 0.0) -> bool:
+	var local := formation_local(point)
+	for rect in sector_rects(radius):
+		if rect.grow(margin).has_point(local): return true
+	# The priest and his two protectors stand between the three lines.
+	return Rect2(-spacing * 1.5, -spacing * 0.5, spacing * 3.0, spacing).grow(margin).has_point(local)
 
 func sector(point: Vector2) -> int:
-	var offset = point - center
-	var angle = atan2(offset.dot(forward.orthogonal()), maxf(offset.dot(forward), 0.01))
-	return clampi(int(floor((angle + PI / 2.0) / (PI / 3.0))), 0, 2)
+	var local := formation_local(point)
+	var rects := sector_rects(radius)
+	var best := 0
+	var distance := INF
+	for i in rects.size():
+		var rect := rects[i]
+		var gap := local.distance_squared_to(local.clamp(rect.position, rect.end))
+		if gap < distance:
+			best = i
+			distance = gap
+	return best
+
+func central_role(actor: Node2D) -> bool:
+	return actor.priest_routine != null or actor.priest_guard != null
 
 func controller(actor: Node) -> RefCounted:
 	return controllers.get(actor.get_instance_id()) if is_instance_valid(actor) else null
@@ -108,11 +142,13 @@ func _physics_process(_delta: float) -> void:
 
 func _draw() -> void:
 	if not debug_enabled or not active(): return
-	var polygon = PackedVector2Array([to_local(center)])
-	for i in range(33): polygon.append(to_local(center + forward.rotated(-PI / 2.0 + PI * float(i) / 32.0) * radius))
-	draw_colored_polygon(polygon, Color(0.2, 0.6, 1.0, 0.08))
-	polygon.append(to_local(center))
-	draw_polyline(polygon, Color(0.2, 0.6, 1.0, 0.65), 1.5)
+	for rect in sector_rects(radius):
+		var polygon := PackedVector2Array()
+		for point: Vector2 in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
+			polygon.append(to_local(formation_world(point)))
+		draw_colored_polygon(polygon, Color(0.2, 0.6, 1.0, 0.08))
+		polygon.append(polygon[0])
+		draw_polyline(polygon, Color(0.2, 0.6, 1.0, 0.65), 1.5)
 	draw_arc(to_local(center), arrival_radius, 0, TAU, 48, Color(0.2, 1.0, 0.4, 0.5))
 	for point in places.values(): draw_circle(to_local(point), 3.0, Color(0.2, 0.6, 1.0, 0.8))
 
@@ -147,14 +183,14 @@ func refresh(delta: float) -> void:
 				outside_since.erase(id)
 				settling.erase(id)
 			elif not outside_since.has(id): outside_since[id] = service.elapsed
-			var returning_nearby = actor.global_position.distance_to(center) <= radius + spacing and controller(actor).mode in ["return", "travel", "position"]
+			var returning_nearby = inside(actor.global_position, spacing) and controller(actor).mode in ["return", "travel", "position"]
 			if within or settling.has(id) or returning_nearby or service.elapsed - float(outside_since.get(id, service.elapsed)) < contraction_delay:
 				capacity_population += 1
 		var behavior = controller(actor)
-		if (within or actor.global_position.distance_to(center) <= radius + intercept_distance) and (actor.is_in_collision() or behavior.immediate_until > service.elapsed): immediate = true
+		if (within or inside(actor.global_position, intercept_distance)) and (actor.is_in_collision() or behavior.immediate_until > service.elapsed): immediate = true
 	capacity_population = maxi(capacity_population, physical_population)
 	if immediate: return # Only danger at the church, never a remote battle elsewhere.
-	var wanted = maxf(minimum_radius, sqrt(float(capacity_population) * spacing * spacing * 2.0 / PI) + spacing)
+	var wanted = maxf(minimum_radius, sqrt(float(capacity_population)) * spacing)
 	var candidate_slots = build_slots(representative, wanted)
 	# Bounded work per refresh, not a maximum resident capacity. Obstructed maps grow progressively.
 	for attempt in range(6):
@@ -188,40 +224,64 @@ func refresh(delta: float) -> void:
 				position_for(protector, priest_place, protector.priest_guard.protection_radius * 0.8)
 
 func build_slots(actor: Node2D, extent: float) -> Array[Vector2]:
-	var result: Array[Vector2] = []
-	var step = maxf(spacing, actor.navigation_agent.radius * 2.0 + 2.0)
-	var count = int(ceil(extent / step))
-	var nav = actor.navigation_agent.get_navigation_map()
-	var key = Vector3(extent, step, NavigationServer2D.map_get_iteration_id(nav))
+	var step := maxf(spacing, actor.navigation_agent.radius * 2.0 + 2.0)
+	var nav: RID = actor.navigation_agent.get_navigation_map()
+	var key := Vector3(extent, step, NavigationServer2D.map_get_iteration_id(nav))
 	if _capacity_cache.has(key): return _capacity_cache[key]
-	var origin = NavigationServer2D.map_get_closest_point(nav, center)
-	for y in range(0, count + 1):
-		for x in range(-count, count + 1):
-			var point = center + forward * (step * (y + 0.5)) + forward.orthogonal() * (step * (x + 0.5 * (y % 2)))
-			if not inside(point, extent): continue
-			if NavigationServer2D.map_get_closest_point(nav, point).distance_to(point) > 1.0: continue
-			var query = PhysicsShapeQueryParameters2D.new()
-			query.shape = actor.get_node("CollisionShape2D").shape
-			query.transform = Transform2D(0, point)
-			query.collision_mask = 1
-			if not actor.get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty(): continue
-			var path = NavigationServer2D.map_get_path(nav, origin, point, true, actor.navigation_agent.navigation_layers)
-			if path.is_empty() or path[-1].distance_to(point) > 1.0: continue
-			result.append(point)
+	var candidates: Array[Vector2] = [center, formation_world(Vector2(-step, 0)), formation_world(Vector2(step, 0))]
+	for rect in sector_rects(extent):
+		var columns := maxi(1, int(floor(rect.size.x / step)))
+		var rows := maxi(1, int(floor(rect.size.y / step)))
+		var size := Vector2(columns - 1, rows - 1) * step
+		for row in rows:
+			for column in columns:
+				candidates.append(formation_world(rect.get_center() - size * 0.5 + Vector2(column, row) * step))
+	var result: Array[Vector2] = []
+	var origin := NavigationServer2D.map_get_closest_point(nav, center)
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = actor.get_node("CollisionShape2D").shape
+	query.collision_mask = 1
+	for point in candidates:
+		if NavigationServer2D.map_get_closest_point(nav, point).distance_to(point) > 1.0: continue
+		query.transform = Transform2D(0, point)
+		if not actor.get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty(): continue
+		var path := NavigationServer2D.map_get_path(nav, origin, point, true, actor.navigation_agent.navigation_layers)
+		if path.is_empty() or path[-1].distance_to(point) > 1.0: continue
+		result.append(point)
 	_capacity_cache[key] = result
 	return result
 
-func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = INF, rebalance: bool = false) -> Vector2:
-	var id = actor.get_instance_id()
-	if not rebalance and places.has(id) and inside(places[id]) and (not anchor.is_finite() or places[id].distance_to(anchor) <= limit): return places[id]
-	var best = Vector2.INF
-	var best_score = INF
+func central_slot(point: Vector2) -> bool:
+	return Rect2(-spacing * 1.5, -spacing * 0.5, spacing * 3.0, spacing).has_point(formation_local(point))
+
+func front_rank(point: Vector2, side: int) -> float:
+	var local := formation_local(point)
+	if side == 1: return local.y
+	return absf(local.x)
+
+func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = INF, rebalance: bool = false, allow_transfer: bool = false) -> Vector2:
+	var id := actor.get_instance_id()
+	var previous: Vector2 = places.get(id, Vector2.INF)
+	if not rebalance and previous.is_finite() and (not anchor.is_finite() or previous.distance_to(anchor) <= limit): return previous
+	var central := central_role(actor)
+	var own := sector(previous) if previous.is_finite() else -1
+	var counts := [0, 0, 0]
+	for other in places:
+		if other != id and not central_slot(places[other]): counts[sector(places[other])] += 1
+	var best := previous if rebalance else Vector2.INF
+	var best_score := INF
 	var behavior = controller(actor)
-	var nearby_residents = service.nearby(actor, maxf(radius * 2, spacing))
+	var nearby_residents = service.nearby(actor, assistance_distance + spacing)
 	for point in slots:
+		if central != central_slot(point): continue
 		if anchor.is_finite() and point.distance_to(anchor) > limit: continue
 		if behavior != null and behavior.failed_point(point): continue
-		var free = true
+		var side := sector(point)
+		if rebalance and own >= 0:
+			if side != own:
+				if not allow_transfer or service.elapsed < _next_transfer or absi(side - own) != 1 or counts[own] <= counts[side]: continue
+			elif front_rank(point, side) <= front_rank(previous, own) + 1.0: continue
+		var free := true
 		for other in places:
 			if other != id and places[other].distance_to(point) < spacing * 0.9:
 				free = false
@@ -232,19 +292,22 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 				free = false
 				break
 		if not free or not service.reachable(actor, point): continue
-		var preferred = radius * (0.75 if actor.guard_ai != null else 0.35)
-		if actor.priest_routine != null: preferred = spacing
-		var value = actor.global_position.distance_to(point) + absf(point.distance_to(center) - preferred)
-		if arrived(actor): value += absi(sector(point) - sector(actor.global_position)) * spacing
-		# A local hole becomes more attractive than an overcrowded position. No
-		# global formation reset, and travel cost prevents exchanging equal slots.
-		for other in places:
-			if other != id: value += maxf(spacing * 2.0 - places[other].distance_to(point), 0.0)
-		if anchor.is_finite(): value += point.distance_to(anchor)
+		if rebalance and behavior != null and not behavior.safe_path(point): continue
+		var value := actor.global_position.distance_to(point)
+		if central:
+			var preferred := center
+			if actor.priest_guard != null:
+				var offset := -spacing if actor.priest_guard.slot == 0 else spacing
+				preferred = formation_world(Vector2(offset, 0))
+			value += point.distance_to(preferred) * 4.0
+		else:
+			value += counts[side] * spacing * 4.0 - front_rank(point, side)
 		if value < best_score:
 			best = point
 			best_score = value
-	if best.is_finite(): places[id] = best
+	if best.is_finite():
+		places[id] = best
+		if rebalance and own >= 0 and sector(best) != own: _next_transfer = service.elapsed + 1.0
 	return best
 
 func release_place(actor: Node) -> void:

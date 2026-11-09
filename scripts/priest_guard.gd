@@ -1,5 +1,7 @@
 extends Node
 ## Dedicated protectors: never registered as report recipients or civilian recruits.
+const ROUTES = preload("res://scripts/priest_guard_routes.gd")
+
 enum State { PATROL, JOINING, ESCORT, CHURCH_DEFENSE }
 @export var priest_path: NodePath = NodePath("../../Priest30")
 @export var patrol_points: PackedVector2Array = []
@@ -20,6 +22,9 @@ var escort_heading: Vector2 = Vector2.UP
 @onready var priest = get_node_or_null(priest_path)
 
 func _ready() -> void:
+	if patrol_points.is_empty():
+		var map := get_node_or_null("../../..") as Node2D
+		if map != null: patrol_points = ROUTES.route_for(map, slot)
 	actor.threat_recognized.connect(observe)
 	actor.encounter_started.connect(observe)
 	actor.died.connect(func(_body): leave_group())
