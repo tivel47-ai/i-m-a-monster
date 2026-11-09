@@ -535,6 +535,7 @@ func activity_zone(title: String, activity: int, outline: PackedVector2Array, di
 	zone.add_to_group("village_activity_zones", true)
 	if zone_preferences.has(title):
 		for key in zone_preferences[title]: zone.set(key, zone_preferences[title][key])
+	if title == "WorkWell": zone.allowed_roles = PackedStringArray(["peasant", "artisan"])
 	zones[title] = zone
 	return zone
 
@@ -554,9 +555,7 @@ func build_activity_zones() -> void:
 		var frontage := rectangle(Vector2(160, 100))
 		for vertex in range(frontage.size()):
 			frontage[vertex] = house.to_global(frontage[vertex] + Vector2(door_x, data[3].y * 0.5 + 84))
-		var home := activity_zone("Home%02d" % (i+1), 0, frontage, districts[i], "NavigationRegion2D/Buildings/Residential/" + str(data[0]))
-		if i in [0,1,2,4,8,9,10]:
-			activity_zone("WorkHome" + str(i+1), 1, home.global_transform * home.polygon, districts[i], "NavigationRegion2D/Buildings/Residential/" + str(data[0]), PackedStringArray(["peasant"]))
+		activity_zone("Home%02d" % (i+1), 0, frontage, districts[i], "NavigationRegion2D/Buildings/Residential/" + str(data[0]))
 	for entry in [["FieldsWest","WestField"],["FieldsEast","EastField"],["Vegetables","Vegetables"]]:
 		var plot: Polygon2D = details.get_node(entry[1])
 		activity_zone("Work" + entry[0], 1, plot.global_transform * plot.polygon, "farm", "Environment/" + entry[1], PackedStringArray(["peasant"]))
@@ -566,7 +565,7 @@ func build_activity_zones() -> void:
 	for index in [0,3,7]:
 		var garden: Polygon2D = details.get_node("Garden"+str(index))
 		activity_zone("WorkGarden"+str(index),1,garden.global_transform*garden.polygon,districts[index],"Environment/Garden"+str(index),PackedStringArray(["peasant"]))
-	zone_box("WorkWell",1,Vector2(1350,935),Vector2(110,100),"center","NavigationRegion2D/Buildings/Public/Well",PackedStringArray(["peasant"]))
+	zone_box("WorkWell",1,Vector2(1350,935),Vector2(110,100),"center","NavigationRegion2D/Buildings/Public/Well",PackedStringArray(["peasant", "artisan"]))
 	zone_box("WorkSquare",1,Vector2(1510,965),Vector2(150,100),"center","Roads/Square",PackedStringArray(["peasant"]))
 	zone_box("WorkBell",1,Vector2(1660,945),Vector2(100,100),"center","NavigationRegion2D/Buildings/Public/AlarmBell",PackedStringArray(["peasant"]))
 	zone_box("WorkSouthRoad",1,Vector2(1540,1760),Vector2(160,70),"south","Roads/FarmLane0",PackedStringArray(["peasant"]))
@@ -716,7 +715,7 @@ func build_river() -> void:
 func populate() -> void:
 	var residents := container(village,"Villagers")
 	var spawn_points := [Vector2(590,580),Vector2(790,760),Vector2(440,930),Vector2(1180,1180),Vector2(1040,555),Vector2(1860,805),Vector2(1875,1740),Vector2(790,1220),Vector2(1980,1190),Vector2(1190,1010),Vector2(1230,1550),Vector2(750,1710),Vector2(260,1510),Vector2(940,1540),Vector2(950,1850),Vector2(550,1430),Vector2(800,1750),Vector2(1510,955),Vector2(1410,940),Vector2(2230,805),Vector2(2420,910),Vector2(2180,1190),Vector2(2435,1180),Vector2(2130,860),Vector2(2160,1480),Vector2(2300,1380),Vector2(2060,1320),Vector2(1900,550),Vector2(1630,960),Vector2(1420,557)]
-	var peasant_jobs := ["Home1","Home2","Home3","Barn","Home5","Well","SouthRoad","Barn","Home9","Home10","Home11","FarmLane","FieldsWest","FieldsEast","FieldsSouth","Barn","Vegetables","Square","Bell"]
+	var peasant_jobs := ["Garden0","FieldsWest","FieldsEast","Barn","Vegetables","Well","SouthRoad","Barn","Garden7","Garden0","Garden7","FarmLane","FieldsWest","FieldsEast","FieldsSouth","Barn","Vegetables","Square","Bell"]
 	var peasant_districts := ["northwest","northwest","northwest","farm","northwest","center","south","farm","artisan","northwest","south","farm","farm","farm","farm","farm","farm","center","center"]
 	var home_districts := ["northwest","northwest","northwest","center","northwest","center","south","farm","artisan","northwest","south","farm"]
 	var artisan_jobs := ["SmithYard","Carpenter","Weaver","Storage","SmithYard"]
@@ -737,6 +736,10 @@ func populate() -> void:
 			npc.civilian_profile = "Craftsman"
 			job = artisan_jobs[i-19]
 			district = "artisan"
+			npc.home_weight = 0
+			npc.work_weight = 70
+			npc.social_weight = 20
+			npc.wander_weight = 10
 		else:
 			# Shared civilian threat/combat profiles; peaceful role components are added below.
 			npc.civilian_profile = "Villager"
@@ -749,23 +752,30 @@ func populate() -> void:
 		var assigned: Array[NodePath] = []
 		var home_title := "Home%02d" % (i%12+1) if i<24 else ("HomeGuardPost" if i<29 else "HomeChapel")
 		var work_title := "Work"+job
-		for title in [home_title, work_title]: assigned.append(npc.get_path_to(zones[title]))
-		if i in [0,3,7]: assigned.append(npc.get_path_to(zones["WorkGarden"+str(i)]))
+		if role != "artisan": assigned.append(npc.get_path_to(zones[home_title]))
+		assigned.append(npc.get_path_to(zones[work_title]))
+		if role == "artisan": assigned.append(npc.get_path_to(zones["WorkWell"]))
+		if i in [0,3,7]:
+			var garden_path := npc.get_path_to(zones["WorkGarden"+str(i)])
+			if not assigned.has(garden_path): assigned.append(garden_path)
 		if i>=24: assigned.append(npc.get_path_to(zones["WorkGuardRoad" if i<29 else "WorkCemetery"]))
-		for title in zones:
-			var zone: ActivityZone2D = zones[title]
-			if zone.activity == 2 and zone.allows_resident(npc): assigned.append(npc.get_path_to(zone))
+		if role in ["peasant", "artisan"]:
+			for title in ["SocialSquare", "SocialChurch", "SocialTavern"]: assigned.append(npc.get_path_to(zones[title]))
+		else:
+			for title in zones:
+				var zone: ActivityZone2D = zones[title]
+				if zone.activity == 2 and zone.allows_resident(npc): assigned.append(npc.get_path_to(zone))
 		var walking := ["Walk"+home_districts[i%12].capitalize(), "Walk"+district.capitalize(), "WalkCenter"] if i<24 else (["WalkGuard","WalkArtisan"] if i<29 else ["WalkChurch","WalkCemetery"])
 		for title in walking:
 			var path := npc.get_path_to(zones[title])
 			if not assigned.has(path): assigned.append(path)
 		npc.activity_zone_paths = assigned
 		npc.marker_activity_fallback_enabled = false
-		npc.preferred_district = StringName(home_districts[i%12] if i<24 else district)
+		npc.preferred_district = StringName(home_districts[i%12] if role == "peasant" else district)
 		npc.nearby_zone_distance = 650.0
 		npc.points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 		npc.home_point_path = NodePath("../../VillagePointsOfInterest/" + ("Home"+str(i%12+1) if i<24 else ("GuardYard" if i<29 else "Church")))
-		npc.work_point_path = NodePath()
+		npc.work_point_path = NodePath("../../VillagePointsOfInterest/" + job) if role == "artisan" else NodePath()
 		npc.set_meta("residential_home", i%12+1)
 		npc.set_meta("work_site", job)
 		npc.set_meta("activity_district",district)
@@ -790,6 +800,8 @@ func populate() -> void:
 		if npc_preferences.has(str(npc.name)):
 			var preferences: Dictionary = npc_preferences[str(npc.name)]
 			for property_name in preferences.exports:
+				if role in ["peasant", "artisan"] and property_name == "activity_zone_paths": continue
+				if role == "artisan" and property_name in ["home_weight", "work_weight", "social_weight", "wander_weight", "preferred_district"]: continue
 				if property_name == "activity_zone_paths":
 					var valid := true
 					for path in preferences.exports[property_name]: valid = valid and npc.get_node_or_null(path) is ActivityZone2D

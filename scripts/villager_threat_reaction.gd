@@ -114,7 +114,7 @@ func _try_calm_home() -> bool:
 	var chance: float = priest.calming(villager)
 	if chance <= 0.0: return false
 	if _immediate_danger(_visible_threats()): return false
-	var home = villager.get_node_or_null(villager.home_point_path) if not villager.home_point_path.is_empty() else null
+	var home = villager.private_shelter_marker()
 	if not home is Node2D or _safe_route_length(home.global_position, true, true) == INF: return false
 	if reaction_random.randf() >= chance: return false
 	_update_home(0.0)
@@ -341,7 +341,7 @@ func _plan_route() -> void:
 	var choices: Array[Vector2] = []
 	var own_home := Vector2.INF
 	if reaction_state == Reaction.SEEKING_SHELTER:
-		var home := villager.get_node_or_null(villager.home_point_path) if not villager.home_point_path.is_empty() else null
+		var home: Node2D = villager.private_shelter_marker()
 		if home is Marker2D:
 			own_home = home.global_position
 			choices.append(own_home)
@@ -474,7 +474,7 @@ func _update_home(delta: float) -> bool:
 			return true
 		if home_retry_remaining > 0: return true
 		home_retry_remaining = maxf(reassess_interval, 0.1)
-		var home = villager.get_node_or_null(villager.home_point_path) if not villager.home_point_path.is_empty() else null
+		var home = villager.private_shelter_marker()
 		if not home is Node2D: return true
 		var point: Vector2 = home.global_position
 		if villager.defense != null:

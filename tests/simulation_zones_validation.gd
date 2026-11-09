@@ -43,7 +43,7 @@ func check_assignments_and_destinations() -> void:
 		zone._random.seed = 330300 + index
 		counts[zone.activity] += 1
 		geometry = geometry and zone.has_valid_polygon() and not (zone as Node) is CollisionObject2D and not zone.debug_enabled
-	check(counts == [14,28,9,8] and geometry, "59 editable non-physical zones: 14 HOME, 28 WORK, 9 SOCIAL, 8 WANDER")
+	check(counts == [14,21,9,8] and geometry, "52 editable non-physical zones: 14 HOME, 21 WORK, 9 SOCIAL, 8 WANDER")
 	check(not map.has_node("ResidentRoutes") and map.get_node("VillagePointsOfInterest").get_child_count() == 43, "All 150 obsolete individual markers are gone; 43 functional approaches remain")
 	var used := {}
 	var sampled := {}
@@ -52,16 +52,19 @@ func check_assignments_and_destinations() -> void:
 		var role: String = actor.get_meta("village_role")
 		var activities := [false,false,false,false]
 		var correct: bool = actor.home_duration == Vector2(12,24) and actor.work_duration == Vector2(18,36) and actor.move_speed == 35
-		correct = correct and not actor.marker_activity_fallback_enabled and actor.get_node_or_null(actor.home_point_path) is Marker2D
+		correct = correct and not actor.marker_activity_fallback_enabled and actor.private_shelter_marker() is Marker2D
+		if role == "artisan": correct = correct and actor.home_weight == 0.0 and actor.private_shelter_marker() == actor.get_node_or_null(actor.work_point_path)
 		for zone in zone_list(actor):
 			correct = correct and zone.allows_resident(actor)
+			if role in ["peasant", "artisan"] and zone.activity == actor.Activity.SOCIAL:
+				correct = correct and zone.zone_id in [&"SocialSquare", &"SocialChurch", &"SocialTavern"]
 			activities[zone.activity] = true
 			used[zone.zone_id] = true
 			if zone.activity == actor.Activity.HOME:
 				var expected := "Home%02d" % (index%12+1) if index<24 else ("HomeGuardPost" if index<29 else "HomeChapel")
 				correct = correct and str(zone.zone_id) == expected
 			if zone.activity == actor.Activity.WORK:
-				correct = correct and (str(zone.zone_id) == "Work"+str(actor.get_meta("work_site")) or str(zone.zone_id).begins_with("WorkGarden") or (role == "guard" and zone.zone_id == &"WorkGuardRoad") or (role == "priest" and zone.zone_id == &"WorkCemetery"))
+				correct = correct and (str(zone.zone_id) == "Work"+str(actor.get_meta("work_site")) or (role == "artisan" and zone.zone_id == &"WorkWell") or str(zone.zone_id).begins_with("WorkGarden") or (role == "guard" and zone.zone_id == &"WorkGuardRoad") or (role == "priest" and zone.zone_id == &"WorkCemetery"))
 			if sampled.has(zone.zone_id): continue
 			var safe := true
 			var local_usable := false
@@ -83,8 +86,8 @@ func check_assignments_and_destinations() -> void:
 			check(local_usable,"Authored territory supports an actual contained local navigation route: "+str(zone.zone_id))
 			check(safe,"Eight reachable collision-free destinations in authored zone: "+str(zone.zone_id))
 			sampled[zone.zone_id] = true
-		check(correct and activities == [true,true,true,true], "Resident %d has correct home/work, social/walk access and functional shelter: %s" % [index,str(actor.name)])
-	check(used.size()==59 and sampled.size()==59, "Every generated territory has an assigned resident and validated usable destinations")
+		check(correct and activities == ([false,true,true,true] if role == "artisan" else [true,true,true,true]), "Resident %d has correct home/work, social/walk access and functional shelter: %s" % [index,str(actor.name)])
+	check(used.size()==52 and sampled.size()==52, "Every generated territory has an assigned resident and validated usable destinations")
 	var social_users := {}
 	for actor in map.villagers:
 		for zone in zone_list(actor):

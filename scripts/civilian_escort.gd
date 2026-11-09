@@ -214,11 +214,11 @@ func site_is_unsafe(marker: Node2D) -> bool:
 
 func choose_safety_marker() -> Node2D:
 	var candidates: Array[Node2D] = []
-	var home = actor.get_node_or_null(actor.home_point_path)
+	var home = actor.private_shelter_marker()
 	if home is Node2D: candidates.append(home)
 	if role() == "artisan":
 		var workshop = actor.get_node_or_null(actor.work_point_path)
-		if workshop is Node2D: candidates.append(workshop)
+		if workshop is Node2D and workshop != home: candidates.append(workshop)
 	if actor.defense.elapsed >= prefer_private_until:
 		var points = actor.get_node_or_null(actor.points_of_interest_path)
 		if points != null:

@@ -99,6 +99,12 @@ var escort: Node
 @onready var priest_routine = get_node_or_null("PriestRoutine")
 
 
+func private_shelter_marker() -> Node2D:
+	if str(get_meta("village_role", "")) == "artisan":
+		return get_node_or_null(work_point_path) as Node2D if not work_point_path.is_empty() else null
+	return get_node_or_null(home_point_path) as Node2D if not home_point_path.is_empty() else null
+
+
 func _ready() -> void:
 	add_to_group("activity_zone_residents")
 	current_health = maxf(max_health, 0.0)
