@@ -20,6 +20,7 @@ var race_back_button: Button
 var start_button: Button
 var result_text: Label
 var settings_status: Label
+var settings_return_screen: Screen = Screen.MAIN
 var mission_scroll: ScrollContainer
 var mission_buttons: Dictionary = {}
 var mission_details: VBoxContainer
@@ -45,7 +46,8 @@ func _input(event: InputEvent) -> void:
 			mission.command_overlay.queue_redraw()
 			return
 		match screen:
-			Screen.SETTINGS, Screen.MISSIONS: _show(Screen.MAIN)
+			Screen.SETTINGS: _show(settings_return_screen)
+			Screen.MISSIONS: _show(Screen.MAIN)
 			Screen.RACES: _show(Screen.MISSIONS)
 			Screen.GAMEPLAY: _pause()
 			Screen.PAUSE: _resume()
@@ -130,7 +132,7 @@ func _build_ui() -> void:
 	_button(main, "Начать игру", func():
 		if screen == Screen.MAIN: _show(Screen.MISSIONS))
 	_button(main, "Настройки", func():
-		if screen == Screen.MAIN: _show(Screen.SETTINGS))
+		if screen == Screen.MAIN: _open_settings(Screen.MAIN))
 	var options := _page(Screen.SETTINGS, "Настройки")
 	var fullscreen := CheckButton.new()
 	fullscreen.text = "Полноэкранный режим"
@@ -154,7 +156,7 @@ func _build_ui() -> void:
 		speed_label.text = str(int(value))
 		_save_settings())
 	settings_status = _text(options, "Настройки сохраняются автоматически.", 18)
-	_button(options, "Назад", func(): _show(Screen.MAIN))
+	_button(options, "Назад", func(): _show(settings_return_screen))
 	var missions := _page(Screen.MISSIONS, "Выбор миссии")
 	missions.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_text(missions, "Выберите миссию в списке, затем нажмите «Выбрать расу».", 18)
@@ -247,7 +249,11 @@ func _build_ui() -> void:
 	start_button.custom_minimum_size.x = 240
 	start_button.disabled = true
 	var pause := _page(Screen.PAUSE, "Пауза")
-	_text(pause, "Нажмите Esc, чтобы продолжить")
+	_button(pause, "Продолжить", func():
+		if screen == Screen.PAUSE: _resume())
+	_button(pause, "Перезапустить миссию", _restart_mission)
+	_button(pause, "Настройки", func():
+		if screen == Screen.PAUSE: _open_settings(Screen.PAUSE))
 	_button(pause, "В главное меню", func():
 		if screen == Screen.PAUSE: _show(Screen.CONFIRM_LEAVE))
 	var confirm := _page(Screen.CONFIRM_LEAVE, "Покинуть миссию?")
@@ -264,6 +270,10 @@ func _build_ui() -> void:
 
 func _save_settings() -> void:
 	settings_status.text = "Настройки сохранены." if settings.save_settings() == OK else "Не удалось сохранить настройки. Изменения действуют до закрытия игры."
+
+func _open_settings(origin: Screen) -> void:
+	settings_return_screen = origin
+	_show(Screen.SETTINGS)
 
 func _clear_children(parent: Node) -> void:
 	for child in parent.get_children():
@@ -352,6 +362,7 @@ func _start_mission() -> void:
 	mission.process_mode = Node.PROCESS_MODE_PAUSABLE
 	mission.set_meta("race_id", selected_race)
 	mission.mission_finished.connect(_on_mission_finished)
+	mission.pause_requested.connect(_pause)
 	add_child(mission)
 	mission.get_node("Camera2D").move_speed = settings.camera_speed
 	get_tree().paused = false
@@ -363,8 +374,16 @@ func _pause() -> void:
 	_show(Screen.PAUSE)
 
 func _resume() -> void:
+	if is_instance_valid(mission):
+		mission.get_node("Camera2D").move_speed = settings.camera_speed
 	get_tree().paused = false
 	_show(Screen.GAMEPLAY)
+
+func _restart_mission() -> void:
+	if screen != Screen.PAUSE: return
+	_dispose_mission()
+	_show(Screen.RACES)
+	_start_mission()
 
 func _leave_mission() -> void:
 	if screen != Screen.CONFIRM_LEAVE: return

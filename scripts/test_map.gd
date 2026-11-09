@@ -1,12 +1,15 @@
 extends Node2D
 
 signal mission_finished(outcome: String, summary: Dictionary)
+signal pause_requested
 
 const TARGET_PERCENT := 80
 const SELECTION_DRAG_THRESHOLD := 8.0
 const PLAYER_SELECTION_LAYER := 4
 const GROUP_PLACEMENT = preload("res://scripts/group_placement.gd")
+const MISSION_HUD = preload("res://scripts/mission_hud.gd")
 var placement = GROUP_PLACEMENT.new()
+var mission_hud: Control
 
 const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
 
@@ -84,9 +87,14 @@ func _ready() -> void:
 		add_child(defense)
 	defense.initialize(villagers, $VillageAlert)
 	_refresh_mission_progress()
+	mission_hud = MISSION_HUD.new()
+	$CanvasLayer.add_child(mission_hud)
+	$CanvasLayer/MissionPanel.hide()
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouse and is_instance_valid(mission_hud) and mission_hud.is_pointer_over_ui(event.position):
+		return
 	if command_active and event is InputEventMouseMotion:
 		command_screen_position = event.position
 	if (
@@ -323,6 +331,8 @@ func _apply_selection(selected_units: Array[Node]) -> void:
 	for unit in get_tree().get_nodes_in_group("player_units"):
 		if unit.has_method("set_selected"):
 			unit.call("set_selected", selected_units.has(unit))
+	if is_instance_valid(mission_hud):
+		mission_hud.refresh_units()
 
 
 func _on_resident_converted(resident: Node) -> void:
