@@ -819,8 +819,9 @@ metadata/road_width = 22.0
 metadata/entrance = "NavigationRegion2D/Buildings/Workshops/Storage"
 
 [node name="TavernApproach0" type="Polygon2D" parent="Roads" unique_id=1285264582]
+position = Vector2(212, -92)
 color = Color(0.39215687, 0.3647059, 0.2784314, 1)
-polygon = PackedVector2Array(1645.1976, 1274.7112, 1641.2843, 1281.1897, 1640.8756, 1281.817, 1635.255, 1289.8337, 1635.2181, 1289.886, 1628.5798, 1299.2383, 1621.5935, 1309.726, 1614.8069, 1321.2817, 1608.7592, 1333.8176, 1603.9718, 1347.2341, 1600.8546, 1361.8417, 1598.5651, 1379.9325, 1596.2983, 1402.0496, 1594.5789, 1426.2991, 1593.8792, 1451.1204, 1594.6521, 1474.9015, 1597.2836, 1495.9164, 1601.9144, 1512.2081, 1607.9417, 1521.933, 1616.939, 1527.3151, 1631.9681, 1530.2417, 1651.5608, 1530.3596, 1673.4027, 1528.1128, 1695.4926, 1524.289, 1715.9976, 1519.7534, 1733.1699, 1515.386, 1744.4866, 1512.2906, 1746.5637, 1511.3496, 1746.3499, 1510.8152, 1743.9775, 1507.104, 1740.8142, 1502.8997, 1740.7228, 1502.7764, 1737.9476, 1498.979, 1736.8171, 1497.0459, 1735.5824, 1494.3334, 1755.6056, 1485.2189, 1756.374, 1486.907, 1758.44, 1489.734, 1761.8094, 1494.2122, 1762.2881, 1494.9014, 1765.4454, 1499.8408, 1766.3899, 1501.679, 1768.3892, 1506.6757, 1769.1755, 1510.8976, 1769.1174, 1515.609, 1768.0726, 1520.1542, 1766.9677, 1522.0071, 1763.9525, 1526.0908, 1760.45, 1529.1702, 1759.6426, 1529.5768, 1752.771, 1532.69, 1752.7172, 1532.5712, 1751.1333, 1533.2808, 1738.8788, 1536.6326, 1738.688, 1536.683, 1721.2528, 1541.1172, 1720.9172, 1541.1969, 1699.9955, 1545.8247, 1699.496, 1545.9232, 1676.7816, 1549.8551, 1676.031, 1549.9585, 1653.2178, 1552.3053, 1652.026, 1552.3628, 1630.8081, 1552.2351, 1628.7717, 1552.0326, 1610.8429, 1548.5413, 1607.2986, 1547.184, 1594.3529, 1539.4401, 1590.9491, 1536.252, 1590.7382, 1535.7402, 1590.6501, 1535.7948, 1582.4043, 1522.4901, 1581.1733, 1519.7029, 1575.8923, 1501.1239, 1575.5583, 1499.483, 1572.7595, 1477.1321, 1572.6802, 1476.1226, 1571.88, 1451.5015, 1571.8785, 1450.8342, 1572.5942, 1425.4448, 1572.6174, 1424.9767, 1574.3657, 1400.3217, 1574.3955, 1399.9783, 1576.6931, 1377.5593, 1576.7228, 1377.2997, 1579.087, 1358.6189, 1579.2422, 1357.7043, 1582.6085, 1341.9291, 1583.0061, 1340.528, 1588.2362, 1325.8705, 1588.6891, 1324.7876, 1595.1871, 1311.3184, 1595.6093, 1310.5275, 1602.7808, 1298.3163, 1603.1112, 1297.7885, 1610.3608, 1286.9055, 1610.5457, 1286.6368, 1617.2604, 1277.177, 1622.6469, 1269.4941, 1626.3666, 1263.3362)
+polygon = PackedVector2Array(1596.2983, 1402.0496, 1594.5789, 1426.2991, 1593.8792, 1451.1204, 1594.6521, 1474.9015, 1597.2836, 1495.9164, 1601.9144, 1512.2081, 1607.9417, 1521.933, 1616.939, 1527.3151, 1631.9681, 1530.2417, 1654, 1531, 1653.2178, 1552.3053, 1652.026, 1552.3628, 1630.8081, 1552.2351, 1628.7717, 1552.0326, 1610.8429, 1548.5413, 1607.2986, 1547.184, 1594.3529, 1539.4401, 1590.9491, 1536.252, 1590.7382, 1535.7402, 1590.6501, 1535.7948, 1582.4043, 1522.4901, 1581.1733, 1519.7029, 1575.8923, 1501.1239, 1575.5583, 1499.483, 1572.7595, 1477.1321, 1572.6802, 1476.1226, 1571.88, 1451.5015, 1571.8785, 1450.8342, 1572.5942, 1425.4448, 1572.6174, 1424.9767, 1574.3657, 1400.3217, 1574.3955, 1399.9783)
 metadata/centerline = PackedVector2Array(1745.594, 1489.7761, 1746.8287, 1492.4886, 1749.6039, 1496.286, 1753.0198, 1500.8258, 1756.1771, 1505.7653, 1758.1764, 1510.762, 1758.1183, 1515.4734, 1755.1031, 1519.5571, 1748.2316, 1522.6703, 1748.2312, 1522.6705, 1735.9767, 1526.0223, 1718.5415, 1530.4565, 1697.6198, 1535.0844, 1674.9054, 1539.0162, 1652.0922, 1541.363, 1630.8743, 1541.2354, 1612.9454, 1537.744, 1599.9998, 1530.0001, 1600, 1530, 1591.7542, 1516.6953, 1586.4731, 1498.1163, 1583.6743, 1475.7653, 1582.8741, 1451.1442, 1583.5898, 1425.7548, 1585.3381, 1401.0997, 1587.6357, 1378.6808, 1590, 1360, 1590, 1360, 1593.3663, 1344.2247, 1598.5964, 1329.5673, 1605.0945, 1316.098, 1612.266, 1303.8868, 1619.5156, 1293.0039, 1626.2482, 1283.5189, 1631.8688, 1275.5022, 1635.7821, 1269.0237)
 metadata/road_width = 22.0
 metadata/entrance = "NavigationRegion2D/Buildings/Public/Tavern"
@@ -1296,10 +1297,10 @@ theme_override_font_sizes/font_size = 14
 text = "Кузница"
 
 [node name="TavernLabel" type="Label" parent="Environment" unique_id=1111733762]
-offset_left = 1690.0
-offset_top = 1500.0
-offset_right = 1690.0
-offset_bottom = 1500.0
+offset_left = 1908.0
+offset_top = 1341.0
+offset_right = 1967.0
+offset_bottom = 1361.0
 theme_override_colors/font_color = Color(0.78039217, 0.74509805, 0.627451, 1)
 theme_override_font_sizes/font_size = 14
 text = "Таверна"
@@ -2057,44 +2058,52 @@ color = Color(0.6901961, 0.627451, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 11, 8, -11, 8)
 
 [node name="Tavern" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=1784415062 groups=["simulation_solids"]]
-position = Vector2(1740, 1420)
+position = Vector2(1926, 1458)
 rotation = -0.08
 collision_mask = 0
 metadata/building_type = "tavern"
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=896259897]
+rotation = 1.7139033
 color = Color(0.24313726, 0.2509804, 0.22352941, 1)
 polygon = PackedVector2Array(-90, -65, 90, -65, 90, 65, -90, 65)
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=861789725]
+rotation = 1.7139033
 polygon = PackedVector2Array(-90, -65, 90, -65, 90, 65, -90, 65)
 
 [node name="Roof" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=716455818]
+rotation = 1.7139033
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(85, -60, 85, 60, -85, 60, -85, -60)
 
 [node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=1510680483]
+rotation = 1.7139033
 points = PackedVector2Array(-80, 0, 80, 0)
 width = 4.0
 default_color = Color(0.5105882, 0.46980393, 0.4164706, 1)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=1276127331]
-position = Vector2(0, 61)
+position = Vector2(-60.48525, -8.862)
+rotation = 1.7139033
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
 
 [node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=2113313617]
-position = Vector2(-54, -31.2)
+position = Vector2(-30.77033, -66.67223)
+rotation = 1.7139033
 color = Color(0.654902, 0.5921569, 0.39607844, 1)
 polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
 
 [node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=1066346678]
-position = Vector2(41.4, -32.5)
+position = Vector2(20.12515, 61.80597)
+rotation = 1.7139033
 color = Color(0.23137255, 0.23921569, 0.22352941, 1)
 polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Sign" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=1544428900]
-position = Vector2(28, 50)
+position = Vector2(-32.78098, 33.48742)
+rotation = 1.7139033
 color = Color(0.6627451, 0.6039216, 0.44313726, 1)
 polygon = PackedVector2Array(-11, -9, 11, -9, 11, 9, -11, 9)
 
@@ -4766,7 +4775,7 @@ position = Vector2(2180, 1190)
 position = Vector2(2435, 1180)
 
 [node name="Tavern" type="Marker2D" parent="VillagePointsOfInterest" unique_id=405207142 groups=["civilian_social_points"]]
-position = Vector2(1715, 1300)
+position = Vector2(1826, 1416)
 
 [node name="GuardYard" type="Marker2D" parent="VillagePointsOfInterest" unique_id=1357644312]
 position = Vector2(2230, 1640)
@@ -4991,7 +5000,7 @@ location_path = NodePath("../../NavigationRegion2D/Buildings/Residential/Cottage
 allowed_roles = PackedStringArray()
 
 [node name="WorkHome9" parent="ActivityZones" unique_id=1137934643 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
-position = Vector2(1829.9058, 1242.5911)
+position = Vector2(1871, 1222)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-72.24011, -60.674194, 86.19446, -38.34729, 72.24011, 60.674316, -86.19446, 38.347412)
 activity = 1
@@ -5338,7 +5347,9 @@ location_path = NodePath("../../Roads/FarmLane0")
 allowed_roles = PackedStringArray()
 
 [node name="SocialTavern" parent="ActivityZones" unique_id=134136388 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
-position = Vector2(1710, 1290)
+position = Vector2(1757.5981, 1429.1898)
+rotation = 1.660164
+scale = Vector2(1, 2.1913574)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-90, -30, 90, -30, 90, 30, -90, 30)
 activity = 2
