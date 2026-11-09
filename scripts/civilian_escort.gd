@@ -1,5 +1,5 @@
 extends Node
-## Optional civilian alarm behavior; the ordinary routine remains the fallback.
+## Civilian alarm behavior with a persistent refuge or gathering destination.
 enum Mode { INDEPENDENT, FOLLOWING, FLEEING, REUNION }
 const REPORTER = preload("res://scripts/civilian_reporter.gd")
 @export var report_to_guard_enabled: bool = true
@@ -26,6 +26,7 @@ const REPORTER = preload("res://scripts/civilian_reporter.gd")
 @export var gathering_enemy_count: int = 3
 @export var gathering_danger_radius: float = 180.0
 @export var dangerous_site_memory: float = 90.0
+@export_range(0, 1) var alarm_home_probability: float = 0.2
 var leader: Node
 var mode: Mode = Mode.INDEPENDENT
 var armed: bool = false
@@ -213,20 +214,29 @@ func site_is_unsafe(marker: Node2D) -> bool:
 	return false
 
 func choose_safety_marker() -> Node2D:
-	var candidates: Array[Node2D] = []
+	var private_sites: Array[Node2D] = []
+	var public_sites: Array[Node2D] = []
 	var home = actor.private_shelter_marker()
-	if home is Node2D: candidates.append(home)
+	if home is Node2D: private_sites.append(home)
 	if role() == "artisan":
 		var workshop = actor.get_node_or_null(actor.work_point_path)
-		if workshop is Node2D and workshop != home: candidates.append(workshop)
-	if actor.defense.elapsed >= prefer_private_until:
-		var points = actor.get_node_or_null(actor.points_of_interest_path)
-		if points != null:
-			for marker in points.get_children():
-				if marker is Marker2D and marker.is_in_group("civilian_social_points"): candidates.append(marker)
-	while not candidates.is_empty():
-		var marker = candidates.pop_at(rng.randi_range(0, candidates.size() - 1))
-		if not site_is_unsafe(marker) and actor.defense.reachable(actor, marker.global_position): return marker
+		if workshop is Node2D and workshop != home: private_sites.append(workshop)
+	var points = actor.get_node_or_null(actor.points_of_interest_path)
+	if points != null:
+		for name in ["Church", "Square"]:
+			var marker = points.get_node_or_null(name)
+			if marker is Marker2D: public_sites.append(marker)
+	var prefer_private = actor.defense.elapsed < prefer_private_until or rng.randf() < alarm_home_probability
+	var groups = [private_sites, public_sites] if prefer_private else [public_sites, private_sites]
+	for candidates in groups:
+		while not candidates.is_empty():
+			var marker = candidates.pop_at(rng.randi_range(0, candidates.size() - 1))
+			if site_is_unsafe(marker): continue
+			# Markers can sit inside a building; test an actual navigable place in its zone.
+			var point = actor.defense.reserve_safety(actor, marker, rng)
+			if point.is_finite():
+				safety_point = point
+				return marker
 	return null
 
 func reset_idle_pause() -> void:
@@ -411,21 +421,21 @@ func update_escort(delta: float) -> bool:
 	if not safety_point.is_finite() and decision:
 		safety_marker = choose_safety_marker()
 		if is_instance_valid(safety_marker):
-			safety_point = actor.defense.reserve_safety(actor, safety_marker, rng)
+			if safety_marker == actor.private_shelter_marker():
+				actor.defense.release_safety(actor)
+				safety_point = Vector2.INF
+				safety_marker = null
+				actor.threat_reaction.seeking_home = true
+				return false # The existing home controller gives this resident S and keeps it there.
 			reset_idle_pause()
 	if safety_point.is_finite():
 		var priest = actor.defense.priest_ai
 		if is_instance_valid(priest) and priest.update_member(self, delta): return true
 		update_safe_activity(delta)
 		return true
-	if actor.defense.elapsed < prefer_private_until:
-		# No accessible private shelter: wait/reassess after the emergency flight,
-		# rather than falling through to an ordinary SOCIAL destination.
-		actor.has_destination = false
-		actor.navigation_agent.velocity = Vector2.ZERO
-		actor.velocity = Vector2.ZERO
-		return true
-	return false
+	# No reachable refuge: pause and retry without resuming the peaceful routine.
+	actor._stop_movement()
+	return true
 
 func consider_rare_bell(target: Node2D) -> void:
 	if not can_recruit() or actor.defense.alert.level >= actor.defense.alert.Level.ALARM or is_instance_valid(leader):

@@ -125,6 +125,7 @@ func run() -> void:
 	await tactical_checks()
 	await sector_support_check()
 	await sector_transfer_check()
+	await flank_reinforcement_check()
 	await density_checks()
 	await ranged_checks()
 	await movement_check()
@@ -210,7 +211,7 @@ func sector_support_check() -> void:
 	reserve.sense()
 	helper.engage(enemy, 0.016)
 	check(helper.target == enemy and supporter.has_destination, "Supporter starts a reachable approach on a different side")
-	check(reserve.choose_target(true) == null, "Third defender holds when two visible allies already handle the enemy")
+	check(reserve.choose_target(true) == enemy, "Third nearby defender may help an attacked neighbor when no other enemy needs interception")
 
 func sector_transfer_check() -> void:
 	await fixture()
@@ -234,6 +235,54 @@ func sector_transfer_check() -> void:
 	var second: Vector2 = formation.position_for(civilians[1], Vector2.INF, INF, true, true)
 	check(formation.sector(first) == 1, "Idle defender fills a gap in the neighboring underfilled line")
 	check(formation.sector(second) == 2, "Transfer cooldown prevents simultaneous reassignment")
+
+func flank_reinforcement_check() -> void:
+	await fixture()
+	activate()
+	await frames(2)
+	formation.set_physics_process(false)
+	for resident in map.villagers: resident.global_position = Vector2(900, 900)
+	formation.radius = 150.0
+	formation.slots = formation.build_slots(civilians[0], formation.radius)
+	formation.places.clear()
+	formation.members.clear()
+	var flanks: Array[Array] = [[], [], []]
+	for point in formation.slots:
+		if not formation.central_slot(point): flanks[formation.sector(point)].append(point)
+	check(flanks[0].size() >= 4 and flanks[1].size() >= 4 and flanks[2].size() >= 4,
+		"Three flanks have enough reachable places for loss and reinforcement")
+	if flanks[0].size() < 4 or flanks[1].size() < 4 or flanks[2].size() < 4: return
+	var assigned: Array[Array] = [[], [], []]
+	for side in range(3):
+		for i in 4:
+			var defender = civilians[side * 4 + i]
+			defender.global_position = flanks[side][i]
+			formation.members[defender.get_instance_id()] = weakref(defender)
+			formation.places[defender.get_instance_id()] = flanks[side][i]
+			assigned[side].append(defender)
+	formation.update_flank_strength()
+	check(formation._flank_peak == [4, 4, 4], "Peak records the established strength of each flank")
+	for i in range(3):
+		var lost = assigned[2][i]
+		formation.members.erase(lost.get_instance_id())
+		formation.places.erase(lost.get_instance_id())
+		lost.global_position = Vector2(900, 900)
+	var west = assigned[0][0]
+	formation.controller(west).mode = "combat"
+	check(formation.reinforcement_target(west) == -1, "Fighting defender does not leave the intact donor flank")
+	formation.controller(west).mode = "position"
+	check(formation.reinforcement_target(west) == 2, "Idle intact west flank recognizes east below 30 percent")
+	formation.controller(west).next_decision = 0.0
+	formation.controller(west).next_gap_check = 0.0
+	formation.update_actor(west, 0.016)
+	var first: Vector2 = formation.places.get(west.get_instance_id(), Vector2.INF)
+	check(formation.sector(first) == 2, "West defender can reinforce east directly")
+	formation._next_transfer = 0.0
+	var south = assigned[1][0]
+	check(formation.reinforcement_target(south) == 2, "Reinforcement continues until the weakened flank reaches 60 percent")
+	var second: Vector2 = formation.position_for(south, Vector2.INF, INF, true, true, 2)
+	check(formation.sector(second) == 2, "Second donor fills another east place")
+	check(formation.reinforcement_target(assigned[0][1]) == -1, "Reinforcement stops after the recovery target")
 
 func ranged_checks() -> void:
 	await fixture()
@@ -318,6 +367,7 @@ func density_checks() -> void:
 
 func movement_check() -> void:
 	await fixture()
+	await frames(30) # Wait for the imported navigation region to sync in headless runs.
 	activate()
 	await frames(2)
 	var actor = civilians[0]

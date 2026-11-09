@@ -10,6 +10,7 @@ enum State { PATROL, JOINING, ESCORT, CHURCH_DEFENSE }
 @export var slot: int = 0
 @export var tactical_speed: float = 65.0
 @export var protection_radius: float = 75.0
+@export var priest_threat_radius: float = 110.0
 @export var joining_distance: float = 55.0
 var state: State = State.PATROL
 var permanent: bool = false
@@ -121,7 +122,7 @@ func update_ai(delta: float) -> bool:
 			if actor.is_in_collision():
 				halt()
 				return true
-		if (joined or state == State.CHURCH_DEFENSE) and actor.global_position.distance_to(anchor) <= protection_radius and enemy.global_position.distance_to(anchor) <= protection_radius:
+		if (joined or state == State.CHURCH_DEFENSE) and actor.global_position.distance_to(anchor) <= priest_threat_radius + actor.arrival_tolerance and enemy.global_position.distance_to(anchor) <= priest_threat_radius:
 			if target == null or enemy.global_position.distance_to(anchor) < target.global_position.distance_to(anchor): target = enemy
 	if target != null:
 		if defending:

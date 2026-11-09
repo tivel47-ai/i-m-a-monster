@@ -1,7 +1,6 @@
 extends RefCounted
 ## Per-resident decisions. All opponents and helpers come from personal, local perception.
 const PROJECTILE = preload("res://scripts/defender_projectile.gd")
-const MELEE_SUPPORT_LIMIT := 2
 var formation: Node
 var actor: Node2D
 var enemies: Array[Node2D] = []
@@ -182,13 +181,13 @@ func choose_target(defending: bool) -> Node2D:
 		if failed_point(enemy.global_position): continue
 		var firing = ranged() and distance <= actor.defense_weapon_range
 		var load := target_load(enemy)
-		if not firing and load >= MELEE_SUPPORT_LIMIT: continue
 		var supporting := supports_companion(enemy)
 		if defending:
 			var limit = formation.assistance_distance if help_sector >= 0 else formation.intercept_distance
 			if not firing and (distance > limit or home().distance_to(enemy.global_position) > limit): continue
 			if not firing and formation.sector(enemy.global_position) != chosen_sector:
-				if not supporting or own_sector_coverage() <= 1: continue
+				# A fight beside this post is local defense even across a sector edge.
+				if not supporting or home().distance_to(enemy.global_position) > formation.intercept_distance: continue
 		else:
 			if distance > formation.intercept_distance or not supporting: continue
 		var depth := enemy.global_position.distance_to(formation.center)
@@ -395,7 +394,7 @@ func rescue_target() -> Node2D:
 		if not formation.arrived(ally) or formation.inside(ally.global_position) or not ally.is_in_collision(): continue
 		if home().distance_to(ally.global_position) > formation.assistance_distance: continue
 		for enemy in enemies:
-			if ally.encounter_participants.has(enemy) and target_load(enemy) < MELEE_SUPPORT_LIMIT and actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance:
+			if ally.encounter_participants.has(enemy) and actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance:
 				for other in enemies:
 					if other != enemy and actor.global_position.distance_to(other.global_position) <= formation.intercept_distance: return null
 				return enemy
@@ -466,7 +465,8 @@ func update(delta: float) -> bool:
 		next_gap_check = now() + formation.decision_interval
 		if point.is_finite() and actor.global_position.distance_to(point) <= actor.arrival_tolerance:
 			var previous: Vector2 = point
-			point = formation.position_for(actor, Vector2.INF, INF, true, enemies.is_empty())
+			var reinforce: int = formation.reinforcement_target(actor) if enemies.is_empty() else -1
+			point = formation.position_for(actor, Vector2.INF, INF, true, enemies.is_empty(), reinforce)
 			if point != previous: next_gap_check = now() + formation.contraction_delay
 	if point.is_finite():
 		mode = "return" if not formation.inside(actor.global_position) else "position"

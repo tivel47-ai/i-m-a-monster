@@ -6017,9 +6017,13 @@ public_zone_paths = Array[NodePath]([NodePath("../../../ActivityZones/SocialSqua
 
 [node name="PriestGuard1" parent="Villagers" unique_id=146451119 instance=ExtResource("31_priest_guard")]
 position = Vector2(1440, 557)
+max_health = 150.0
+attack_damage = 20.0
 
 [node name="PriestGuard2" parent="Villagers" unique_id=265768842 instance=ExtResource("31_priest_guard")]
 position = Vector2(1350, 580)
+max_health = 150.0
+attack_damage = 20.0
 
 [node name="PriestGuard" parent="Villagers/PriestGuard2" index="9"]
 slot = 1

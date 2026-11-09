@@ -10,6 +10,9 @@ const DEFENDER = preload("res://scripts/organized_defender.gd")
 @export var decision_interval: float = 0.35
 @export var failed_route_memory: float = 6.0
 @export var assistance_switch_margin: int = 2
+@export var flank_reinforcement_trigger: float = 0.3
+@export var flank_reinforcement_goal: float = 0.6
+@export var flank_donor_floor: float = 0.5
 @export var church_marker_path: NodePath
 @export var church_building_path: NodePath
 @export var outward_direction: Vector2 = Vector2.DOWN
@@ -36,6 +39,8 @@ var _next_refresh: float = 0.0
 var _last_refresh: float = 0.0
 var _started: bool = false
 var _next_transfer: float = 0.0
+var _flank_peak: Array[int] = [0, 0, 0]
+var _reinforcement_flank: int = -1
 var _slot_radius: float = -1.0
 var _capacity_cache: Dictionary = {}
 @onready var service = get_parent()
@@ -172,6 +177,7 @@ func refresh(delta: float) -> void:
 			outside_since.erase(id)
 			settling.erase(id)
 	residents = residents.filter(func(actor): return eligible(actor))
+	update_flank_strength()
 	if representative == null: return
 	if NavigationServer2D.map_get_iteration_id(representative.navigation_agent.get_navigation_map()) == 0: return
 	if slots.is_empty():
@@ -265,7 +271,49 @@ func front_rank(point: Vector2, side: int) -> float:
 	if side == 1: return local.y
 	return absf(local.x)
 
-func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = INF, rebalance: bool = false, allow_transfer: bool = false) -> Vector2:
+func flank_counts() -> Array[int]:
+	var counts: Array[int] = [0, 0, 0]
+	for id in places:
+		var behavior = controllers.get(id)
+		if behavior == null or not eligible(behavior.actor) or not arrived(behavior.actor) or central_role(behavior.actor): continue
+		counts[sector(places[id])] += 1
+	return counts
+
+func update_flank_strength() -> void:
+	var counts := flank_counts()
+	for side in range(3): _flank_peak[side] = maxi(_flank_peak[side], counts[side])
+	if _reinforcement_flank >= 0 and counts[_reinforcement_flank] >= ceili(_flank_peak[_reinforcement_flank] * flank_reinforcement_goal):
+		_reinforcement_flank = -1
+	if _reinforcement_flank >= 0: return
+	var weakest_ratio := INF
+	for side in range(3):
+		if _flank_peak[side] < 4: continue # Do not treat an unfinished small line as a routed flank.
+		var ratio := float(counts[side]) / _flank_peak[side]
+		if ratio < flank_reinforcement_trigger and ratio < weakest_ratio:
+			weakest_ratio = ratio
+			_reinforcement_flank = side
+
+func reinforcement_target(actor: Node2D) -> int:
+	if not arrived(actor) or central_role(actor) or not places.has(actor.get_instance_id()): return -1
+	var behavior = controller(actor)
+	if actor.is_in_collision() or behavior == null or behavior.mode in ["combat", "assist", "hold_contact"]: return -1
+	update_flank_strength()
+	var own := sector(places[actor.get_instance_id()])
+	var target := _reinforcement_flank
+	if target < 0 or target == own: return -1
+	var counts := flank_counts()
+	if counts[own] <= maxi(1, ceili(_flank_peak[own] * flank_donor_floor)): return -1
+	var intact := float(counts[own]) / maxi(_flank_peak[own], 1) >= 0.8
+	var idle := true
+	for id in places:
+		var peer = controllers.get(id)
+		if peer == null or not eligible(peer.actor) or central_role(peer.actor) or sector(places[id]) != own: continue
+		if peer.actor.is_in_collision() or peer.mode in ["combat", "assist", "hold_contact"]:
+			idle = false
+			break
+	return target if intact or idle else -1
+
+func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = INF, rebalance: bool = false, allow_transfer: bool = false, reinforce: int = -1) -> Vector2:
 	var id := actor.get_instance_id()
 	var previous: Vector2 = places.get(id, Vector2.INF)
 	if not rebalance and previous.is_finite() and (not anchor.is_finite() or previous.distance_to(anchor) <= limit): return previous
@@ -285,7 +333,11 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 		var side := sector(point)
 		if rebalance and own >= 0:
 			if side != own:
-				if not allow_transfer or service.elapsed < _next_transfer or absi(side - own) != 1 or counts[own] <= counts[side]: continue
+				if not allow_transfer or service.elapsed < _next_transfer: continue
+				if reinforce >= 0:
+					if side != reinforce: continue
+				elif absi(side - own) != 1 or counts[own] <= counts[side]: continue
+			elif reinforce >= 0: continue
 			elif front_rank(point, side) <= front_rank(previous, own) + 1.0: continue
 		var free := true
 		for other in places:
@@ -308,6 +360,7 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 			value += point.distance_to(preferred) * 4.0
 		else:
 			value += counts[side] * spacing * 4.0 - front_rank(point, side)
+			if reinforce >= 0 and side == reinforce: value -= spacing * 100.0
 		if value < best_score:
 			best = point
 			best_score = value
