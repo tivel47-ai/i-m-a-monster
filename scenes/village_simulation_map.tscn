@@ -754,8 +754,10 @@ metadata/centerline = PackedVector2Array(1970, 300, 1966.4453, 310.07813, 1963.7
 metadata/road_width = 23.0
 
 [node name="ChapelEntrance0" type="Polygon2D" parent="Roads" unique_id=275641213]
+position = Vector2(-88.66675, -5)
+scale = Vector2(1.0416666, 1)
 color = Color(0.39215687, 0.3647059, 0.2784314, 1)
-polygon = PackedVector2Array(1432, 557, 1408, 557, 1408, 511, 1432, 511)
+polygon = PackedVector2Array(1432, 563, 1408, 563, 1408, 511, 1432, 511)
 metadata/centerline = PackedVector2Array(1420, 511, 1420, 514.8633, 1420, 520.34375, 1420, 526.90234, 1420, 534, 1420, 541.09766, 1420, 547.65625, 1420, 553.1367, 1420, 557)
 metadata/road_width = 24.0
 
@@ -1834,47 +1836,57 @@ collision_mask = 0
 metadata/building_type = "church"
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1030945931]
+position = Vector2(-36, -31)
+scale = Vector2(1.3214285, 1.2384615)
 color = Color(0.24313726, 0.2509804, 0.22352941, 1)
 polygon = PackedVector2Array(-46, -130, 46, -130, 46, -44, 112, -44, 112, 40, 46, 40, 46, 130, -46, 130, -46, 40, -112, 40, -112, -44, -46, -44)
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=447084513]
+position = Vector2(-36, -31)
+scale = Vector2(1.3214285, 1.2384615)
 polygon = PackedVector2Array(-46, -130, 46, -130, 46, -44, 112, -44, 112, 40, 46, 40, 46, 130, -46, 130, -46, 40, -112, 40, -112, -44, -46, -44)
 
 [node name="Roof" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1555622687]
+position = Vector2(-36, -31)
+scale = Vector2(1.3214285, 1.2384615)
 color = Color(0.3372549, 0.36862746, 0.3764706, 1)
 polygon = PackedVector2Array(41, -125, 41, -41.92893, 43.92893, -39, 107, -39, 107, 35, 43.92893, 35, 41, 37.92893, 41, 125, -41, 125, -41, 37.92893, -43.92893, 35, -107, 35, -107, -39, -43.92893, -39, -41, -41.92893, -41, -125)
 
 [node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1581785367]
+position = Vector2(-34, -31)
 points = PackedVector2Array(-102, 0, 102, 0)
 width = 4.0
 default_color = Color(0.46980393, 0.49490196, 0.5011765, 1)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1099537039]
-position = Vector2(0, 126)
+position = Vector2(-35, 126)
+scale = Vector2(1.8125, 1)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
 
 [node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1757139790]
-position = Vector2(-67.2, -62.4)
+position = Vector2(-105.000046, -58.000008)
 color = Color(0.654902, 0.5921569, 0.39607844, 1)
 polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
 
 [node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=115927533]
-position = Vector2(51.52, -65)
+position = Vector2(41.99998, -58)
 color = Color(0.23137255, 0.23921569, 0.22352941, 1)
 polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Tower" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1650053945]
-position = Vector2(0, -78)
+position = Vector2(-34, -114)
 color = Color(0.41960785, 0.44705883, 0.4392157, 1)
 polygon = PackedVector2Array(-30, -31, 30, -31, 30, 31, -30, 31)
 
 [node name="CrossVertical" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=348101795]
+position = Vector2(-34, -36)
 points = PackedVector2Array(0, -102, 0, -56)
 width = 5.0
 default_color = Color(0.79607844, 0.76862746, 0.654902, 1)
 
 [node name="CrossHorizontal" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1110975674]
+position = Vector2(-34, -38)
 points = PackedVector2Array(-15, -85, 15, -85)
 width = 5.0
 default_color = Color(0.79607844, 0.76862746, 0.654902, 1)
@@ -4878,6 +4890,7 @@ min_zoom = 0.45
 map_bounds = Rect2(0, 0, 3000, 2000)
 
 [node name="ActivityZones" type="Node2D" parent="." unique_id=1957561038]
+visible = false
 
 [node name="Home01" parent="ActivityZones" unique_id=1791943697 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(634.964, 594.1011)
@@ -5372,7 +5385,7 @@ district_id = &"guard"
 allowed_roles = PackedStringArray("guard")
 
 [node name="WalkChurch" parent="ActivityZones" unique_id=1564076638 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
-position = Vector2(1419.5, 577)
+position = Vector2(1389, 555)
 scale = Vector2(1.4555557, 0.9)
 color = Color(1, 1, 1, 0)
 polygon = PackedVector2Array(-45, -50, 45, -50, 45, 50, -45, 50)
