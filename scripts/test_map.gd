@@ -36,7 +36,7 @@ var selection_current_screen: Vector2
 
 @export var command_initial_radius: float = 24.0
 @export var command_max_radius: float = 180.0
-@export var command_growth_speed: float = 80.0
+@export var command_growth_speed: float = 200.0
 var command_overlay := Node2D.new()
 var command_active := false
 var command_radius := 24.0
