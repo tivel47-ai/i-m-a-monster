@@ -4,7 +4,7 @@ extends Node2D
 @export var show_house_sprite := true
 
 const COTTAGE_PATH := "NavigationRegion2D/Buildings/Residential/Cottage05"
-const SPRITE_OFFSET := Vector2(-20, -22)
+const SPRITE_OFFSET := Vector2(-30, -26)
 
 @onready var village: Node2D = $VillageSimulationMap
 @onready var preview_sprite: Sprite2D = $HousePreview

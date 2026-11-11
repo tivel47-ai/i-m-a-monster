@@ -12,4 +12,4 @@ script = ExtResource("2_preview")
 [node name="HousePreview" type="Sprite2D" parent="."]
 texture_filter = 1
 texture = ExtResource("3_house")
-scale = Vector2(0.16, 0.16)
+scale = Vector2(0.19, 0.19)
