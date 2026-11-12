@@ -3,7 +3,7 @@ extends Node
 const CATALOG = preload("res://scripts/mission_catalog.gd")
 const SETTINGS = preload("res://scripts/game_settings.gd")
 const MISSION_PREVIEW = preload("res://scripts/mission_preview.gd")
-enum Screen { MAIN, SETTINGS, MISSIONS, RACES, GAMEPLAY, PAUSE, CONFIRM_LEAVE, RESULTS }
+enum Screen { MAIN, SETTINGS, MISSIONS, RACES, GAMEPLAY, PAUSE, CONFIRM_LEAVE, RESULTS, DEVELOPMENT }
 var screen: Screen = Screen.MAIN
 var selected_mission := ""
 var selected_race := ""
@@ -18,6 +18,14 @@ var race_buttons: Dictionary = {}
 var race_mission_label: Label
 var race_back_button: Button
 var start_button: Button
+var development_button: Button
+var development_title: Label
+var development_tree: Tree
+var development_items: Dictionary[String, TreeItem] = {}
+var applied_development: Dictionary[String, PackedStringArray] = {}
+var development_status: Label
+var reset_development_button: Button
+var apply_development_button: Button
 var result_text: Label
 var settings_status: Label
 var settings_return_screen: Screen = Screen.MAIN
@@ -49,26 +57,31 @@ func _input(event: InputEvent) -> void:
 			Screen.SETTINGS: _show(settings_return_screen)
 			Screen.MISSIONS: _show(Screen.MAIN)
 			Screen.RACES: _show(Screen.MISSIONS)
+			Screen.DEVELOPMENT: _show(Screen.RACES)
 			Screen.GAMEPLAY: _pause()
 			Screen.PAUSE: _resume()
 			Screen.CONFIRM_LEAVE: _show(Screen.PAUSE)
 
 func _show(next: Screen) -> void:
+	var returning_from_development := screen == Screen.DEVELOPMENT and next == Screen.RACES
 	screen = next
 	for key in pages:
 		pages[key].visible = key == screen
 	ui.visible = screen != Screen.GAMEPLAY
 	if is_instance_valid(developer_button): developer_button.visible = screen == Screen.MAIN
 	if ui.visible:
-		_focus_page(screen)
+		_focus_page(screen, development_button if returning_from_development else null)
 
-func _focus_page(page: Screen) -> void:
+func _focus_page(page: Screen, preferred_button: Button) -> void:
 	# Wait for container layout before focus tries to reveal the first button.
 	await get_tree().process_frame
 	if screen == page:
-		var buttons: Array[Node] = pages[page].find_children("*", "Button", true, false)
-		if not buttons.is_empty():
-			buttons[0].grab_focus()
+		if is_instance_valid(preferred_button):
+			preferred_button.grab_focus()
+		else:
+			var buttons: Array[Node] = pages[page].find_children("*", "Button", true, false)
+			if not buttons.is_empty():
+				buttons[0].grab_focus()
 		await get_tree().process_frame
 	if screen == page:
 		pages[page].scroll_vertical = 0
@@ -258,13 +271,20 @@ func _build_ui() -> void:
 	race_footer.add_theme_constant_override("separation", 24)
 	races.add_child(race_footer)
 	race_back_button = _button(race_footer, "Назад", func(): _show(Screen.MISSIONS))
-	race_back_button.custom_minimum_size.x = 180
+	race_back_button.custom_minimum_size.x = 240
 	var race_spacer := Control.new()
 	race_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	race_footer.add_child(race_spacer)
+	development_button = _button(race_footer, "Развитие", _open_development)
+	development_button.custom_minimum_size.x = 240
+	development_button.disabled = true
+	var start_spacer := Control.new()
+	start_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_footer.add_child(start_spacer)
 	start_button = _button(race_footer, "Начать миссию", _start_mission)
 	start_button.custom_minimum_size.x = 240
 	start_button.disabled = true
+	_build_development_page()
 	var pause := _page(Screen.PAUSE, "Пауза")
 	_button(pause, "Продолжить", func():
 		if screen == Screen.PAUSE: _resume())
@@ -335,6 +355,7 @@ func _update_preview() -> void:
 		race_buttons[race_id].set_pressed_no_signal(race_id == selected_race)
 	_text(race_preview, "Внешний вид", 24)
 	start_button.disabled = not CATALOG.RACES.has(selected_race)
+	development_button.disabled = start_button.disabled
 	if start_button.disabled:
 		_text(race_preview, "Выберите расу в списке слева.", 18)
 		_text(race_details, "Описание", 24)
@@ -368,6 +389,94 @@ func _update_preview() -> void:
 	_text(race_details, race.strengths, 18)
 	_text(race_details, "Слабые стороны", 22)
 	_text(race_details, race.weaknesses, 18)
+
+func _build_development_page() -> void:
+	var page := _page(Screen.DEVELOPMENT, "Развитие")
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	development_title = _text(page, "", 24)
+	_text(page, "Демонстрационные ветки. Выбор действует до закрытия игры и не влияет на миссию.", 18)
+	development_tree = Tree.new()
+	development_tree.add_theme_constant_override("draw_relationship_lines", 1)
+	development_tree.custom_minimum_size.y = 300
+	development_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	development_tree.item_edited.connect(_refresh_development_selection)
+	page.add_child(development_tree)
+	development_status = _text(page, "", 18)
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 24)
+	page.add_child(footer)
+	_button(footer, "Назад", func(): _show(Screen.RACES)).custom_minimum_size.x = 240
+	var left_spacer := Control.new()
+	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(left_spacer)
+	reset_development_button = _button(footer, "↶", _reset_development)
+	reset_development_button.tooltip_text = "Сбросить выбор"
+	reset_development_button.custom_minimum_size.x = 64
+	var right_spacer := Control.new()
+	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(right_spacer)
+	apply_development_button = _button(footer, "Применить", _apply_development)
+	apply_development_button.custom_minimum_size.x = 240
+
+func _open_development() -> void:
+	if screen != Screen.RACES or development_button.disabled: return
+	var race: Dictionary = CATALOG.RACES[selected_race]
+	development_title.text = race.name
+	development_items.clear()
+	development_tree.clear()
+	var base := development_tree.create_item()
+	base.set_text(0, "Базовая форма")
+	base.set_selectable(0, false)
+	base.disable_folding = true
+	var applied: PackedStringArray = applied_development.get(selected_race, PackedStringArray())
+	for node in race.get("development", []):
+		var parent: TreeItem = development_items.get(node.get("parent", ""), base)
+		var item := development_tree.create_item(parent)
+		item.disable_folding = true
+		item.set_cell_mode(0, TreeItem.CELL_MODE_CHECK)
+		item.set_text(0, node.name)
+		item.set_checked(0, node.id in applied)
+		development_items[node.id] = item
+	_refresh_development_selection()
+	_show(Screen.DEVELOPMENT)
+
+func _refresh_development_selection() -> void:
+	var selection := PackedStringArray()
+	for id in development_items:
+		var item := development_items[id]
+		var parent := item.get_parent()
+		var available := parent == development_tree.get_root() or parent.is_checked(0)
+		item.set_editable(0, available)
+		item.set_selectable(0, available)
+		item.set_tooltip_text(0, "" if available else "Сначала выберите «%s»" % parent.get_text(0))
+		if available:
+			item.clear_custom_color(0)
+		else:
+			item.set_custom_color(0, Color("98a398"))
+			item.set_checked(0, false)
+		if item.is_checked(0):
+			selection.append(id)
+	var applied: PackedStringArray = applied_development.get(selected_race, PackedStringArray())
+	reset_development_button.disabled = selection.is_empty()
+	apply_development_button.disabled = selection == applied
+	development_status.text = "Выбрано узлов: %d" % selection.size()
+	if not apply_development_button.disabled:
+		development_status.text += " · Есть неприменённые изменения"
+
+func _reset_development() -> void:
+	for item in development_items.values():
+		item.set_checked(0, false)
+	_refresh_development_selection()
+
+func _apply_development() -> void:
+	if screen != Screen.DEVELOPMENT or apply_development_button.disabled: return
+	var selection := PackedStringArray()
+	for id in development_items:
+		if development_items[id].is_checked(0):
+			selection.append(id)
+	applied_development[selected_race] = selection
+	_refresh_development_selection()
+	development_status.text += " · Изменения применены"
 
 func _update_developer_button() -> void:
 	developer_button.tooltip_text = "Выключить режим разработки" if developer_mode else "Включить режим разработки"

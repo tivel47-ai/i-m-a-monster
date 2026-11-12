@@ -25,5 +25,11 @@ const RACES := {
 		"strengths": "Заражённый житель превращается в управляемого зомби.",
 		"weaknesses": "Зомби получают ответный урон в ближнем бою и могут погибнуть.",
 		"preview": "res://scenes/zombie.tscn",
+		"development": [
+			{"id": "infection", "name": "Заражение"},
+			{"id": "carrier", "name": "Форма носителя", "parent": "infection"},
+			{"id": "resilience", "name": "Стойкость"},
+			{"id": "brute", "name": "Форма громилы", "parent": "resilience"},
+		],
 	},
 }
