@@ -28,7 +28,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not detection_enabled or not villager.is_available_for_infection():
+	if not detection_enabled or not villager.is_available_for_infection() or is_instance_valid(villager.interior_building):
 		reset_awareness()
 		if not villager.is_alive():
 			set_physics_process(false)
@@ -76,6 +76,7 @@ func _is_valid_zombie(target: Variant) -> bool:
 		and target is PhysicsBody2D
 		and (target.collision_layer & 2) != 0
 		and target.is_in_group("player_units")
+		and target.interior_building == villager.interior_building
 		and target.has_method("is_alive")
 		and target.is_alive()
 	)
@@ -135,6 +136,7 @@ func reset_awareness() -> void:
 
 
 func _draw() -> void:
+	if is_instance_valid(villager.interior_building): return
 	if not debug_enabled or awareness == Awareness.UNAWARE:
 		return
 	var color := Color.YELLOW if awareness == Awareness.RECOGNIZING else Color.RED

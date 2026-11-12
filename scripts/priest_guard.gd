@@ -115,7 +115,7 @@ func update_ai(delta: float) -> bool:
 		# Fight while physically engaged; never cancel melee to evade incoming damage.
 		halt()
 		return true
-	var target: Node2D
+	var target: Node2D = null
 	for enemy in recognized:
 		if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 			enemy.engage_defender(actor)
@@ -129,8 +129,10 @@ func update_ai(delta: float) -> bool:
 			var behavior = organized.controller(actor)
 			behavior.target = target
 			if behavior.shoot(target): return true
-		move_to(target.global_position, tactical_speed, delta)
-		return true
+		var approach: Vector2 = actor.defense.combat_approach(actor, target)
+		if approach.is_finite():
+			move_to(approach, tactical_speed, delta)
+			return true
 	if state == State.PATROL:
 		if patrol_points.is_empty():
 			halt()

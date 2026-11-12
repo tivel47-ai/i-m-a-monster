@@ -8,6 +8,7 @@ func _initialize() -> void:
 func build() -> void:
 	var scene := load("res://scenes/test_map.tscn") as PackedScene
 	var map := scene.instantiate()
+	map.set_meta("baking_exterior_navigation", true)
 	root.add_child(map)
 	var region := map.get_node("NavigationRegion2D") as NavigationRegion2D
 	var polygon := NavigationPolygon.new()

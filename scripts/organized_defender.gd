@@ -218,13 +218,18 @@ func shoot(enemy: Node2D) -> bool:
 	return true
 
 func approach_point(enemy: Node2D) -> Vector2:
+	var limit: float = formation.assistance_distance if help_sector >= 0 else formation.intercept_distance
+	if enemy.is_assaulting_building():
+		var approach: Vector2 = formation.service.combat_approach(actor, enemy, goal)
+		if not approach.is_finite() or failed_point(approach) or (formation.arrived(actor) and approach.distance_to(home()) > limit):
+			return Vector2.INF
+		return approach
 	var direction := enemy.global_position.direction_to(actor.global_position)
 	var reach: float = enemy.INFECTION_DISTANCE - actor.arrival_tolerance - 1.0
 	var best := Vector2.INF
 	var best_score := INF
 	for angle in [0.0, -PI / 3, PI / 3, -2 * PI / 3, 2 * PI / 3]:
 		var point: Vector2 = enemy.global_position + direction.rotated(angle) * reach
-		var limit: float = formation.assistance_distance if help_sector >= 0 else formation.intercept_distance
 		if formation.arrived(actor) and point.distance_to(home()) > limit: continue
 		if failed_point(point) or not formation.service.reachable(actor, point): continue
 		var score := actor.global_position.distance_to(point)
@@ -254,6 +259,28 @@ func engage(enemy: Node2D, delta: float) -> void:
 			failed[enemy.global_position] = now() + formation.decision_interval
 			help_sector = -1
 			target = null
+
+func inspect_break_in(delta: float) -> bool:
+	if actor.guard_ai == null or not enemies.is_empty():
+		return false
+	var guard_ai = actor.guard_ai
+	var anchor := home()
+	for task in guard_ai.memory.tasks.duplicate():
+		if task.report.get("kind", "") != &"break_in" or task.point.distance_to(anchor) > formation.intercept_distance:
+			continue
+		if not safe_path(task.point):
+			continue
+		mode = "inspect_break_in"
+		var result := move_to(task.point, delta)
+		if result == actor.NavigationResult.FAILED:
+			guard_ai.memory.finish(task, "infeasible", "entrance unreachable")
+		elif result == actor.NavigationResult.ARRIVED:
+			task.progress += delta
+			if task.progress >= guard_ai.observation_seconds:
+				guard_ai.memory.finish(task, "completed", "entrance inspected")
+		return true
+	return false
+
 
 func safe_path(point: Vector2) -> bool:
 	var path = actor._validated_path_to(point, actor.navigation_agent.get_navigation_map())
@@ -458,6 +485,7 @@ func update(delta: float) -> bool:
 			engage(rescue, delta)
 			mode = "local_rescue"
 			return true
+		if inspect_break_in(delta): return true
 	help_sector = -1
 	var point = formation.position_for(actor)
 	# A free rear defender can fill a safe gap; transfers require local calm.

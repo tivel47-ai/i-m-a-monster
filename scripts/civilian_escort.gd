@@ -359,8 +359,11 @@ func update_escort(delta: float) -> bool:
 			if visible_leader and leader.state == leader.State.COMBAT and not leader.dangerous() and is_instance_valid(supported_enemy) and actor.threat_detection._is_visible_target(supported_enemy) and supported_enemy.global_position.distance_to(last_leader_point) <= assistance_radius:
 				if actor.global_position.distance_to(supported_enemy.global_position) <= supported_enemy.INFECTION_DISTANCE:
 					supported_enemy.engage_defender(actor)
-				else: move_to(supported_enemy.global_position, delta)
-				return true
+					return true
+				var approach: Vector2 = actor.defense.combat_approach(actor, supported_enemy)
+				if approach.is_finite():
+					move_to(approach, delta)
+					return true
 			actor.threat_reaction.cancel_response()
 			if last_leader_point.is_finite():
 				var forward: Vector2 = leader.actor.velocity.normalized() if visible_leader and leader.actor.velocity.length() > 1.0 else Vector2.ZERO

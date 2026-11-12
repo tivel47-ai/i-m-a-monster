@@ -1,5 +1,7 @@
 extends Camera2D
 
+signal zoom_changed(fraction: float)
+
 @export var move_speed: float = 500.0
 @export_range(0.1, 4.0, 0.1) var min_zoom: float = 1.0
 @export_range(0.1, 4.0, 0.1) var max_zoom: float = 2.0
@@ -27,6 +29,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _set_zoom_level(value: float) -> void:
+	var previous_zoom := zoom.x
 	var viewport_size := get_viewport_rect().size
 	var fit_zoom := maxf(viewport_size.x / map_bounds.size.x, viewport_size.y / map_bounds.size.y)
 	var effective_min := maxf(min_zoom, fit_zoom)
@@ -38,6 +41,12 @@ func _set_zoom_level(value: float) -> void:
 	global_position = center - offset
 	# Keep selection and orders correct even later in the same input batch.
 	force_update_scroll()
+	if not is_equal_approx(zoom.x, previous_zoom):
+		zoom_changed.emit(zoom_fraction())
+
+
+func zoom_fraction() -> float:
+	return clampf((zoom.x - min_zoom) / maxf(max_zoom - min_zoom, 0.001), 0.0, 1.0)
 
 
 func _on_viewport_size_changed() -> void:

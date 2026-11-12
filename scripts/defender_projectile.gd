@@ -4,6 +4,7 @@ var direction: Vector2
 var damage: float
 var speed: float = 280.0
 var remaining: float = 150.0
+var interior_building: Node
 
 func _ready() -> void:
 	z_index = 3
@@ -20,7 +21,7 @@ func _physics_process(delta: float) -> void:
 	var hit = get_world_2d().direct_space_state.intersect_ray(ray)
 	if not hit.is_empty():
 		var body = hit.collider
-		if body.is_in_group("player_units") and body.has_method("take_damage") and body.has_method("is_alive") and body.is_alive(): body.take_damage(damage)
+		if body.is_in_group("player_units") and body.interior_building == interior_building and body.is_alive(): body.take_damage(damage)
 		queue_free()
 		return
 	global_position = end

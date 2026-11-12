@@ -216,6 +216,18 @@ func receive_eyewitness(message: Dictionary, sender: Node2D) -> bool:
 	actor.defense.alert.report_delivered(sender, actor, message)
 	return true
 
+func hear_break_in(incident: int, point: Vector2) -> bool:
+	if not enabled or actor.defense == null or not actor.defense.reachable(actor, point):
+		return false
+	var report := _report(incident, point, 1)
+	report.kind = &"break_in"
+	report.credibility = 0.6
+	var task: Dictionary = memory.offer(State.INVESTIGATE, report, now())
+	if not task.is_empty() and not memory.tasks.has(active):
+		next_decision = 0.0
+	return not task.is_empty()
+
+
 func sense() -> void:
 	visible_enemies.clear()
 	local_allies.clear()
@@ -238,7 +250,7 @@ func sense() -> void:
 		if not present.has(id): seen_since.erase(id)
 	for enemy in visible_enemies: observe(enemy)
 	actor.defense.alert.observe_combat(actor, actor)
-	for ally in local_allies:
+	for ally in available_local_allies():
 		actor.defense.alert.observe_combat(actor, ally)
 	# A target's death is only resolved when directly visible at this location.
 	for other in candidates:
@@ -254,8 +266,7 @@ func dangerous() -> bool:
 
 func known_support() -> int:
 	var defenders := 1
-	for ally in local_allies:
-		if not is_instance_valid(ally) or not ally.is_alive(): continue
+	for ally in available_local_allies():
 		if ally.guard_ai != null or (ally.escort != null and ally.escort.leader == self and ally.escort.armed):
 			# Injured companions remain group members but aren't treated as a
 			# fresh defender simply because they are physically present.
@@ -263,6 +274,12 @@ func known_support() -> int:
 			for enemy in visible_enemies: incoming = maxf(incoming, enemy.attack_damage)
 			if ally.current_health > incoming: defenders += 1
 	return defenders
+
+
+func available_local_allies() -> Array[Node2D]:
+	return local_allies.filter(func(ally):
+		return (is_instance_valid(ally) and not ally.is_queued_for_deletion() and ally.is_alive()
+			and not is_instance_valid(ally.interior_building)))
 
 func set_state(value: State) -> void:
 	if state == value: return
@@ -340,7 +357,7 @@ func choose_task() -> void:
 	for task in memory.tasks.duplicate():
 		if task.get("inspection", false): continue
 		if task.kind == State.GROUP_PATROL: continue # executed via locally agreed objective
-		if actor.defense.alert.level >= actor.defense.alert.Level.ALARM and ready_followers() == 0 and task.kind in [State.SEARCH, State.INVESTIGATE]:
+		if actor.defense.alert.level >= actor.defense.alert.Level.ALARM and ready_followers() == 0 and task.kind in [State.SEARCH, State.INVESTIGATE] and task.report.get("kind", "") != &"break_in":
 			if not active.is_empty() and active.id == task.id:
 				task.status = "interrupted"
 				active = {}
@@ -401,7 +418,8 @@ func territory_distance(point: Vector2) -> float:
 
 func retreat_destination() -> Vector2:
 	var choices = actor.defense.sample_points(actor, actor.global_position, retreat_distance, 8)
-	for ally in local_allies:
+	var allies := available_local_allies()
+	for ally in allies:
 		if ally.guard_ai != null and actor.defense.reachable(actor, ally.global_position): choices.append(ally.global_position)
 	var post = actor.guard_patrol.get_node_or_null(actor.guard_patrol.post_center_path)
 	if post != null and actor.defense.reachable(actor, post.global_position): choices.append(post.global_position)
@@ -413,7 +431,7 @@ func retreat_destination() -> Vector2:
 			value += point.distance_to(enemy.global_position)
 			var ray = PhysicsRayQueryParameters2D.create(point, enemy.global_position, 1, [actor.get_rid()])
 			if not actor.get_world_2d().direct_space_state.intersect_ray(ray).is_empty(): value += retreat_distance
-		for ally in local_allies:
+		for ally in allies:
 			if ally.guard_ai != null: value -= point.distance_to(ally.global_position) * 0.2
 		if value > best_value:
 			best = point
@@ -643,7 +661,8 @@ func update_ai(delta: float) -> bool:
 			pursuit_started = now()
 			pursuit_origin = actor.global_position
 		var local_inspection = investigation.phase != investigation.Phase.NONE and enemy.global_position.distance_to(investigation.origin) <= search_radius * 2.0 and now() - investigation.started <= investigation_seconds
-		if (now() - pursuit_started > pursuit_seconds and not local_inspection) or pursuit_origin.distance_to(enemy.global_position) > pursuit_distance or (territory_distance(enemy.global_position) > territory_margin and not local_inspection):
+		var local_assault: bool = enemy.is_assaulting_building() and actor.global_position.distance_to(enemy.global_position) <= search_radius
+		if (now() - pursuit_started > pursuit_seconds and not local_inspection and not local_assault) or pursuit_origin.distance_to(enemy.global_position) > pursuit_distance or (territory_distance(enemy.global_position) > territory_margin and not local_inspection):
 			set_state(State.ALERT_PATROL)
 			actor._stop_movement()
 			halt() # cautious observation at pursuit boundary, not an endless chase
@@ -651,7 +670,7 @@ func update_ai(delta: float) -> bool:
 		set_state(State.COMBAT)
 		if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 			enemy.engage_defender(actor)
-		else: move_to(enemy.global_position, delta)
+		else: move_to(actor.defense.combat_approach(actor, enemy, movement_goal), delta)
 		return true
 	if investigation.update(delta): return true
 	if decision: choose_task()
@@ -695,7 +714,7 @@ func update_ai(delta: float) -> bool:
 	if decision:
 		recruit()
 		if actor.defense.alert.level >= actor.defense.alert.Level.ALARM and now() >= next_cooperation:
-			for ally in local_allies:
+			for ally in available_local_allies():
 				if ally.guard_ai == null: continue
 				for report in memory.incidents.values():
 					if propose_cooperation(ally.guard_ai, report): return true

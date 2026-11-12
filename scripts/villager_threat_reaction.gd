@@ -284,7 +284,9 @@ func update_response(delta: float) -> bool:
 		if result != villager.NavigationResult.MOVING:
 			has_route = false
 			_stop_velocity()
-			if result == villager.NavigationResult.FAILED:
+			if result == villager.NavigationResult.ARRIVED and reaction_state == Reaction.SEEKING_SHELTER:
+				_try_enter_shelter(route_destination)
+			elif result == villager.NavigationResult.FAILED:
 				_enter_reaction(Reaction.FLEEING)
 			elif reaction_state == Reaction.FLEEING and not visible.is_empty():
 				# Continue past this waypoint without waiting for the refresh interval.
@@ -459,7 +461,8 @@ func _update_home(delta: float) -> bool:
 	var report: Dictionary = villager.local_warning.firsthand_report
 	var remember_last = villager.local_warning.has_report() or (not report.is_empty() and villager.defense != null
 		and villager.defense.elapsed - float(report.observed_at) <= villager.local_warning.report_duration)
-	if home_retry_remaining == 0 and home_destination.is_finite():
+	var reassess_home := home_retry_remaining == 0.0
+	if reassess_home and home_destination.is_finite():
 		home_retry_remaining = maxf(reassess_interval, 0.1)
 		if _safe_route_length(home_destination, remember_last, true) == INF:
 			has_route = false
@@ -470,6 +473,8 @@ func _update_home(delta: float) -> bool:
 		_stop_velocity()
 		if home_destination.is_finite() and villager.global_position.distance_to(home_destination) <= villager.arrival_tolerance:
 			sheltered_at_home = true
+			if reassess_home:
+				_try_enter_shelter(home_destination, true, remember_last)
 			queue_redraw()
 			return true
 		if home_retry_remaining > 0: return true
@@ -495,11 +500,29 @@ func _update_home(delta: float) -> bool:
 		has_route = false
 		_stop_velocity()
 		sheltered_at_home = result == villager.NavigationResult.ARRIVED
-		if not sheltered_at_home:
+		if sheltered_at_home:
+			_try_enter_shelter(home_destination, true, remember_last)
+		else:
 			home_destination = Vector2.INF
 			if villager.defense != null: villager.defense.release_safety(villager)
 	queue_redraw()
 	return true
+
+
+func _try_enter_shelter(point: Vector2, assigned_home := false, remember_last := true) -> void:
+	if villager.defense == null:
+		return
+	var mission = villager.defense.get_parent()
+	var marker: Node2D = villager.private_shelter_marker()
+	if not assigned_home and (marker == null or not marker.global_position.is_equal_approx(point)):
+		marker = null
+		for candidate in mission.shelter_buildings:
+			if candidate.global_position.is_equal_approx(point):
+				marker = candidate
+				break
+	var building: InteractiveBuilding = mission.shelter_buildings.get(marker)
+	if building != null and _safe_route_length(building.shelter_approach(), remember_last, true) < INF:
+		building.request_shelter(villager)
 
 
 func cancel_response() -> void:
@@ -549,6 +572,8 @@ func complete_investigation(incident: int, resolved: Array = []) -> bool:
 	cooldown_remaining = 0.0
 	villager._stop_movement()
 	villager.wait_remaining = 0.0
+	if is_instance_valid(villager.interior_building):
+		villager.interior_building.request_resident_exit(villager)
 	return true
 
 
@@ -559,6 +584,7 @@ func interrupt_warning() -> void:
 
 
 func _draw() -> void:
+	if is_instance_valid(villager.interior_building): return
 	if reaction_state in [Reaction.NONE, Reaction.REPORTING] or not (debug_enabled or sensor.debug_enabled):
 		return
 	var labels := ["", "F", "S", "W", "Z"]

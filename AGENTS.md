@@ -11,6 +11,11 @@ From now on, treat documentation maintenance as a permanent requirement for ever
 - The copy under `C:\Users\Pavel\Documents\ChatGPT\Оборона деревни` is not the main project. Do not use it as a substitute or create another clone without an explicit user request.
 - If the main folder is unavailable or outside allowed workspace access, explain the mismatch and have the user open/authorize the correct folder. Do not silently continue in another copy.
 
+## Приоритет миссии №1 — соглашение от 2026-11-12
+
+- Миссия №1 — основная карта проекта. Все дальнейшие изменения в первую очередь реализовывать для миссии №1.
+- Тестовую карту редактировать, дополнять или переносить на неё изменения из миссии №1 только по прямому запросу пользователя.
+
 ## 1. General Rule
 
 Whenever you implement, modify, refactor, or remove game functionality, review the relevant project documentation and update it if necessary.

@@ -41,6 +41,8 @@ var nearby_allies: Array[Node2D] = []
 var is_selected: bool = false
 var current_health: float
 var is_dead: bool = false
+var building_task: Node
+var interior_building: Node
 var target_position: Vector2
 var has_target: bool = false
 var priority_targets: Array[Node2D] = []
@@ -79,7 +81,7 @@ func _ready() -> void:
 func set_selected(value: bool) -> void:
 	if is_dead:
 		return
-	is_selected = value
+	is_selected = value and can_receive_player_orders()
 	queue_redraw()
 
 
@@ -185,8 +187,33 @@ func is_alive() -> bool:
 	return not is_dead
 
 
+func can_receive_player_orders() -> bool:
+	return not is_dead and not is_instance_valid(interior_building)
+
+
+func is_assaulting_building() -> bool:
+	return can_receive_player_orders() and is_instance_valid(building_task)
+
+
+func engage_close_exterior_resident() -> bool:
+	for resident in aggro_candidates:
+		if is_instance_valid(resident) and resident.is_alive() and engage_defender(resident):
+			return true
+	return false
+
+
+func issue_player_building_order(building: Node) -> void:
+	if not can_receive_player_orders() or not is_instance_valid(building):
+		return
+	_prepare_for_player_order()
+	has_target = false
+	has_player_order = false
+	navigation_agent.velocity = Vector2.ZERO
+	building.order_assault(self)
+
+
 func issue_player_move_order(destination: Vector2) -> void:
-	if is_dead:
+	if not can_receive_player_orders():
 		return
 
 	_prepare_for_player_order()
@@ -197,7 +224,7 @@ func issue_player_move_order(destination: Vector2) -> void:
 
 
 func issue_player_area_move_order(destination: Vector2) -> void:
-	if is_dead:
+	if not can_receive_player_orders():
 		return
 
 	_prepare_for_player_order()
@@ -208,7 +235,7 @@ func issue_player_area_move_order(destination: Vector2) -> void:
 
 
 func issue_player_area_hold_order() -> void:
-	if is_dead:
+	if not can_receive_player_orders():
 		return
 
 	_prepare_for_player_order()
@@ -223,6 +250,8 @@ func issue_player_area_hold_order() -> void:
 
 
 func _prepare_for_player_order() -> void:
+	if is_instance_valid(building_task):
+		building_task.cancel_assault(self)
 	priority_targets.clear()
 	detour_remaining = 0.0
 	recovery_attempts = 0
@@ -242,6 +271,7 @@ func _prepare_for_player_order() -> void:
 		aggro_target.call("leave_encounter", self)
 
 	aggro_target = null
+	$EncounterAttackTimer.stop()
 	has_player_order = true
 	aggro_reacquire_delay = 0.0
 
@@ -261,7 +291,7 @@ func on_encounter_ended(villager: Node) -> void:
 
 func engage_defender(defender: Node2D) -> bool:
 	# A nearby autonomous defender uses the same encounter/timer contract as aggro.
-	if is_dead or global_position.distance_to(defender.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(defender): return false
+	if is_dead or interior_building != defender.interior_building or global_position.distance_to(defender.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(defender): return false
 	if is_instance_valid(aggro_target) and aggro_target != defender:
 		# Additional nearby defenders use their own existing attack timers; the
 		# zombie retains its current opponent rather than receiving a global order.
@@ -279,6 +309,9 @@ func _on_encounter_attack_timer_timeout() -> void:
 	if is_dead or aggro_target == null or not is_instance_valid(aggro_target):
 		return
 	if not aggro_target.call("is_encounter_owner", self):
+		return
+	if is_instance_valid(interior_building) and (global_position.distance_to(aggro_target.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(aggro_target)):
+		aggro_target.leave_encounter(self)
 		return
 
 	var villager := aggro_target
@@ -303,6 +336,8 @@ func _on_aggro_area_body_exited(body: Node2D) -> void:
 	if is_dead:
 		return
 	aggro_candidates.erase(body)
+	if is_instance_valid(interior_building):
+		return
 	if body == aggro_target:
 		if body.has_method("is_in_collision") and body.call("is_in_collision"):
 			return
@@ -422,14 +457,38 @@ func _set_aggro_destination() -> void:
 	_cancel_crowd_displacement()
 	aggro_destination_origin = aggro_target.global_position
 	var direction_to_zombie := aggro_target.global_position.direction_to(global_position)
-	navigation_agent.target_position = (
-		aggro_target.global_position
-		+ direction_to_zombie * VILLAGER_APPROACH_DISTANCE
-	)
+	navigation_agent.target_position = _combat_approach(direction_to_zombie)
 	has_target = true
 
 
+func _combat_approach(direction: Vector2) -> Vector2:
+	var center := aggro_target.global_position
+	var fallback := center + direction * VILLAGER_APPROACH_DISTANCE
+	var reserved: Array[Vector2] = []
+	for ally in _nearby_allies():
+		if ally.aggro_target == aggro_target:
+			var point: Vector2 = ally.navigation_agent.target_position if ally.has_target else ally.global_position
+			reserved.append(point)
+	if reserved.is_empty():
+		return fallback
+	var best := fallback
+	var distance := INF
+	for angle in [0.0, -PI / 4, PI / 4, -PI / 2, PI / 2, -3 * PI / 4, 3 * PI / 4, PI]:
+		var point := center + direction.rotated(angle) * (INFECTION_DISTANCE - 1.0)
+		var cost := global_position.distance_squared_to(point)
+		if cost >= distance or reserved.any(func(other):
+			return absf(point.x - other.x) < 14.0 and absf(point.y - other.y) < 22.0):
+			continue
+		var ray := PhysicsRayQueryParameters2D.create(point, center, 1)
+		if _can_yield_to(point) and get_world_2d().direct_space_state.intersect_ray(ray).is_empty():
+			best = point
+			distance = cost
+	return best
+
+
 func _has_line_of_sight(target: Node2D) -> bool:
+	if interior_building != target.get("interior_building"):
+		return false
 	var query := PhysicsRayQueryParameters2D.create(global_position, target.global_position)
 	query.collision_mask = 1
 	query.exclude = [get_rid()]
@@ -437,7 +496,7 @@ func _has_line_of_sight(target: Node2D) -> bool:
 
 
 func _physics_process(delta: float) -> void:
-	if is_dead:
+	if is_dead or is_instance_valid(building_task):
 		return
 	if detour_remaining > 0.0:
 		detour_remaining = maxf(detour_remaining - delta, 0.0)
@@ -566,7 +625,7 @@ func _nearby_allies() -> Array[Node2D]:
 	query.exclude = [get_rid()]
 	var allies: Array[Node2D] = []
 	for hit in get_world_2d().direct_space_state.intersect_shape(query, 128):
-		if hit.collider.is_in_group("player_units"):
+		if hit.collider.is_in_group("player_units") and hit.collider.interior_building == interior_building:
 			allies.append(hit.collider)
 	return allies
 
@@ -631,6 +690,8 @@ func _is_waiting_for_crowd_to_yield(direction: Vector2) -> bool:
 
 
 func _on_navigation_agent_velocity_computed(safe_velocity: Vector2) -> void:
+	if is_instance_valid(building_task):
+		return
 	if is_dead or not has_target:
 		velocity = Vector2.ZERO
 		return
@@ -664,6 +725,7 @@ func _receive_crowd_push(
 ) -> void:
 	if (
 		is_dead
+		or is_instance_valid(building_task)
 		or has_player_order
 		or aggro_target != null
 		or has_target and not crowd_is_displaced
@@ -746,14 +808,14 @@ func _finish_movement_target() -> void:
 
 
 func issue_player_attack_order(targets: Array[Node2D], first: int = 0) -> void:
-	if is_dead: return
+	if not can_receive_player_orders(): return
 	_prepare_for_player_order()
 	has_player_order = false
 	for i in range(targets.size()): priority_targets.append(targets[(i + first) % targets.size()])
 	_update_priority_attack()
 
 func _update_priority_attack() -> void:
-	priority_targets = priority_targets.filter(func(target): return is_instance_valid(target) and target.is_alive())
+	priority_targets = priority_targets.filter(func(target): return is_instance_valid(target) and target.is_alive() and not is_instance_valid(target.interior_building))
 	if priority_targets.is_empty():
 		if is_instance_valid(aggro_target): aggro_target.leave_encounter(self)
 		aggro_target = null

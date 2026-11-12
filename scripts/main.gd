@@ -43,9 +43,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		if event.is_echo():
 			return
-		if screen == Screen.GAMEPLAY and is_instance_valid(mission) and mission.command_active:
-			mission.command_active = false
-			mission.command_overlay.queue_redraw()
+		if screen == Screen.GAMEPLAY and is_instance_valid(mission) and mission.cancel_order_preview():
 			return
 		match screen:
 			Screen.SETTINGS: _show(settings_return_screen)

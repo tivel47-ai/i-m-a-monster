@@ -57,6 +57,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _update_escape_warning() -> void:
+	if is_instance_valid(villager.interior_building): return
 	if escape_warning_interval <= 0 or local_time < next_escape_warning or not villager.autonomous_movement_enabled or not villager.is_available_for_infection(): return
 	if villager.has_tactical_controller(): return # guards use their own local protocol
 	var reaction = villager.threat_reaction
@@ -157,21 +158,41 @@ func receive_warning(source: Variant, point: Vector2, guard_report: Dictionary =
 			reports_received += 1
 		return accepted
 	if not guard_report.is_empty(): return false
+	if not _accept_report(point, incoming): return false
+	if villager.defense != null and not source.local_warning.firsthand_report.is_empty():
+		if villager.escort != null: villager.escort.learn_site_danger(source.local_warning.firsthand_report)
+		villager.defense.alert.report_delivered(source, villager, source.local_warning.firsthand_report)
+	return true
+
+
+func hear_break_in(incident: int, origin: Vector2, approach: Vector2) -> bool:
+	if not communication_enabled or not _can_receive() or hearing_radius <= 0.0 or is_instance_valid(villager.interior_building):
+		return false
+	if villager.global_position.distance_to(origin) > hearing_radius or not _valid_position(approach):
+		return false
+	if villager.guard_ai != null:
+		if villager.guard_ai.hear_break_in(incident, approach):
+			reports_received += 1
+			return true
+		return false
+	if villager.priest_guard != null:
+		return false
+	return _accept_report(origin)
+
+
+func _accept_report(point: Vector2, incoming: Dictionary = {}) -> bool:
 	if has_report() and point.distance_to(reported_position) <= maxf(duplicate_distance, 0) and local_time - received_at < maxf(duplicate_refresh_interval, 0):
 		return false
 	reported_position = point
 	received_at = local_time
 	remaining = maxf(report_duration, 0)
-	if not source.local_warning.firsthand_report.is_empty() and villager.defense != null:
-		remaining = minf(remaining, maxf(report_duration - (villager.defense.elapsed - float(source.local_warning.firsthand_report.observed_at)), 0.0))
+	if incoming.has("observed_at") and villager.defense != null:
+		remaining = minf(remaining, maxf(report_duration - (villager.defense.elapsed - float(incoming.observed_at)), 0.0))
 	if remaining == 0:
 		clear_report()
 		return false
 	reports_received += 1
 	villager.threat_reaction.respond_to_report(point)
-	if villager.defense != null and not source.local_warning.firsthand_report.is_empty():
-		if villager.escort != null: villager.escort.learn_site_danger(source.local_warning.firsthand_report)
-		villager.defense.alert.report_delivered(source, villager, source.local_warning.firsthand_report)
 	queue_redraw()
 	return true
 
@@ -185,6 +206,7 @@ func clear_report() -> void:
 
 
 func _draw() -> void:
+	if is_instance_valid(villager.interior_building): return
 	if villager.escort != null and villager.escort.reporter.goal.is_finite() and villager.escort.reporter.has_live_report() and (debug_enabled or sensor.debug_enabled):
 		draw_string(ThemeDB.fallback_font, Vector2(6, -32), "R", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.ORANGE)
 	if has_report() and (debug_enabled or sensor.debug_enabled):

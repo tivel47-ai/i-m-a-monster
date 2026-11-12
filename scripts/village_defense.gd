@@ -145,6 +145,34 @@ func reachable(actor: Node2D, point: Vector2) -> bool:
 	if actor.global_position.distance_to(point) <= actor.arrival_tolerance: return true
 	return actor._is_destination_valid(point, actor.navigation_agent.get_navigation_map())
 
+
+func combat_approach(actor: Node2D, enemy: Node2D, previous_goal := Vector2.INF) -> Vector2:
+	if not enemy.is_assaulting_building():
+		return enemy.global_position
+	var reach: float = maxf(enemy.INFECTION_DISTANCE - actor.arrival_tolerance - 0.5, 1.0)
+	if previous_goal.is_finite() and previous_goal.distance_to(enemy.global_position) <= reach:
+		if _melee_line_clear(actor, previous_goal, enemy.global_position):
+			return previous_goal
+	var nav: RID = actor.navigation_agent.get_navigation_map()
+	var direction := enemy.global_position.direction_to(actor.global_position)
+	var best := Vector2.INF
+	var distance := INF
+	for angle in [0.0, -PI / 4, PI / 4, -PI / 2, PI / 2, -3 * PI / 4, 3 * PI / 4, PI]:
+		var sample: Vector2 = enemy.global_position + direction.rotated(angle) * reach
+		var point := NavigationServer2D.map_get_closest_point(nav, sample)
+		var score := actor.global_position.distance_squared_to(point)
+		if score >= distance or point.distance_to(enemy.global_position) > reach:
+			continue
+		if reachable(actor, point) and _melee_line_clear(actor, point, enemy.global_position):
+			best = point
+			distance = score
+	return best
+
+
+func _melee_line_clear(actor: Node2D, start: Vector2, end: Vector2) -> bool:
+	var ray := PhysicsRayQueryParameters2D.create(start, end, 1, [actor.get_rid()])
+	return actor.get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
+
 func sample_points(actor: Node2D, center: Vector2, radius: float, count: int = 3) -> PackedVector2Array:
 	var candidates: Array[Dictionary] = []
 	var nav: RID = actor.navigation_agent.get_navigation_map()

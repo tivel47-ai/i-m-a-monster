@@ -128,12 +128,13 @@ func start_sweep() -> void:
 func recruit_locally() -> void:
 	if phase == Phase.CONTACT: return
 	# A peer defender is preferred; other civilians retain voluntary acceptance.
+	var allies: Array[Node2D] = guard.available_local_allies()
 	if peer == null or not is_instance_valid(peer.get_ref()):
-		for other in guard.local_allies:
+		for other in allies:
 			if other.guard_ai != null and other.guard_ai.investigation.join(self): break
 	if guard.now() < guard.next_recruitment or not guard.visible_enemies.is_empty(): return
 	guard.next_recruitment = guard.now() + guard.recruitment_interval
-	for other in guard.local_allies:
+	for other in allies:
 		if guard.followers.size() >= 2: break
 		if witness != null and witness.get_ref() == other: continue
 		if other.local_warning.cleared_incidents.has(report.incident): continue

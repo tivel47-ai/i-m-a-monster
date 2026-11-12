@@ -15,6 +15,10 @@ const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
 const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 var developer_mode := false
 var developer_spawn := ""
+@export var building_rules := BuildingRules.new()
+var buildings: Array[InteractiveBuilding] = []
+var shelter_buildings: Dictionary = {}
+var choosing_building := false
 
 enum MissionState {
 	ACTIVE,
@@ -90,11 +94,98 @@ func _ready() -> void:
 		defense.name = "VillageDefense"
 		add_child(defense)
 	defense.initialize(villagers, $VillageAlert)
+	if not get_meta("baking_exterior_navigation", false):
+		_setup_buildings()
 	_refresh_mission_progress()
 	mission_hud = MISSION_HUD.new()
 	$CanvasLayer.add_child(mission_hud)
 	$CanvasLayer/MissionPanel.hide()
 	mission_hud.set_developer_mode(developer_mode)
+
+
+func _setup_buildings() -> void:
+	var markers := get_node_or_null("VillagePointsOfInterest")
+	var region := get_node_or_null("NavigationRegion2D")
+	if region == null or markers == null:
+		return
+	var test_homes := {"HouseNW": "ResidentialStreet", "HouseNE": "HomeNorthApproach",
+		"HouseSE": "HomeSouthApproach"}
+	var markers_by_building := {"Church": "Church", "GuardPost": "GuardYard", "Tavern": "Tavern",
+		"Blacksmith": "SmithYard", "Carpenter": "Carpenter", "Weaver": "Weaver",
+		"Storage": "Storage", "Barn": "Barn"}
+	for child in region.find_children("*", "StaticBody2D", true, false):
+		var body := child as StaticBody2D
+		var door := body.get_node_or_null("Door") as Polygon2D
+		var test_building := body.get_parent().name == &"Solids" and (
+			str(body.name).begins_with("House") or body.name in [&"Workshop", &"Storage", &"Shed"])
+		if door == null and not test_building:
+			continue
+		var marker_name: String = test_homes.get(body.name, "") if test_building else markers_by_building.get(body.name, "")
+		if body.is_in_group("simulation_houses"):
+			marker_name = "Home%d" % str(body.name).right(2).to_int()
+		var marker := markers.get_node_or_null(NodePath(marker_name)) as Marker2D if not marker_name.is_empty() else null
+		var hint := Vector2(0, 50)
+		if door != null:
+			hint = door.position + door.offset
+		elif marker != null:
+			hint = body.to_local(marker.global_position)
+		var building := InteractiveBuilding.new()
+		building.name = "InteractiveBuilding"
+		body.add_child(building)
+		if building.configure(self, building_rules, body, hint):
+			buildings.append(building)
+			if marker != null:
+				shelter_buildings[marker] = building
+		else:
+			building.queue_free()
+	var camera := get_node_or_null("Camera2D")
+	if camera != null and camera.has_signal("zoom_changed"):
+		camera.zoom_changed.connect(_on_building_zoom_changed)
+		_on_building_zoom_changed(camera.zoom_fraction())
+
+
+func _on_building_zoom_changed(fraction: float) -> void:
+	for building in buildings:
+		building.show_interior(fraction >= building_rules.reveal_at_zoom_fraction)
+
+
+func emit_break_in_noise(building: InteractiveBuilding, origin: Vector2, approach: Vector2) -> void:
+	for resident in villagers:
+		if is_instance_valid(resident):
+			resident.local_warning.hear_break_in(building.get_instance_id(), origin, approach)
+
+
+func toggle_building_order() -> void:
+	if choosing_building:
+		cancel_order_preview()
+	elif mission_state == MissionState.ACTIVE and not buildings.is_empty() and not _command_units().is_empty():
+		cancel_selection()
+		command_active = false
+		developer_spawn = ""
+		choosing_building = true
+		mission_hud.refresh_developer_tool()
+		mission_hud.refresh_units()
+
+
+func cancel_order_preview() -> bool:
+	if not command_active and not choosing_building:
+		return false
+	command_active = false
+	choosing_building = false
+	command_overlay.queue_redraw()
+	if is_instance_valid(mission_hud):
+		mission_hud.refresh_units()
+	return true
+
+
+func _pick_assault_building(world_position: Vector2) -> void:
+	for building in buildings:
+		if not building.contains(world_position):
+			continue
+		for unit in _command_units():
+			unit.issue_player_building_order(building)
+		cancel_order_preview()
+		return
 
 func set_developer_mode(enabled: bool) -> void:
 	developer_mode = enabled
@@ -107,6 +198,8 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0: return
 	var position_on_map := NavigationServer2D.map_get_closest_point(navigation_map, world_position)
 	if position_on_map.distance_to(world_position) > 24.0: return
+	for building in buildings:
+		if building.contains(position_on_map): return
 	if kind == "zombie":
 		var zombie := ZOMBIE_SCENE.instantiate()
 		zombie.position = to_local(position_on_map)
@@ -130,6 +223,16 @@ func _input(event: InputEvent) -> void:
 		if selection_in_progress:
 			_finish_selection(selection_current_screen)
 		return
+	if choosing_building and event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_pick_assault_building(_screen_to_world(event.position))
+			get_viewport().set_input_as_handled()
+			return
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			cancel_order_preview()
+			get_viewport().set_input_as_handled()
+			return
 	if developer_mode and developer_spawn != "" and event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed: developer_place(developer_spawn, _screen_to_world(event.position))
@@ -157,9 +260,7 @@ func _input(event: InputEvent) -> void:
 		command_overlay.queue_redraw()
 		get_viewport().set_input_as_handled()
 		return
-	if command_active and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		command_active = false
-		command_overlay.queue_redraw()
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE and cancel_order_preview():
 		get_viewport().set_input_as_handled()
 		return
 
@@ -197,6 +298,8 @@ func cancel_selection() -> void:
 
 func _process(_delta: float) -> void:
 	_update_command_preview(_delta)
+	if choosing_building and _command_units().is_empty():
+		cancel_order_preview()
 	if mission_state != MissionState.ACTIVE:
 		return
 	for unit in get_tree().get_nodes_in_group("player_units"):
@@ -300,14 +403,7 @@ func _screen_to_world(screen_position: Vector2) -> Vector2:
 
 
 func _issue_area_move_order(center: Vector2, radius: float = 100.0) -> void:
-	var selected_units: Array[Node] = []
-	for unit in get_tree().get_nodes_in_group("player_units"):
-		if (
-			unit.is_selected
-			and not unit.is_dead
-			and unit.has_method("issue_player_area_move_order")
-		):
-			selected_units.append(unit)
+	var selected_units := _command_units()
 
 	if selected_units.is_empty():
 		return
@@ -367,12 +463,12 @@ func _get_player_unit(collider: Object) -> Node:
 	var candidate := collider as Node
 	while candidate != null and not candidate.is_in_group("player_units"):
 		candidate = candidate.get_parent()
-	return candidate
+	return candidate if candidate != null and is_ancestor_of(candidate) and candidate.can_receive_player_orders() else null
 
 
 func _apply_selection(selected_units: Array[Node]) -> void:
 	for unit in get_tree().get_nodes_in_group("player_units"):
-		if unit.has_method("set_selected"):
+		if is_ancestor_of(unit) and unit.has_method("set_selected"):
 			unit.call("set_selected", selected_units.has(unit))
 	if is_instance_valid(mission_hud):
 		mission_hud.refresh_units()
@@ -393,6 +489,8 @@ func _on_resident_converted(resident: Node) -> void:
 	new_zombie.position = to_local(resident.global_position)
 	add_child(new_zombie)
 	new_zombie.get_node("Polygon2D").color = resident.get_node("Polygon2D").color
+	if is_instance_valid(resident.interior_building):
+		resident.interior_building.adopt_conversion(resident, new_zombie)
 	resident.queue_free()
 
 
@@ -444,13 +542,13 @@ func _refresh_mission_progress() -> void:
 func _command_units() -> Array[Node]:
 	var result: Array[Node] = []
 	for unit in get_tree().get_nodes_in_group("player_units"):
-		if unit.is_selected and not unit.is_dead: result.append(unit)
+		if is_ancestor_of(unit) and unit.is_selected and unit.can_receive_player_orders(): result.append(unit)
 	return result
 
 func _command_targets(center: Vector2, radius: float) -> Array[Node2D]:
 	var result: Array[Node2D] = []
 	for resident in villagers:
-		if is_instance_valid(resident) and resident.is_alive() and resident.global_position.distance_to(center) <= radius:
+		if is_instance_valid(resident) and resident.is_alive() and not is_instance_valid(resident.interior_building) and resident.global_position.distance_to(center) <= radius:
 			result.append(resident)
 	return result
 
@@ -471,18 +569,29 @@ func _update_command_preview(delta: float) -> void:
 	command_overlay.queue_redraw()
 
 func _draw_command_overlay() -> void:
+	if choosing_building:
+		var point := get_global_mouse_position()
+		for building in buildings:
+			if not building.contains(point):
+				continue
+			var perimeter := PackedVector2Array()
+			for vertex in building.layout.outline:
+				perimeter.append(to_local(building.layout.to_global(vertex)))
+			perimeter.append(perimeter[0])
+			command_overlay.draw_polyline(perimeter, Color("ecbd7c"), 2.0, true)
+			break
 	if command_active:
 		var color := Color(0.2, 0.8, 1.0, 0.8) if _command_targets(command_center, command_radius).is_empty() else Color(1.0, 0.2, 0.2, 0.8)
 		command_overlay.draw_circle(to_local(command_center), command_radius, Color(color, 0.12))
 		command_overlay.draw_arc(to_local(command_center), command_radius, 0, TAU, 96, color, 2.0)
 	var marked: Dictionary = {}
 	for unit in get_tree().get_nodes_in_group("player_units"):
-		if unit.is_dead: continue
+		if not is_ancestor_of(unit) or unit.is_dead: continue
 		for target in unit.priority_targets:
-			if is_instance_valid(target) and target.is_alive(): marked[target] = true
+			if is_instance_valid(target) and target.is_alive() and not is_instance_valid(target.interior_building): marked[target] = true
 	for target in marked: command_overlay.draw_circle(to_local(target.global_position + Vector2(0, -25)), 3.0, Color.RED)
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		command_active = false
+		cancel_order_preview()

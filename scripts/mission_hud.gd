@@ -4,6 +4,7 @@ var mission: Node2D
 var objective_label: Label
 var alert_label: Label
 var monster_button: Button
+var building_button: Button
 var _refresh_elapsed := 0.0
 var _blocks: Array[Control] = []
 var developer_button: Button
@@ -80,7 +81,14 @@ func _build() -> void:
 	var abilities := _panel(0.32, 0.90, 0.73, 1.0)
 	_label(abilities, "Способности", 16)
 	var commands := _panel(0.80, 0.88, 1.0, 1.0)
-	_label(commands, "Команды монстрам", 16)
+	var orders := VBoxContainer.new()
+	commands.add_child(orders)
+	_label(orders, "Команды монстрам", 16)
+	building_button = Button.new()
+	building_button.text = "Штурм здания"
+	building_button.tooltip_text = "Выберите зомби, затем укажите здание на карте"
+	building_button.pressed.connect(mission.toggle_building_order)
+	orders.add_child(building_button)
 
 func _build_developer_tools() -> void:
 	developer_button = Button.new()
@@ -132,6 +140,8 @@ func set_developer_mode(enabled: bool) -> void:
 	if not enabled: _choose_developer_tool("")
 
 func _choose_developer_tool(kind: String) -> void:
+	if not kind.is_empty():
+		mission.cancel_order_preview()
 	mission.developer_spawn = kind
 	refresh_developer_tool()
 
@@ -167,12 +177,14 @@ func refresh_units() -> void:
 	monster_button.text = "Зомби × %d" % units.size()
 	monster_button.disabled = units.is_empty()
 	monster_button.set_pressed_no_signal(not units.is_empty() and units.all(func(unit): return unit.is_selected))
+	building_button.text = "Укажите здание" if mission.choosing_building else "Штурм здания"
+	building_button.disabled = mission.buildings.is_empty() or mission._command_units().is_empty()
 
 
 func _available_zombies() -> Array[Node]:
 	var units: Array[Node] = []
 	for unit in get_tree().get_nodes_in_group("player_units"):
-		if mission.is_ancestor_of(unit) and not unit.is_dead:
+		if mission.is_ancestor_of(unit) and unit.can_receive_player_orders():
 			units.append(unit)
 	return units
 

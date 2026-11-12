@@ -81,6 +81,15 @@ var infection_state: InfectionState = InfectionState.AVAILABLE
 var current_health: float
 var converted_color: Color
 var encounter_participants: Array[Node2D] = []
+var building_task: Node
+var interior_building: Node:
+	set(value):
+		interior_building = value
+		for indicator in [threat_detection, threat_reaction, local_warning]:
+			if is_instance_valid(indicator):
+				indicator.queue_redraw()
+		if is_instance_valid(value) and is_instance_valid(priest_routine) and is_instance_valid(priest_routine.sermon_label):
+			priest_routine.sermon_label.hide()
 var defense: Node
 var guard_ai: Node
 var escort: Node
@@ -117,6 +126,8 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if is_instance_valid(building_task):
+		return
 	if defense != null and priest_guard != null and autonomous_movement_enabled:
 		if priest_guard.update_ai(delta): return
 	if defense != null and guard_ai != null and autonomous_movement_enabled:
@@ -428,6 +439,8 @@ func _advance_local_zone_cycle(delta: float) -> void:
 
 
 func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
+	if is_instance_valid(building_task):
+		return
 	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE or not (has_destination or threat_reaction.has_route):
 		velocity = Vector2.ZERO
 		return
@@ -580,12 +593,13 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 		)
 		or not zombie.has_method("is_alive")
 		or not zombie.call("is_alive")
+		or interior_building != zombie.get("interior_building")
 	):
 		return false
 
 	var starting_encounter := infection_state == InfectionState.AVAILABLE
 	if starting_encounter:
-		if not has_tactical_controller():
+		if not is_instance_valid(interior_building) and not has_tactical_controller():
 			threat_reaction.seeking_home = true
 			threat_reaction.threat_position = zombie.global_position
 			local_warning._remember_observation(zombie)
@@ -625,7 +639,7 @@ func leave_encounter(zombie: Variant) -> void:
 		encounter_attack_timer.stop()
 	if encounter_participants.is_empty() and infection_state == InfectionState.IN_COLLISION:
 		infection_state = InfectionState.AVAILABLE
-		if not has_tactical_controller(): threat_reaction.request_reassessment()
+		if not is_instance_valid(interior_building) and not has_tactical_controller(): threat_reaction.request_reassessment()
 	elif encounter_participants.is_empty() and infection_state == InfectionState.TRANSFORMING:
 		collision_layer = 0
 		collision_mask = 0
@@ -652,6 +666,8 @@ func _on_encounter_attack_timer_timeout() -> void:
 			and participant.has_method("take_damage")
 			and participant.call("is_alive")
 		):
+			if is_instance_valid(interior_building) and (global_position.distance_to(participant.global_position) > participant.INFECTION_DISTANCE or not participant._has_line_of_sight(self)):
+				continue
 			participant.call("take_damage", attack_damage)
 			return
 
