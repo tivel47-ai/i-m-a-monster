@@ -13,6 +13,8 @@ var mission_hud: Control
 
 const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
 const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
+const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
+@export var developer_guard_spawn_enabled := false
 var developer_mode := false
 var developer_spawn := ""
 @export var building_rules := BuildingRules.new()
@@ -204,8 +206,20 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 		var zombie := ZOMBIE_SCENE.instantiate()
 		zombie.position = to_local(position_on_map)
 		add_child(zombie)
-	elif kind == "resident":
+	elif kind == "resident" or (kind == "guard" and developer_guard_spawn_enabled):
 		var resident := VILLAGER_SCENE.instantiate()
+		if kind == "guard":
+			resident.name = "DeveloperGuard"
+			resident.set_meta("village_role", "guard")
+			resident.home_point_path = NodePath("../VillagePointsOfInterest/GuardYard")
+			resident.get_node("Polygon2D").color = Color("#4aa4c5")
+			var patrol := GUARD_PATROL.new()
+			patrol.name = "GuardPatrol"
+			patrol.route_path = NodePath("../../GuardPatrolRoutes/WestCircuit")
+			patrol.post_access_path = NodePath("../../GuardPatrolRoutes/PostAccess")
+			patrol.post_zone_path = NodePath("../../ActivityZones/HomeGuardPost")
+			patrol.post_center_path = NodePath("../../NavigationRegion2D/Buildings/Public/GuardPost")
+			resident.add_child(patrol)
 		resident.position = to_local(position_on_map)
 		add_child(resident)
 		villagers.append(resident)

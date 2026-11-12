@@ -115,6 +115,11 @@ func _build_developer_tools() -> void:
 	zombie.text = "Создать зомби"
 	zombie.pressed.connect(func(): _choose_developer_tool("zombie"))
 	box.add_child(zombie)
+	if mission.developer_guard_spawn_enabled:
+		var guard := Button.new()
+		guard.text = "Создать стражника"
+		guard.pressed.connect(func(): _choose_developer_tool("guard"))
+		box.add_child(guard)
 	developer_tool_label = _label(box, "Щёлкните по карте для создания", 13)
 	var stop := Button.new()
 	stop.text = "Отменить создание"
@@ -146,7 +151,9 @@ func _choose_developer_tool(kind: String) -> void:
 	refresh_developer_tool()
 
 func refresh_developer_tool() -> void:
-	developer_tool_label.text = "Инструмент: %s (ПКМ — отмена)" % ("житель" if mission.developer_spawn == "resident" else "зомби") if mission.developer_spawn != "" else "Выберите инструмент"
+	var names := {"resident": "житель", "zombie": "зомби", "guard": "стражник"}
+	var tool_name: String = names.get(mission.developer_spawn, "")
+	developer_tool_label.text = "Инструмент: %s (ПКМ — отмена)" % tool_name if not tool_name.is_empty() else "Выберите инструмент"
 
 
 func _process(delta: float) -> void:

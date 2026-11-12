@@ -36,6 +36,7 @@ border_color = Color(0.45, 0.85, 1, 0.95)
 
 [node name="VillageSimulationMap" type="Node2D" unique_id=1788305390]
 script = ExtResource("1_4nt34")
+developer_guard_spawn_enabled = true
 metadata/map_size = Vector2(3000, 2000)
 
 [node name="Ground" type="Polygon2D" parent="." unique_id=1971172188]
