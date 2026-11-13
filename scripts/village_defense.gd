@@ -16,9 +16,11 @@ var alert: Node
 var bell: Node2D
 var organized: Node
 var priest_ai: Node
+var guard_group_combat := false
 
 func initialize(residents: Array[Node], village_alert: Node) -> void:
 	alert = village_alert
+	guard_group_combat = get_parent().get_meta("guard_group_combat", false)
 	bell = get_parent().get_node_or_null("VillagePointsOfInterest/Bell")
 	if bell == null: bell = get_parent().get_node_or_null("PointsOfInterest/Bell")
 	if bell == null: bell = get_parent().get_node_or_null("NavigationRegion2D/Solids/Bell")
@@ -42,6 +44,8 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 
 func register_resident(actor: Node) -> void:
 	actor.defense = self
+	if guard_group_combat and (actor.guard_patrol != null or actor.priest_guard != null):
+		actor.threat_detection.radius_multiplier = 1.15
 	var perception = actor.get_node_or_null("CorpsePerception")
 	if perception == null:
 		perception = CORPSE.new()

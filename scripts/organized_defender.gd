@@ -112,6 +112,14 @@ func move_to(point: Vector2, delta: float, fast: bool = false) -> int:
 		actor._stop_movement()
 		actor._set_peaceful_destination(point)
 		goal = point
+	var result = actor._advance_navigation(goal, movement_speed(fast), delta)
+	if result == actor.NavigationResult.FAILED:
+		remember_failure(goal)
+		halt()
+	elif result == actor.NavigationResult.ARRIVED: halt()
+	return result
+
+func movement_speed(fast: bool) -> float:
 	var speed = actor.move_speed
 	if actor.escort != null: speed = actor.escort.movement_speed
 	if actor.guard_ai != null:
@@ -119,12 +127,7 @@ func move_to(point: Vector2, delta: float, fast: bool = false) -> int:
 		for follower in actor.guard_ai.followers:
 			if is_instance_valid(follower): speed = minf(speed, follower.movement_speed * actor.guard_ai.escort_speed_factor)
 	if fast and actor.guard_ai == null: speed = maxf(speed, actor.threat_reaction.fleeing_speed)
-	var result = actor._advance_navigation(goal, speed, delta)
-	if result == actor.NavigationResult.FAILED:
-		remember_failure(goal)
-		halt()
-	elif result == actor.NavigationResult.ARRIVED: halt()
-	return result
+	return speed
 
 func home() -> Vector2:
 	return formation.places.get(actor.get_instance_id(), actor.global_position)
@@ -251,6 +254,10 @@ func engage(enemy: Node2D, delta: float) -> void:
 	if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 		enemy.engage_defender(actor)
 		halt()
+	elif actor._uses_local_melee_route(enemy):
+		var limit: float = formation.assistance_distance if help_sector >= 0 else formation.intercept_distance
+		var defending: bool = formation.arrived(actor)
+		actor._advance_melee_route(enemy, movement_speed(defending), delta, home() if defending else Vector2.INF, limit)
 	else:
 		var approach := goal
 		if not approach.is_finite() or approach.distance_to(enemy.global_position) > enemy.INFECTION_DISTANCE - actor.arrival_tolerance:

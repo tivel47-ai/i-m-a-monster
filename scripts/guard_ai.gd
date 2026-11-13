@@ -3,6 +3,7 @@ extends Node
 enum State { PATROL, ALERT_PATROL, INVESTIGATE, SEARCH, COMBAT, RETREAT, ASSIST, GROUP_PATROL, RAISE_ALARM }
 const MEMORY = preload("res://scripts/guard_memory.gd")
 const INVESTIGATION = preload("res://scripts/guard_investigation.gd")
+const DANGER_CONFIRM_SECONDS := 0.35
 @export var investigation_seconds: float = 90.0
 @export var verification_seconds: float = 30.0
 @export var enabled: bool = true
@@ -50,6 +51,9 @@ var pursuit_started: float = 0.0
 var pursuit_origin: Vector2
 var pursuit_target: int = 0
 var retreat_until: float = 0.0
+var danger_changed_at := -INF
+var danger_sample := false
+var confirmed_danger := false
 var retreat_point: Vector2 = Vector2.INF
 var movement_goal: Vector2 = Vector2.INF
 var next_decision: float = 0.0
@@ -261,8 +265,34 @@ func sense() -> void:
 func dangerous() -> bool:
 	var defenders = known_support()
 	var incoming = 0.0
+	if actor.defense.guard_group_combat:
+		# Groups can hold against one extra enemy. Only immediate attacks can
+		# threaten the guard's own health while allies occupy the rest.
+		if visible_enemies.size() > defenders + int(defenders > 1):
+			return true
+		for enemy in visible_enemies:
+			if not is_instance_valid(enemy):
+				continue
+			var reach: float = enemy.INFECTION_DISTANCE
+			if (
+				actor.global_position.distance_squared_to(enemy.global_position) <= reach * reach
+				and (not is_instance_valid(enemy.aggro_target) or enemy.aggro_target == actor)
+			):
+				incoming += float(enemy.attack_damage)
+		return incoming > 0.0 and actor.current_health <= incoming
 	for enemy in visible_enemies: incoming += float(enemy.attack_damage)
 	return visible_enemies.size() > defenders or (incoming > 0 and actor.current_health <= incoming * maxf(actor.attack_interval, 1.0))
+
+func update_confirmed_danger() -> void:
+	var sample := dangerous()
+	if sample != danger_sample:
+		danger_sample = sample
+		danger_changed_at = now()
+	elif now() - danger_changed_at >= DANGER_CONFIRM_SECONDS:
+		confirmed_danger = sample
+
+func danger_response_active() -> bool:
+	return confirmed_danger if actor.defense.guard_group_combat else dangerous()
 
 func known_support() -> int:
 	var defenders := 1
@@ -303,6 +333,13 @@ func halt(preserve_goal: bool = false) -> void:
 	actor.navigation_agent.velocity = Vector2.ZERO
 	if not preserve_goal: movement_goal = Vector2.INF
 
+func movement_speed() -> float:
+	var speed := tactical_speed
+	for follower in followers:
+		if is_instance_valid(follower) and follower.mode != follower.Mode.FLEEING:
+			speed = minf(speed, follower.movement_speed * escort_speed_factor)
+	return speed
+
 func move_to(point: Vector2, delta: float) -> int:
 	if actor.global_position.distance_to(point) <= actor.arrival_tolerance:
 		halt()
@@ -312,11 +349,7 @@ func move_to(point: Vector2, delta: float) -> int:
 		actor._stop_movement()
 		actor._set_peaceful_destination(point)
 		movement_goal = point
-	var speed = tactical_speed
-	for follower in followers:
-		if is_instance_valid(follower) and follower.mode != follower.Mode.FLEEING:
-			speed = minf(speed, follower.movement_speed * escort_speed_factor)
-	return actor._advance_navigation(point, speed, delta)
+	return actor._advance_navigation(point, movement_speed(), delta)
 
 func finish(status: String, reason: String) -> void:
 	memory.finish(active, status, reason)
@@ -593,13 +626,15 @@ func update_ai(delta: float) -> bool:
 		for id in acknowledgements.keys():
 			if now() - float(acknowledgements[id]) > memory_seconds: acknowledgements.erase(id)
 		sense()
+		if actor.defense.guard_group_combat:
+			update_confirmed_danger()
 		investigation.sense()
 		investigation.start_pending_corpse()
 		if investigation.phase == investigation.Phase.APPROACH: investigation.recruit_locally()
 		for message in outbox: actor.defense.broadcast(actor, message, communication_radius)
 		outbox.clear()
 		if visible_enemies.is_empty() and last_seen_id != 0 and investigation.phase == investigation.Phase.NONE: start_search()
-		if not visible_enemies.is_empty() and dangerous():
+		if not visible_enemies.is_empty() and danger_response_active():
 			var first_escalation: bool = investigation.escalate()
 			call_help()
 			offer_alarm(_report(last_seen_id, last_seen_point, visible_enemies.size()))
@@ -632,8 +667,13 @@ func update_ai(delta: float) -> bool:
 		return true
 	if investigation.phase == investigation.Phase.ESCALATING: return investigation.update(delta)
 	# A reachable bell takes precedence over renewed pursuit of a superior enemy.
-	if not visible_enemies.is_empty() and dangerous() and actor.defense.alert.level < actor.defense.alert.Level.ALARM:
-		var alarm_point: Vector2 = actor.defense.alarm_point(actor)
+	if (
+		not visible_enemies.is_empty() and danger_response_active()
+		and (actor.defense.guard_group_combat or actor.defense.alert.level < actor.defense.alert.Level.ALARM)
+	):
+		var alarm_point := Vector2.INF
+		if actor.defense.alert.level < actor.defense.alert.Level.ALARM:
+			alarm_point = actor.defense.alarm_point(actor)
 		if alarm_point.is_finite():
 			set_state(State.RAISE_ALARM)
 			if actor.global_position.distance_to(actor.defense.bell.global_position) <= actor.defense.bell_reach and actor.defense.bell_visible(actor):
@@ -645,7 +685,11 @@ func update_ai(delta: float) -> bool:
 				move_to(alarm_point, delta)
 		else:
 			set_state(State.RETREAT)
-			if retreat_point.is_finite(): move_to(retreat_point, delta)
+			if retreat_point.is_finite():
+				var result := move_to(retreat_point, delta)
+				if actor.defense.guard_group_combat and result != actor.NavigationResult.MOVING:
+					retreat_point = Vector2.INF
+					halt()
 			else: halt()
 		return true
 	var imminent = false
@@ -670,6 +714,8 @@ func update_ai(delta: float) -> bool:
 		set_state(State.COMBAT)
 		if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 			enemy.engage_defender(actor)
+		elif actor._uses_local_melee_route(enemy):
+			actor._advance_melee_route(enemy, movement_speed(), delta, pursuit_origin, pursuit_distance)
 		else: move_to(actor.defense.combat_approach(actor, enemy, movement_goal), delta)
 		return true
 	if investigation.update(delta): return true

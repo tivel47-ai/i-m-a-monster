@@ -7,6 +7,7 @@ const INFECTION_DISTANCE := 20.8
 const AGGRO_REACQUIRE_DELAY_SECONDS := 0.3
 const CROWD_PUSH_CLEARANCE := 48.0
 const MOVEMENT_STALL_TIMEOUT := 3.0
+const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 
 @export var move_speed: float = 100.0
 @export var max_health: float = 120.0
@@ -51,6 +52,7 @@ var aggro_reacquire_delay: float = 0.0
 var aggro_target: Node2D
 var aggro_destination_origin: Vector2
 var aggro_candidates: Array[Node2D] = []
+var melee_route: LOCAL_MELEE_ROUTE
 var crowd_rest_position: Vector2
 var crowd_is_displaced: bool = false
 var crowd_is_returning: bool = false
@@ -66,6 +68,8 @@ var crowd_default_target_desired_distance: float
 
 
 func _ready() -> void:
+	if LOCAL_MELEE_ROUTE.enabled_for(self):
+		melee_route = LOCAL_MELEE_ROUTE.new()
 	current_health = maxf(max_health, 0.0)
 	crowd_default_navigation_radius = navigation_agent.radius
 	crowd_default_target_desired_distance = navigation_agent.target_desired_distance
@@ -250,6 +254,8 @@ func issue_player_area_hold_order() -> void:
 
 
 func _prepare_for_player_order() -> void:
+	if melee_route != null:
+		melee_route.cancel()
 	if is_instance_valid(building_task):
 		building_task.cancel_assault(self)
 	priority_targets.clear()
@@ -436,6 +442,8 @@ func _update_aggro_target(delta: float) -> void:
 
 
 func _start_encounter_attack_timer() -> void:
+	if melee_route != null:
+		melee_route.cancel()
 	if detour_remaining > 0.0 and has_player_order:
 		navigation_agent.target_position = detour_resume
 	detour_remaining = 0.0
@@ -456,9 +464,20 @@ func _set_aggro_destination() -> void:
 
 	_cancel_crowd_displacement()
 	aggro_destination_origin = aggro_target.global_position
+	if _uses_local_melee_route():
+		has_target = false
+		return
 	var direction_to_zombie := aggro_target.global_position.direction_to(global_position)
 	navigation_agent.target_position = _combat_approach(direction_to_zombie)
 	has_target = true
+
+
+func _uses_local_melee_route() -> bool:
+	return (
+		melee_route != null and not has_player_order
+		and melee_route.applies(self, aggro_target, INFECTION_DISTANCE)
+		and not aggro_target.is_encounter_owner(self)
+	)
 
 
 func _combat_approach(direction: Vector2) -> Vector2:
@@ -536,6 +555,16 @@ func _physics_process(delta: float) -> void:
 		recovery_blocked_seconds = 0.0
 		recovery_window_origin = global_position
 	_update_aggro_target(delta)
+	if _uses_local_melee_route():
+		_cancel_crowd_displacement()
+		has_target = false
+		detour_remaining = 0.0
+		stalled_seconds = 0.0
+		melee_route.update(self, aggro_target, INFECTION_DISTANCE)
+		melee_route.move(self, navigation_agent, move_speed, delta)
+		return
+	if melee_route != null and melee_route.target != null:
+		melee_route.cancel()
 	if aggro_target != null:
 		_cancel_crowd_displacement()
 	elif crowd_is_displaced and not has_target and not has_player_order:
@@ -691,6 +720,8 @@ func _is_waiting_for_crowd_to_yield(direction: Vector2) -> bool:
 
 func _on_navigation_agent_velocity_computed(safe_velocity: Vector2) -> void:
 	if is_instance_valid(building_task):
+		return
+	if not is_dead and melee_route != null and melee_route.last_update == Engine.get_physics_frames():
 		return
 	if is_dead or not has_target:
 		velocity = Vector2.ZERO

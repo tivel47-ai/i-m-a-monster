@@ -5,7 +5,9 @@ signal threat_recognized(zombie: Node2D)
 enum Awareness { UNAWARE, RECOGNIZING, AWARE }
 
 @export var detection_enabled: bool = true
-@export var detection_radius: float = 150.0
+@export var detection_radius: float = 150.0:
+	get:
+		return detection_radius * radius_multiplier
 @export var recognition_delay_min: float = 0.5
 @export var recognition_delay_max: float = 1.0
 @export var debug_enabled: bool = true:
@@ -14,6 +16,7 @@ enum Awareness { UNAWARE, RECOGNIZING, AWARE }
 		queue_redraw()
 
 var awareness: Awareness = Awareness.UNAWARE
+var radius_multiplier := 1.0
 var pending_target: Node2D
 var recognized_target: Node2D
 var recognition_elapsed: float = 0.0

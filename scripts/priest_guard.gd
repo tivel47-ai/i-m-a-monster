@@ -129,6 +129,9 @@ func update_ai(delta: float) -> bool:
 			var behavior = organized.controller(actor)
 			behavior.target = target
 			if behavior.shoot(target): return true
+		if actor._uses_local_melee_route(target):
+			actor._advance_melee_route(target, tactical_speed, delta, anchor, priest_threat_radius)
+			return true
 		var approach: Vector2 = actor.defense.combat_approach(actor, target)
 		if approach.is_finite():
 			move_to(approach, tactical_speed, delta)

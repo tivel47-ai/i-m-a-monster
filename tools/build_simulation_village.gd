@@ -270,6 +270,8 @@ func build() -> void:
 	read_npc_preferences()
 	village = Node2D.new()
 	village.name = "VillageSimulationMap"
+	village.set_meta("local_melee_routing", true)
+	village.set_meta("guard_group_combat", true)
 	village.set_meta("map_size", Vector2(3000,2000))
 	patch(village,"Ground",Vector2(1500,1000),Vector2(3000,2000),Color("48513a"))
 	var ground := container(village,"GroundVariation")

@@ -360,6 +360,9 @@ func update_escort(delta: float) -> bool:
 				if actor.global_position.distance_to(supported_enemy.global_position) <= supported_enemy.INFECTION_DISTANCE:
 					supported_enemy.engage_defender(actor)
 					return true
+				if actor._uses_local_melee_route(supported_enemy):
+					actor._advance_melee_route(supported_enemy, movement_speed, delta, last_leader_point, assistance_radius + supported_enemy.INFECTION_DISTANCE)
+					return true
 				var approach: Vector2 = actor.defense.combat_approach(actor, supported_enemy)
 				if approach.is_finite():
 					move_to(approach, delta)

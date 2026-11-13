@@ -1,5 +1,8 @@
 extends CharacterBody2D
 
+const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
+var melee_route: LOCAL_MELEE_ROUTE
+
 const MOVEMENT_STALL_TIMEOUT := 3.0
 
 signal converted(villager: Node)
@@ -115,6 +118,8 @@ func private_shelter_marker() -> Node2D:
 
 
 func _ready() -> void:
+	if LOCAL_MELEE_ROUTE.enabled_for(self):
+		melee_route = LOCAL_MELEE_ROUTE.new()
 	add_to_group("activity_zone_residents")
 	current_health = maxf(max_health, 0.0)
 	encounter_attack_timer.name = "EncounterAttackTimer"
@@ -165,6 +170,19 @@ func _physics_process(delta: float) -> void:
 	var result := _advance_navigation(destination, move_speed, delta)
 	if result != NavigationResult.MOVING:
 		_begin_wait(result == NavigationResult.ARRIVED)
+
+
+func _uses_local_melee_route(enemy: Node2D) -> bool:
+	return melee_route != null and melee_route.applies(self, enemy, enemy.INFECTION_DISTANCE)
+
+
+func _advance_melee_route(
+	enemy: Node2D, speed: float, delta: float, home := Vector2.INF, leash := INF
+) -> void:
+	if has_destination:
+		_stop_movement()
+	melee_route.update(self, enemy, enemy.INFECTION_DISTANCE, home, leash)
+	melee_route.move(self, navigation_agent, speed, delta)
 
 
 func _advance_navigation(goal: Vector2, speed: float, delta: float) -> NavigationResult:
@@ -440,6 +458,11 @@ func _advance_local_zone_cycle(delta: float) -> void:
 
 func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 	if is_instance_valid(building_task):
+		return
+	if (
+		autonomous_movement_enabled and infection_state == InfectionState.AVAILABLE
+		and melee_route != null and melee_route.last_update == Engine.get_physics_frames()
+	):
 		return
 	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE or not (has_destination or threat_reaction.has_route):
 		velocity = Vector2.ZERO
