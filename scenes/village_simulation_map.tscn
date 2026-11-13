@@ -1839,21 +1839,21 @@ collision_mask = 0
 metadata/building_type = "church"
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1030945931]
-position = Vector2(-36, -31)
-scale = Vector2(1.3214285, 1.2384615)
+position = Vector2(-36, -31.999994)
+scale = Vector2(1.3214285, 1.246154)
 color = Color(0.24313726, 0.2509804, 0.22352941, 1)
-polygon = PackedVector2Array(-46, -130, 46, -130, 46, -44, 112, -44, 112, 40, 46, 40, 46, 130, -46, 130, -46, 40, -112, 40, -112, -44, -46, -44)
+polygon = PackedVector2Array(-46, -150, 46, -150, 46, -44, 112, -44, 112, 40, 46, 40, 46, 130, -46, 130, -46, 40, -112, 40, -112, -44, -46, -44)
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=447084513]
-position = Vector2(-36, -31)
-scale = Vector2(1.3214285, 1.2384615)
-polygon = PackedVector2Array(-46, -130, 46, -130, 46, -44, 112, -44, 112, 40, 46, 40, 46, 130, -46, 130, -46, 40, -112, 40, -112, -44, -46, -44)
+position = Vector2(-36, -31.999994)
+scale = Vector2(1.3214285, 1.246154)
+polygon = PackedVector2Array(-46, -150, 46, -150, 46, -44, 112, -44, 112, 40, 46, 40, 46, 130, -46, 130, -46, 40, -112, 40, -112, -44, -46, -44)
 
 [node name="Roof" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1555622687]
 position = Vector2(-36, -31)
 scale = Vector2(1.3214285, 1.2384615)
 color = Color(0.3372549, 0.36862746, 0.3764706, 1)
-polygon = PackedVector2Array(41, -125, 41, -41.92893, 43.92893, -39, 107, -39, 107, 35, 43.92893, 35, 41, 37.92893, 41, 125, -41, 125, -41, 37.92893, -43.92893, 35, -107, 35, -107, -39, -43.92893, -39, -41, -41.92893, -41, -125)
+polygon = PackedVector2Array(41, -145, 41, -41.92893, 43.92893, -39, 107, -39, 107, 35, 43.92893, 35, 41, 37.92893, 41, 125, -41, 125, -41, 37.92893, -43.92893, 35, -107, 35, -107, -39, -43.92893, -39, -41, -41.92893, -41, -145)
 
 [node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1581785367]
 position = Vector2(-34, -31)
