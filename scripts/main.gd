@@ -20,8 +20,9 @@ var race_back_button: Button
 var start_button: Button
 var development_button: Button
 var development_title: Label
-var development_tree: Tree
-var development_items: Dictionary[String, TreeItem] = {}
+var development_tree: Control
+var development_items: Dictionary[String, Button] = {}
+var development_branches: Array = []
 var applied_development: Dictionary[String, PackedStringArray] = {}
 var development_status: Label
 var reset_development_button: Button
@@ -395,11 +396,11 @@ func _build_development_page() -> void:
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	development_title = _text(page, "", 24)
 	_text(page, "Демонстрационные ветки. Выбор действует до закрытия игры и не влияет на миссию.", 18)
-	development_tree = Tree.new()
-	development_tree.add_theme_constant_override("draw_relationship_lines", 1)
-	development_tree.custom_minimum_size.y = 300
+	development_tree = Control.new()
+	development_tree.custom_minimum_size = Vector2(520, 340)
 	development_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	development_tree.item_edited.connect(_refresh_development_selection)
+	development_tree.draw.connect(_draw_development_branches)
+	development_tree.resized.connect(development_tree.queue_redraw)
 	page.add_child(development_tree)
 	development_status = _text(page, "", 18)
 	var footer := HBoxContainer.new()
@@ -423,39 +424,80 @@ func _open_development() -> void:
 	var race: Dictionary = CATALOG.RACES[selected_race]
 	development_title.text = race.name
 	development_items.clear()
-	development_tree.clear()
-	var base := development_tree.create_item()
-	base.set_text(0, "Базовая форма")
-	base.set_selectable(0, false)
-	base.disable_folding = true
+	_clear_children(development_tree)
+	development_branches = race.development
+	var base := PanelContainer.new()
+	base.add_theme_stylebox_override("panel", _development_style("354436", "a3b48a", 24))
+	_place_development_node(base, Vector2(0.5, 0.85))
+	var base_label := _text(base, "Базовая форма", 18)
+	base_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var applied: PackedStringArray = applied_development.get(selected_race, PackedStringArray())
-	for node in race.get("development", []):
-		var parent: TreeItem = development_items.get(node.get("parent", ""), base)
-		var item := development_tree.create_item(parent)
-		item.disable_folding = true
-		item.set_cell_mode(0, TreeItem.CELL_MODE_CHECK)
-		item.set_text(0, node.name)
-		item.set_checked(0, node.id in applied)
+	for node in development_branches:
+		var item := Button.new()
+		item.text = node.name
+		item.toggle_mode = true
+		item.set_pressed_no_signal(node.id in applied)
+		item.toggled.connect(func(_pressed: bool): _refresh_development_selection())
+		item.add_theme_font_size_override("font_size", 18)
+		var radius := 8 if node.has("parent") else 24
+		item.add_theme_stylebox_override("normal", _development_style("29362d", "738775", radius))
+		item.add_theme_stylebox_override("hover", _development_style("3a4b3d", "a3b48a", radius))
+		item.add_theme_stylebox_override("pressed", _development_style("445337", "d7ce8b", radius))
+		item.add_theme_stylebox_override("hover_pressed", _development_style("546341", "eee0a0", radius))
+		item.add_theme_stylebox_override("disabled", _development_style("202823", "4b5a4f", radius))
+		_place_development_node(item, node.position)
 		development_items[node.id] = item
 	_refresh_development_selection()
 	_show(Screen.DEVELOPMENT)
 
+func _place_development_node(control: Control, position_ratio: Vector2) -> void:
+	development_tree.add_child(control)
+	control.anchor_left = position_ratio.x
+	control.anchor_right = position_ratio.x
+	control.anchor_top = position_ratio.y
+	control.anchor_bottom = position_ratio.y
+	control.offset_left = -96
+	control.offset_right = 96
+	control.offset_top = -24
+	control.offset_bottom = 24
+
+func _development_style(fill: String, border: String, radius: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(fill)
+	style.border_color = Color(border)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(radius)
+	return style
+
+func _draw_development_branches() -> void:
+	var area := Rect2(Vector2.ZERO, development_tree.size)
+	development_tree.draw_style_box(_development_style("101813", "344239", 12), area)
+	var centers := {"": Vector2(0.5, 0.85) * area.size}
+	for node in development_branches:
+		var start: Vector2 = centers[node.get("parent", "")]
+		var end: Vector2 = node.position * area.size
+		centers[node.id] = end
+		var bend := Vector2(start.x, lerpf(start.y, end.y, 0.76))
+		var points := PackedVector2Array()
+		for step in range(17):
+			var weight := step / 16.0
+			points.append(start.lerp(bend, weight).lerp(bend.lerp(end, weight), weight))
+		development_tree.draw_polyline(points, Color("29392f"), 12, true)
+		var active := development_items[node.id].button_pressed
+		development_tree.draw_polyline(points, Color("c3b675") if active else Color("687b69"), 3, true)
+
 func _refresh_development_selection() -> void:
 	var selection := PackedStringArray()
-	for id in development_items:
-		var item := development_items[id]
-		var parent := item.get_parent()
-		var available := parent == development_tree.get_root() or parent.is_checked(0)
-		item.set_editable(0, available)
-		item.set_selectable(0, available)
-		item.set_tooltip_text(0, "" if available else "Сначала выберите «%s»" % parent.get_text(0))
-		if available:
-			item.clear_custom_color(0)
-		else:
-			item.set_custom_color(0, Color("98a398"))
-			item.set_checked(0, false)
-		if item.is_checked(0):
-			selection.append(id)
+	for node in development_branches:
+		var item := development_items[node.id]
+		var parent: Button = development_items.get(node.get("parent", ""))
+		item.disabled = parent != null and not parent.button_pressed
+		if item.disabled:
+			item.set_pressed_no_signal(false)
+		item.tooltip_text = "Сначала выберите «%s»" % parent.text if item.disabled else ""
+		if item.button_pressed:
+			selection.append(node.id)
+	development_tree.queue_redraw()
 	var applied: PackedStringArray = applied_development.get(selected_race, PackedStringArray())
 	reset_development_button.disabled = selection.is_empty()
 	apply_development_button.disabled = selection == applied
@@ -465,14 +507,14 @@ func _refresh_development_selection() -> void:
 
 func _reset_development() -> void:
 	for item in development_items.values():
-		item.set_checked(0, false)
+		item.set_pressed_no_signal(false)
 	_refresh_development_selection()
 
 func _apply_development() -> void:
 	if screen != Screen.DEVELOPMENT or apply_development_button.disabled: return
 	var selection := PackedStringArray()
 	for id in development_items:
-		if development_items[id].is_checked(0):
+		if development_items[id].button_pressed:
 			selection.append(id)
 	applied_development[selected_race] = selection
 	_refresh_development_selection()

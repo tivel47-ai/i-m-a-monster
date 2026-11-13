@@ -26,10 +26,10 @@ const RACES := {
 		"weaknesses": "Зомби получают ответный урон в ближнем бою и могут погибнуть.",
 		"preview": "res://scenes/zombie.tscn",
 		"development": [
-			{"id": "infection", "name": "Заражение"},
-			{"id": "carrier", "name": "Форма носителя", "parent": "infection"},
-			{"id": "resilience", "name": "Стойкость"},
-			{"id": "brute", "name": "Форма громилы", "parent": "resilience"},
+			{"id": "infection", "name": "Заражение", "position": Vector2(0.29, 0.53)},
+			{"id": "carrier", "name": "Форма носителя", "parent": "infection", "position": Vector2(0.21, 0.21)},
+			{"id": "resilience", "name": "Стойкость", "position": Vector2(0.71, 0.53)},
+			{"id": "brute", "name": "Форма громилы", "parent": "resilience", "position": Vector2(0.79, 0.21)},
 		],
 	},
 }
