@@ -100,10 +100,10 @@ func run() -> void:
 	await frames(180)
 	check(map.infected_residents == 1 and map.killed_residents == 0, "Transformation survives lethal damage and cancelled encounter")
 	var converted = get_nodes_in_group("player_units")[-1]
-	check(converted.get_node("CollisionShape2D").shape.size.is_equal_approx(Vector2(13, 20.8))
-		and is_equal_approx(converted.get_node("NavigationAgent2D").radius, 12.35),
-		"Converted zombie uses reduced body and avoidance radius")
 	var other = map.villagers[1]
+	check(converted.get_node("CollisionShape2D").shape.size.is_equal_approx(other.get_node("CollisionShape2D").shape.size)
+		and is_equal_approx(converted.get_node("NavigationAgent2D").radius, other.get_node("NavigationAgent2D").radius),
+		"Converted zombie matches villager body and avoidance radius")
 	other.take_damage(1000.0)
 	other.take_damage(1000.0)
 	check(map.killed_residents == 1, "Death counted once")

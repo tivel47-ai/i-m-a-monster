@@ -1416,27 +1416,16 @@ scale = Vector2(1.2266475, 1.2386074)
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(50, -36, 50, 36, -50, 36, -50, -36)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage01" unique_id=2072694848]
-position = Vector2(24.785105, -5.0693765)
-points = PackedVector2Array(-45, 0, 45, 0)
-width = 4.0
-default_color = Color(0.5105882, 0.46980393, 0.4164706, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage01/Roof"]
+color = Color(0.3144706, 0.2731765, 0.21917649, 1)
+polygon = PackedVector2Array(50, 36, -50, 36, -50, 0, 50, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage01" unique_id=104907817]
+visible = false
 position = Vector2(32.81855, 45.254215)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 offset = Vector2(-6.4019165, -9.5199585)
 polygon = PackedVector2Array(-8.166199, -3.3163452, 7.958191, -3.3865356, 7.993286, 4.675659, -8.130981, 4.7458496)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage01" unique_id=1859821]
-position = Vector2(-10.667063, -28.48179)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage01" unique_id=364602814]
-position = Vector2(56.928516, -29.39637)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Cottage02" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=340070793 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(890, 680)
@@ -1455,20 +1444,15 @@ polygon = PackedVector2Array(-49, -44, 49, -44, 49, 44, -49, 44)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(44, -39, 44, 39, -44, 39, -44, -39)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage02" unique_id=445120233]
-points = PackedVector2Array(-39, 0, 39, 0)
-width = 4.0
-default_color = Color(0.5011765, 0.46980393, 0.44784313, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage02/Roof"]
+color = Color(0.30494118, 0.2731765, 0.2509412, 1)
+polygon = PackedVector2Array(44, 39, -44, 39, -44, 0, 44, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage02" unique_id=851134908]
+visible = false
 position = Vector2(0, 40)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage02" unique_id=869995436]
-position = Vector2(-29.4, -21.12)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
 
 [node name="Cottage03" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=573516671 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(500, 810)
@@ -1487,25 +1471,15 @@ polygon = PackedVector2Array(-54, -39, 54, -39, 54, 39, -54, 39)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(49, -34, 49, 34, -49, 34, -49, -34)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage03" unique_id=850817195]
-points = PackedVector2Array(-44, 0, 44, 0)
-width = 4.0
-default_color = Color(0.5670588, 0.5231373, 0.43529412, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage03/Roof"]
+color = Color(0.37164706, 0.32717648, 0.23823531, 1)
+polygon = PackedVector2Array(49, 34, -49, 34, -49, 0, 49, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage03" unique_id=508335670]
+visible = false
 position = Vector2(0, 35)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage03" unique_id=348495377]
-position = Vector2(-32.4, -18.72)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage03" unique_id=895068999]
-position = Vector2(24.84, -19.5)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Cottage04" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=401561368 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(1170, 1090)
@@ -1524,25 +1498,15 @@ polygon = PackedVector2Array(-58, -42, 58, -42, 58, 42, -58, 42)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(53, -37, 53, 37, -53, 37, -53, -37)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage04" unique_id=1179973823]
-points = PackedVector2Array(-48, 0, 48, 0)
-width = 4.0
-default_color = Color(0.46666667, 0.47921568, 0.47607845, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage04/Roof"]
+color = Color(0.27, 0.2827059, 0.27952942, 1)
+polygon = PackedVector2Array(53, 37, -53, 37, -53, 0, 53, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage04" unique_id=1138454506]
+visible = false
 position = Vector2(0, 38)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage04" unique_id=859961080]
-position = Vector2(-34.8, -20.16)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage04" unique_id=2012148305]
-position = Vector2(26.68, -21)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Cottage05" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=1520573602 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(1030, 420)
@@ -1561,20 +1525,15 @@ polygon = PackedVector2Array(-83, -54, 83, -54, 83, 54, -83, 54)
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(78, -49, 78, 49, -78, 49, -78, -49)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage05" unique_id=1539825496]
-points = PackedVector2Array(-73, 0, 73, 0)
-width = 4.0
-default_color = Color(0.5105882, 0.46980393, 0.4164706, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage05/Roof"]
+color = Color(0.3144706, 0.2731765, 0.21917649, 1)
+polygon = PackedVector2Array(78, 49, -78, 49, -78, 0, 78, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage05" unique_id=542423531]
+visible = false
 position = Vector2(0, 50)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage05" unique_id=1366416651]
-position = Vector2(-49.8, -25.92)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
 
 [node name="Cottage06" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=1679659030 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(1760, 650)
@@ -1593,25 +1552,15 @@ polygon = PackedVector2Array(-79, -58, 79, -58, 79, 58, -79, 58)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(74, -53, 74, 53, -74, 53, -74, -53)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage06" unique_id=198892123]
-points = PackedVector2Array(-69, 0, 69, 0)
-width = 4.0
-default_color = Color(0.5011765, 0.46980393, 0.44784313, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage06/Roof"]
+color = Color(0.30494118, 0.2731765, 0.2509412, 1)
+polygon = PackedVector2Array(74, 53, -74, 53, -74, 0, 74, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage06" unique_id=929587738]
+visible = false
 position = Vector2(0, 54)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage06" unique_id=519718713]
-position = Vector2(-47.4, -27.84)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage06" unique_id=1403975297]
-position = Vector2(36.34, -29)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Cottage07" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=475261291 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(1780, 1620)
@@ -1630,25 +1579,15 @@ polygon = PackedVector2Array(-85, -52, 85, -52, 85, 52, -85, 52)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(80, -47, 80, 47, -80, 47, -80, -47)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage07" unique_id=892361174]
-points = PackedVector2Array(-75, 0, 75, 0)
-width = 4.0
-default_color = Color(0.5670588, 0.5231373, 0.43529412, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage07/Roof"]
+color = Color(0.37164706, 0.32717648, 0.23823531, 1)
+polygon = PackedVector2Array(80, 47, -80, 47, -80, 0, 80, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage07" unique_id=162114017]
+visible = false
 position = Vector2(0, 48)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage07" unique_id=1973088583]
-position = Vector2(-51, -24.96)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage07" unique_id=1466380835]
-position = Vector2(39.1, -26)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Cottage08" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=261746540 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(860, 1110)
@@ -1667,20 +1606,15 @@ polygon = PackedVector2Array(-56, -56, 56, -56, 56, 56, -56, 56)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(51, -51, 51, 51, -51, 51, -51, -51)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage08" unique_id=319555340]
-points = PackedVector2Array(-46, 0, 46, 0)
-width = 4.0
-default_color = Color(0.46666667, 0.47921568, 0.47607845, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage08/Roof"]
+color = Color(0.27, 0.2827059, 0.27952942, 1)
+polygon = PackedVector2Array(51, 51, -51, 51, -51, 0, 51, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage08" unique_id=1476095592]
+visible = false
 position = Vector2(0, 52)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage08" unique_id=1039407031]
-position = Vector2(-33.6, -26.88)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
 
 [node name="Cottage09" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=542739418 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(1850, 1100)
@@ -1705,25 +1639,15 @@ scale = Vector2(1.8649572, 0.9960166)
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(-55, -55, 55, -55, 55, 55, -11, 55, -11, 135, -55, 135)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage09" unique_id=382992188]
-points = PackedVector2Array(-50, 0, 50, 0)
-width = 4.0
-default_color = Color(0.5105882, 0.46980393, 0.4164706, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage09/Roof"]
+color = Color(0.3144706, 0.2731765, 0.21917649, 1)
+polygon = PackedVector2Array(55, 55, -11, 55, -11, 135, -55, 135, -55, 40, 55, 40)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage09" unique_id=986630898]
+visible = false
 position = Vector2(0, 56)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage09" unique_id=345534117]
-position = Vector2(-36, -28.8)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage09" unique_id=1727754367]
-position = Vector2(27.6, -30)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Cottage10" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=1427476945 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(1070, 890)
@@ -1742,25 +1666,15 @@ polygon = PackedVector2Array(-85, -75, 85, -75, 85, -8, 8, -8, 8, 75, -85, 75)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(80, -70, 80, -13, 5.92893, -13, 3, -10.07107, 3, 70, -80, 70, -80, -70)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage10" unique_id=32500901]
-points = PackedVector2Array(-67, 63, -67, -53, 73, -53)
-width = 4.0
-default_color = Color(0.4887059, 0.45654905, 0.43403924, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage10/Roof"]
+color = Color(0.30494118, 0.2731765, 0.2509412, 1)
+polygon = PackedVector2Array(3, 70, -80, 70, -80, 0, 3, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage10" unique_id=1898239951]
+visible = false
 position = Vector2(-47.6, 71)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage10" unique_id=1184653935]
-position = Vector2(-51, -36)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage10" unique_id=572559452]
-position = Vector2(39.1, -37.5)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Cottage11" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=787485496 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(1360, 1490)
@@ -1779,20 +1693,15 @@ polygon = PackedVector2Array(-90, -74, 90, -74, 90, -8, 8, -8, 8, 74, -90, 74)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(85, -69, 85, -13, 5.92893, -13, 3, -10.07107, 3, 69, -85, 69, -85, -69)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Cottage11" unique_id=158769479]
-points = PackedVector2Array(-72, 62, -72, -52, 78, -52)
-width = 4.0
-default_color = Color(0.5562353, 0.5112157, 0.4211765, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage11/Roof"]
+color = Color(0.37164706, 0.32717648, 0.23823531, 1)
+polygon = PackedVector2Array(3, 69, -85, 69, -85, 0, 3, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage11" unique_id=1824739856]
+visible = false
 position = Vector2(-50.4, 70)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage11" unique_id=1617621611]
-position = Vector2(-54, -35.52)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
 
 [node name="Farmhouse12" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Residential" unique_id=302091408 groups=["simulation_houses", "simulation_solids"]]
 position = Vector2(680, 1600)
@@ -1811,25 +1720,15 @@ polygon = PackedVector2Array(-114, -46, 114, -46, 114, 46, -114, 46)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(109, -41, 109, 41, -109, 41, -109, -41)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Residential/Farmhouse12" unique_id=1272826433]
-points = PackedVector2Array(-104, 0, 104, 0)
-width = 4.0
-default_color = Color(0.46666667, 0.47921568, 0.47607845, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Farmhouse12/Roof"]
+color = Color(0.27, 0.2827059, 0.27952942, 1)
+polygon = PackedVector2Array(109, 41, -109, 41, -109, 0, 109, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Farmhouse12" unique_id=617868913]
+visible = false
 position = Vector2(0, 42)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Farmhouse12" unique_id=1601902155]
-position = Vector2(-68.4, -22.08)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Farmhouse12" unique_id=355845627]
-position = Vector2(52.44, -23)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Public" type="Node2D" parent="NavigationRegion2D/Buildings" unique_id=206446520]
 
@@ -1855,32 +1754,16 @@ scale = Vector2(1.3214285, 1.2384615)
 color = Color(0.3372549, 0.36862746, 0.3764706, 1)
 polygon = PackedVector2Array(41, -145, 41, -41.92893, 43.92893, -39, 107, -39, 107, 35, 43.92893, 35, 41, 37.92893, 41, 125, -41, 125, -41, 37.92893, -43.92893, 35, -107, 35, -107, -39, -43.92893, -39, -41, -41.92893, -41, -145)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1581785367]
-position = Vector2(-34, -31)
-points = PackedVector2Array(-102, 0, 102, 0)
-width = 4.0
-default_color = Color(0.46980393, 0.49490196, 0.5011765, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church/Roof"]
+color = Color(0.2731765, 0.29858825, 0.30494118, 1)
+polygon = PackedVector2Array(107, 35, 43.928932, 35, 41, 37.928932, 41, 125, -41, 125, -41, 37.928932, -43.928932, 35, -107, 35, -107, -10, 107, -10)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1099537039]
+visible = false
 position = Vector2(-35, 126)
 scale = Vector2(1.8125, 1)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1757139790]
-position = Vector2(-105.000046, -58.000008)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=115927533]
-position = Vector2(41.99998, -58)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
-
-[node name="Tower" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1650053945]
-position = Vector2(-34, -114)
-color = Color(0.41960785, 0.44705883, 0.4392157, 1)
-polygon = PackedVector2Array(-30, -31, 30, -31, 30, 31, -30, 31)
 
 [node name="CrossVertical" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=348101795]
 position = Vector2(-34, -36)
@@ -2092,35 +1975,16 @@ rotation = 1.7139033
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(85, -60, 85, 60, -85, 60, -85, -60)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=1510680483]
-rotation = 1.7139033
-points = PackedVector2Array(-80, 0, 80, 0)
-width = 4.0
-default_color = Color(0.5105882, 0.46980393, 0.4164706, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern/Roof"]
+color = Color(0.3144706, 0.2731765, 0.21917649, 1)
+polygon = PackedVector2Array(85, 60, -85, 60, -85, 0, 85, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=1276127331]
+visible = false
 position = Vector2(-60.48525, -8.862)
 rotation = 1.7139033
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=2113313617]
-position = Vector2(-30.77033, -66.67223)
-rotation = 1.7139033
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=1066346678]
-position = Vector2(20.12515, 61.80597)
-rotation = 1.7139033
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
-
-[node name="Sign" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern" unique_id=1544428900]
-position = Vector2(-32.78098, 33.48742)
-rotation = 1.7139033
-color = Color(0.6627451, 0.6039216, 0.44313726, 1)
-polygon = PackedVector2Array(-11, -9, 11, -9, 11, 9, -11, 9)
 
 [node name="GuardPost" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=1963040160 groups=["simulation_solids"]]
 position = Vector2(2310, 1510)
@@ -2139,35 +2003,15 @@ polygon = PackedVector2Array(-65, -75, 65, -75, 65, 75, -65, 75)
 color = Color(0.27058825, 0.29411766, 0.28627452, 1)
 polygon = PackedVector2Array(60, -70, 60, 70, -60, 70, -60, -70)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Public/GuardPost" unique_id=2092707785]
-points = PackedVector2Array(-55, 0, 55, 0)
-width = 4.0
-default_color = Color(0.4164706, 0.43529412, 0.42901963, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/GuardPost/Roof"]
+color = Color(0.21917649, 0.23823531, 0.23188236, 1)
+polygon = PackedVector2Array(60, 70, -60, 70, -60, 0, 60, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/GuardPost" unique_id=626316535]
+visible = false
 position = Vector2(0, 71)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/GuardPost" unique_id=993456617]
-position = Vector2(-39, -36)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/GuardPost" unique_id=1562113637]
-position = Vector2(29.9, -37.5)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
-
-[node name="WatchPlatform-48" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/GuardPost" unique_id=1712118981]
-position = Vector2(-48, -48)
-color = Color(0.45490196, 0.4509804, 0.39607844, 1)
-polygon = PackedVector2Array(-13, -17.5, 13, -17.5, 13, 17.5, -13, 17.5)
-
-[node name="WatchPlatform48" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/GuardPost" unique_id=1002177514]
-position = Vector2(48, -48)
-color = Color(0.45490196, 0.4509804, 0.39607844, 1)
-polygon = PackedVector2Array(-13, -17.5, 13, -17.5, 13, 17.5, -13, 17.5)
 
 [node name="Workshops" type="Node2D" parent="NavigationRegion2D/Buildings" unique_id=609821945]
 
@@ -2188,30 +2032,15 @@ polygon = PackedVector2Array(-90, -65, 90, -65, 90, 65, -90, 65)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(85, -60, 85, 60, -85, 60, -85, -60)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Workshops/Blacksmith" unique_id=671500028]
-points = PackedVector2Array(-80, 0, 80, 0)
-width = 4.0
-default_color = Color(0.5011765, 0.46980393, 0.44784313, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Blacksmith/Roof"]
+color = Color(0.30494118, 0.2731765, 0.2509412, 1)
+polygon = PackedVector2Array(85, 60, -85, 60, -85, 0, 85, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Blacksmith" unique_id=1734534723]
+visible = false
 position = Vector2(0, 61)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Blacksmith" unique_id=1967558370]
-position = Vector2(-54, -31.2)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="ForgeHood" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Blacksmith" unique_id=1531379411]
-position = Vector2(42, -20)
-color = Color(0.1882353, 0.20784314, 0.19607843, 1)
-polygon = PackedVector2Array(-16, -21, 16, -21, 16, 21, -16, 21)
-
-[node name="ForgeGlow" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Blacksmith" unique_id=161762738]
-position = Vector2(42, 5)
-color = Color(0.6431373, 0.47843137, 0.28235295, 1)
-polygon = PackedVector2Array(-12, -4, 12, -4, 12, 4, -12, 4)
 
 [node name="Carpenter" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Workshops" unique_id=1237980745 groups=["simulation_solids"]]
 position = Vector2(2420, 795)
@@ -2230,25 +2059,15 @@ polygon = PackedVector2Array(-72.5, -55, 72.5, -55, 72.5, 55, -72.5, 55)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(67.5, -50, 67.5, 50, -67.5, 50, -67.5, -50)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Workshops/Carpenter" unique_id=861759816]
-points = PackedVector2Array(-62.5, 0, 62.5, 0)
-width = 4.0
-default_color = Color(0.5670588, 0.5231373, 0.43529412, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Carpenter/Roof"]
+color = Color(0.37164706, 0.32717648, 0.23823531, 1)
+polygon = PackedVector2Array(67.5, 50, -67.5, 50, -67.5, 0, 67.5, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Carpenter" unique_id=1759313698]
+visible = false
 position = Vector2(0, 51)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Carpenter" unique_id=658467412]
-position = Vector2(-43.5, -26.4)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Carpenter" unique_id=1082716460]
-position = Vector2(33.35, -27.5)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Weaver" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Workshops" unique_id=235434351 groups=["simulation_solids"]]
 position = Vector2(2175, 1090)
@@ -2267,25 +2086,15 @@ polygon = PackedVector2Array(-65, -51, 65, -51, 65, 51, -65, 51)
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(60, -46, 60, 46, -60, 46, -60, -46)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Workshops/Weaver" unique_id=191542754]
-points = PackedVector2Array(-55, 0, 55, 0)
-width = 4.0
-default_color = Color(0.5105882, 0.46980393, 0.4164706, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Weaver/Roof"]
+color = Color(0.3144706, 0.2731765, 0.21917649, 1)
+polygon = PackedVector2Array(60, 46, -60, 46, -60, 0, 60, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Weaver" unique_id=768226154]
+visible = false
 position = Vector2(0, 47)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Weaver" unique_id=1909921449]
-position = Vector2(-39, -24.48)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Weaver" unique_id=679892145]
-position = Vector2(29.9, -25.5)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Storage" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Workshops" unique_id=72672006 groups=["simulation_solids"]]
 position = Vector2(2440, 1090)
@@ -2304,25 +2113,15 @@ polygon = PackedVector2Array(-60, -40, 60, -40, 60, 40, -60, 40)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(55, -35, 55, 35, -55, 35, -55, -35)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Workshops/Storage" unique_id=1356960989]
-points = PackedVector2Array(-50, 0, 50, 0)
-width = 4.0
-default_color = Color(0.46666667, 0.47921568, 0.47607845, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Storage/Roof"]
+color = Color(0.27, 0.2827059, 0.27952942, 1)
+polygon = PackedVector2Array(55, 35, -55, 35, -55, 0, 55, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Storage" unique_id=987785904]
+visible = false
 position = Vector2(0, 36)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Storage" unique_id=1953967612]
-position = Vector2(-36, -19.2)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Storage" unique_id=1612191856]
-position = Vector2(27.6, -20)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Anvil" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Workshops" unique_id=1169805425 groups=["simulation_solids"]]
 position = Vector2(2295, 795)
@@ -2370,20 +2169,15 @@ polygon = PackedVector2Array(-24, -23, 24, -23, 24, 23, -24, 23)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(19, -18, 19, 18, -19, 18, -19, -18)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed1" unique_id=1561969920]
-points = PackedVector2Array(-14, 0, 14, 0)
-width = 4.0
-default_color = Color(0.5011765, 0.46980393, 0.44784313, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed1/Roof"]
+color = Color(0.30494118, 0.2731765, 0.2509412, 1)
+polygon = PackedVector2Array(19, 18, -19, 18, -19, 0, 19, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed1" unique_id=487675759]
+visible = false
 position = Vector2(0, 19)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed1" unique_id=1406621886]
-position = Vector2(-14.4, -11.04)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
 
 [node name="HomeShed6" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Agricultural" unique_id=1372306414 groups=["simulation_solids"]]
 position = Vector2(1635, 1585)
@@ -2402,25 +2196,15 @@ polygon = PackedVector2Array(-24, -23, 24, -23, 24, 23, -24, 23)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(19, -18, 19, 18, -19, 18, -19, -18)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed6" unique_id=213920752]
-points = PackedVector2Array(-14, 0, 14, 0)
-width = 4.0
-default_color = Color(0.5670588, 0.5231373, 0.43529412, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed6/Roof"]
+color = Color(0.37164706, 0.32717648, 0.23823531, 1)
+polygon = PackedVector2Array(19, 18, -19, 18, -19, 0, 19, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed6" unique_id=288596715]
+visible = false
 position = Vector2(0, 19)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed6" unique_id=1769249484]
-position = Vector2(-14.4, -11.04)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed6" unique_id=1154197859]
-position = Vector2(11.04, -11.5)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="HomeShed11" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Agricultural" unique_id=589947471 groups=["simulation_solids"]]
 position = Vector2(535, 1565)
@@ -2439,25 +2223,15 @@ polygon = PackedVector2Array(-24, -23, 24, -23, 24, 23, -24, 23)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(19, -18, 19, 18, -19, 18, -19, -18)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed11" unique_id=1135696333]
-points = PackedVector2Array(-14, 0, 14, 0)
-width = 4.0
-default_color = Color(0.46666667, 0.47921568, 0.47607845, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed11/Roof"]
+color = Color(0.27, 0.2827059, 0.27952942, 1)
+polygon = PackedVector2Array(19, 18, -19, 18, -19, 0, 19, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed11" unique_id=1070498876]
+visible = false
 position = Vector2(0, 19)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed11" unique_id=40379416]
-position = Vector2(-14.4, -11.04)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed11" unique_id=357716608]
-position = Vector2(11.04, -11.5)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Barn" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Agricultural" unique_id=784015491 groups=["simulation_solids"]]
 position = Vector2(545, 1200)
@@ -2476,25 +2250,15 @@ polygon = PackedVector2Array(-70, -50, 70, -50, 70, 50, -70, 50)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(65, -45, 65, 45, -65, 45, -65, -45)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Agricultural/Barn" unique_id=679456065]
-points = PackedVector2Array(-60, 0, 60, 0)
-width = 4.0
-default_color = Color(0.5670588, 0.5231373, 0.43529412, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/Barn/Roof"]
+color = Color(0.37164706, 0.32717648, 0.23823531, 1)
+polygon = PackedVector2Array(65, 45, -65, 45, -65, 0, 65, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/Barn" unique_id=880547109]
+visible = false
 position = Vector2(0, 46)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/Barn" unique_id=977625769]
-position = Vector2(-42, -24)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/Barn" unique_id=292349578]
-position = Vector2(32.2, -25)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="FieldStore" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Agricultural" unique_id=1957821150 groups=["simulation_solids"]]
 position = Vector2(1100, 1810)
@@ -2513,20 +2277,15 @@ polygon = PackedVector2Array(-36, -27, 36, -27, 36, 27, -36, 27)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(31, -22, 31, 22, -31, 22, -31, -22)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/Buildings/Agricultural/FieldStore" unique_id=1975322792]
-points = PackedVector2Array(-26, 0, 26, 0)
-width = 4.0
-default_color = Color(0.5011765, 0.46980393, 0.44784313, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/FieldStore/Roof"]
+color = Color(0.30494118, 0.2731765, 0.2509412, 1)
+polygon = PackedVector2Array(31, 22, -31, 22, -31, 0, 31, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/FieldStore" unique_id=838770230]
+visible = false
 position = Vector2(0, 23)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/FieldStore" unique_id=1128896757]
-position = Vector2(-21.6, -12.96)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
 
 [node name="Trees" type="Node2D" parent="NavigationRegion2D" unique_id=1165942704]
 
@@ -3520,25 +3279,15 @@ polygon = PackedVector2Array(-24, -25, 24, -25, 24, 25, -24, 25)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(19, -20, 19, 20, -19, 20, -19, -20)
 
-[node name="Ridge" type="Line2D" parent="NavigationRegion2D/River/RiverStore" unique_id=1472693361]
-points = PackedVector2Array(-14, 0, 14, 0)
-width = 4.0
-default_color = Color(0.5670588, 0.5231373, 0.43529412, 1)
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/River/RiverStore/Roof"]
+color = Color(0.37164706, 0.32717648, 0.23823531, 1)
+polygon = PackedVector2Array(19, 20, -19, 20, -19, 0, 19, 0)
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/River/RiverStore" unique_id=1528191348]
+visible = false
 position = Vector2(0, 21)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="Window" type="Polygon2D" parent="NavigationRegion2D/River/RiverStore" unique_id=1013106852]
-position = Vector2(-14.4, -12)
-color = Color(0.654902, 0.5921569, 0.39607844, 1)
-polygon = PackedVector2Array(-5, -4.5, 5, -4.5, 5, 4.5, -5, 4.5)
-
-[node name="Chimney" type="Polygon2D" parent="NavigationRegion2D/River/RiverStore" unique_id=1650715817]
-position = Vector2(11.04, -12.5)
-color = Color(0.23137255, 0.23921569, 0.22352941, 1)
-polygon = PackedVector2Array(-6.5, -9, 6.5, -9, 6.5, 9, -6.5, 9)
 
 [node name="Fences" type="Node2D" parent="NavigationRegion2D" unique_id=1116555035]
 

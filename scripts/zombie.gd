@@ -2,7 +2,7 @@ extends CharacterBody2D
 
 const VILLAGER_COLLISION_LAYER := 8
 const VILLAGER_APPROACH_DISTANCE := 12.0
-# Match the 65% character scale while keeping a visible melee gap.
+# Center-to-center melee range.
 const INFECTION_DISTANCE := 20.8
 const AGGRO_REACQUIRE_DELAY_SECONDS := 0.3
 const CROWD_PUSH_CLEARANCE := 48.0
@@ -94,10 +94,10 @@ func _draw() -> void:
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
-	var health_rect := Rect2(-7.8, -22.1, 15.6, 2.6)
+	var health_rect := Rect2(-5.85, -16.25, 11.7, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
-		Rect2(health_rect.position + Vector2(0.65, 0.65), Vector2(14.3 * health_ratio, 1.3)),
+		Rect2(health_rect.position + Vector2(0.65, 0.65), Vector2(10.4 * health_ratio, 1.3)),
 		Color(0.25, 0.85, 0.25),
 		true
 	)
@@ -106,7 +106,7 @@ func _draw() -> void:
 	if is_selected:
 		draw_arc(
 			Vector2.ZERO,
-			15.6,
+			12.1,
 			0.0,
 			TAU,
 			32,
@@ -480,6 +480,43 @@ func _uses_local_melee_route() -> bool:
 	)
 
 
+func _pursue_moving_resident(delta: float) -> bool:
+	if melee_route == null or not is_instance_valid(aggro_target) or not aggro_target.is_available_for_infection():
+		return false
+	var offset := aggro_target.global_position - global_position
+	var distance_squared := offset.length_squared()
+	if (
+		distance_squared <= INFECTION_DISTANCE * INFECTION_DISTANCE
+		or distance_squared > LOCAL_MELEE_ROUTE.LOCAL_DISTANCE * LOCAL_MELEE_ROUTE.LOCAL_DISTANCE
+		or aggro_target.velocity.length_squared() < 1.0
+		or not _has_line_of_sight(aggro_target)
+	):
+		return false
+
+	var motion := offset.limit_length(move_speed * delta)
+	var collision := KinematicCollision2D.new()
+	if test_move(global_transform, motion, collision):
+		var ally := collision.get_collider() as Node2D
+		if (
+			ally == null or not ally.is_in_group("player_units") or ally.aggro_target != aggro_target
+			or (ally.global_position - global_position).dot(offset) <= 0.0
+		):
+			return false
+		# A pursuer directly ahead will open a gap as it moves or starts the encounter.
+		motion = Vector2.ZERO
+
+	melee_route.cancel()
+	_cancel_crowd_displacement()
+	has_target = false
+	detour_remaining = 0.0
+	stalled_seconds = 0.0
+	navigation_agent.velocity = Vector2.ZERO
+	velocity = motion / delta
+	if not motion.is_zero_approx():
+		move_and_collide(motion)
+	return true
+
+
 func _combat_approach(direction: Vector2) -> Vector2:
 	var center := aggro_target.global_position
 	var fallback := center + direction * VILLAGER_APPROACH_DISTANCE
@@ -555,6 +592,8 @@ func _physics_process(delta: float) -> void:
 		recovery_blocked_seconds = 0.0
 		recovery_window_origin = global_position
 	_update_aggro_target(delta)
+	if _pursue_moving_resident(delta):
+		return
 	if _uses_local_melee_route():
 		_cancel_crowd_displacement()
 		has_target = false

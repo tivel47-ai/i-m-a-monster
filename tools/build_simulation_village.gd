@@ -173,29 +173,19 @@ func building(parent: Node, title: String, center: Vector2, size: Vector2, angle
 	if kind == "church": roof_color = Color("565e60")
 	if kind == "guard": roof_color = Color("454b49")
 	var inset := Geometry2D.offset_polygon(footprint, -5.0)
-	if not inset.is_empty(): polygon(body, "Roof", inset[0], roof_color)
-	if kind == "L":
-		stroke(body, "Ridge", PackedVector2Array([Vector2(-size.x/2+18, size.y/2-12), Vector2(-size.x/2+18,-size.y/2+22), Vector2(size.x/2-12,-size.y/2+22)]), roof_color.lightened(0.18), 4)
-	else:
-		stroke(body, "Ridge", PackedVector2Array([Vector2(-size.x/2+10,0), Vector2(size.x/2-10,0)]), roof_color.lightened(0.20), 4)
+	if not inset.is_empty():
+		var roof := polygon(body, "Roof", inset[0], roof_color)
+		var shade := rectangle(Vector2(size.x, size.y / 2))
+		for i in range(shade.size()):
+			shade[i].y += size.y / 4
+		for slope in Geometry2D.intersect_polygons(roof.polygon, shade):
+			polygon(roof, "ShadedSlope", slope, roof_color.darkened(0.19))
 	# The door is on the blocked footprint edge; the approach stays outside.
 	var door_x := -size.x * 0.28 if kind == "L" else 0.0
-	patch(body, "Door", Vector2(door_x,size.y/2-4), Vector2(16,8), Color("282c28"))
-	patch(body, "Window", Vector2(-size.x*0.30,-size.y*0.24), Vector2(10,9), Color("a79765"))
-	if index % 3 != 1:
-		patch(body, "Chimney", Vector2(size.x*0.23,-size.y*0.25), Vector2(13,18), Color("3b3d39"))
+	patch(body, "Door", Vector2(door_x,size.y/2-4), Vector2(16,8), Color("282c28")).hide()
 	if kind == "church":
-		patch(body, "Tower", Vector2(0,-78), Vector2(60,62), Color("6b7270"))
 		stroke(body, "CrossVertical", PackedVector2Array([Vector2(0,-102),Vector2(0,-56)]), Color("cbc4a7"), 5)
 		stroke(body, "CrossHorizontal", PackedVector2Array([Vector2(-15,-85),Vector2(15,-85)]), Color("cbc4a7"), 5)
-	elif kind == "blacksmith":
-		patch(body, "ForgeHood", Vector2(42,-20), Vector2(32,42), Color("303532"))
-		patch(body, "ForgeGlow", Vector2(42,5), Vector2(24,8), Color("a47a48"))
-	elif kind == "guard":
-		for x in [-48,48]:
-			patch(body, "WatchPlatform" + str(x), Vector2(x,-48), Vector2(26,35), Color("747365"))
-	elif kind == "tavern":
-		patch(body, "Sign", Vector2(28,size.y/2-15), Vector2(22,18), Color("a99a71"))
 	return body
 
 func field(title: String, vertices: PackedVector2Array, vertical: bool, color := Color("60563a")) -> void:

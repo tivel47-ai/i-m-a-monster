@@ -39,6 +39,7 @@ var _attack_stations: Dictionary = {}
 var _melee_positions: Dictionary = {}
 var _foyer_positions: Dictionary = {}
 var _blocked_lane: Dictionary = {}
+var _exit_retry_after: Dictionary = {}
 var _elapsed := 0.0
 var _next_noise := 0.0
 var _roof_alpha := 1.0
@@ -167,14 +168,16 @@ func _remove_unavailable() -> void:
 		elif not actor.is_alive():
 			cancel_assault(actor)
 	for actors in [residents, monsters, departing]:
-		for actor in actors.duplicate():
+		for i in range(actors.size() - 1, -1, -1):
+			var actor: Variant = actors[i]
 			if not is_instance_valid(actor) or not actor.is_alive():
-				actors.erase(actor)
+				actors.remove_at(i)
 				_clear_actor(actor)
-	for resident in shelter_queue.duplicate():
+	for i in range(shelter_queue.size() - 1, -1, -1):
+		var resident: Variant = shelter_queue[i]
 		if is_instance_valid(resident) and resident.is_available_for_infection():
 			continue
-		shelter_queue.erase(resident)
+		shelter_queue.remove_at(i)
 		_clear_actor(resident)
 		if is_instance_valid(resident):
 			resident.building_task = null
@@ -195,6 +198,7 @@ func _clear_actor(actor: Variant) -> void:
 	_melee_positions.erase(actor)
 	_foyer_positions.erase(actor)
 	_blocked_lane.erase(actor)
+	_exit_retry_after.erase(actor)
 	for i in workers.size():
 		if workers[i] == actor:
 			workers[i] = null
@@ -235,6 +239,8 @@ func _choose_crossing() -> void:
 		var nearest: Node2D
 		var distance := INF
 		for actor in departing:
+			if _elapsed < float(_exit_retry_after.get(actor, 0.0)):
+				continue
 			if actor.is_in_group("player_units") or not _entrance_threatened():
 				var distance_to_door: float = actor.global_position.distance_squared_to(layout.interior())
 				if distance_to_door < distance:
@@ -274,6 +280,7 @@ func _choose_lane(actor: CharacterBody2D) -> void:
 	var clearance := layout.clearance(actor) + rules.crossing_clearance
 	var inside_depth := maxf(BuildingInterior.PORTAL_OFFSET, layout.entry_clearance(actor) + 1.0)
 	var best := INF
+	_crossing_approach = Vector2.INF
 	var body := actor.get_node("CollisionShape2D") as CollisionShape2D
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = body.shape
@@ -289,7 +296,7 @@ func _choose_lane(actor: CharacterBody2D) -> void:
 		var previous: Dictionary = _blocked_lane.get(actor, {})
 		if not previous.is_empty() and _elapsed < float(previous.until) and side == float(previous.side):
 			score += 250.0
-		for point: Vector2 in [layout.interior(side, layout.entry_clearance(actor)),
+		for point: Vector2 in [inside, layout.interior(side, layout.entry_clearance(actor)),
 			layout.exterior(0.0, side), layout.exterior(clearance + 1.0, side)]:
 			query.transform = Transform2D(0.0, point)
 			if not get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty():
@@ -323,8 +330,16 @@ func _advance_crossing(delta: float) -> void:
 		if not zombie and (battle_active or _entrance_threatened()):
 			_end_crossing()
 			return
-		if not _crossing_approach.is_finite() or _stalled(actor):
+		if _stalled(actor):
+			_blocked_lane[actor] = {"side": _crossing_lane, "until": _elapsed + 2.0}
+			if zombie and _crossing_out and layout.depth(actor) <= -layout.entry_clearance(actor):
+				# Another departing zombie may be the one blocking the approach.
+				_exit_retry_after[actor] = _elapsed + REPATH_SECONDS * 3.0
+				_end_crossing()
+				return
 			_paths.erase(actor)
+			_crossing_approach = Vector2.INF
+		if not _crossing_approach.is_finite():
 			_choose_lane(actor)
 		if not _crossing_approach.is_finite():
 			return
@@ -378,6 +393,10 @@ func _advance_crossing(delta: float) -> void:
 		if not _crossing_out and _displace_outside(actor):
 			_end_crossing()
 		else:
+			if _crossing_out:
+				# Keep threshold access while lining up for a different lane.
+				_crossing_started = false
+				_paths.erase(actor)
 			_choose_lane(actor)
 			_crossing_stalled = 0.0
 
