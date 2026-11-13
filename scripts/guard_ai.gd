@@ -4,6 +4,8 @@ enum State { PATROL, ALERT_PATROL, INVESTIGATE, SEARCH, COMBAT, RETREAT, ASSIST,
 const MEMORY = preload("res://scripts/guard_memory.gd")
 const INVESTIGATION = preload("res://scripts/guard_investigation.gd")
 const DANGER_CONFIRM_SECONDS := 0.35
+const REPORTS_PER_DECISION := 2
+const VISIBILITY_REFRESH_STEPS := 6
 @export var investigation_seconds: float = 90.0
 @export var verification_seconds: float = 30.0
 @export var enabled: bool = true
@@ -41,6 +43,7 @@ var cooperation_history: Dictionary = {}
 var acknowledgements: Dictionary = {}
 var cleared_incidents: Dictionary = {}
 var outbox: Array[Dictionary] = []
+var pending_reports: Dictionary = {}
 var seen_since: Dictionary = {}
 var visible_enemies: Array[Node2D] = []
 var local_allies: Array[Node2D] = []
@@ -65,6 +68,7 @@ var mobilization_started: float = 0.0
 var mobilization_goal: Vector2 = Vector2.INF
 var mobilization_cursor: int = 0
 var next_cooperation: float = 0.0
+var visibility_phase: int
 var selected_at: float = -100.0
 var cohesion_started: float = -1.0
 var bell_elapsed: float = 0.0
@@ -74,6 +78,8 @@ var investigation: RefCounted
 
 func _ready() -> void:
 	rng.randomize()
+	visibility_phase = actor.get_instance_id() % VISIBILITY_REFRESH_STEPS
+	next_decision = now() + _decision_delay()
 	investigation = INVESTIGATION.new(self)
 	actor.threat_recognized.connect(observe)
 	actor.encounter_started.connect(observe) # physical contact is immediate evidence
@@ -141,6 +147,13 @@ func mobilize(delta: float) -> bool:
 func now() -> float:
 	return actor.defense.elapsed
 
+func _decision_delay() -> float:
+	var ticks_per_second := Engine.physics_ticks_per_second
+	var interval := maxi(roundi(decision_interval * ticks_per_second), 1)
+	var phase := actor.get_instance_id() % interval
+	var remaining := posmod(phase - Engine.get_physics_frames(), interval)
+	return (remaining if remaining > 0 else interval) / float(ticks_per_second) - 0.000001
+
 func _report(id: Variant, point: Vector2, count: int, help: bool = false) -> Dictionary:
 	return {"incident": id, "point": point, "count": count, "help": help, "source": actor.get_instance_id(), "observed_at": now(), "credibility": 1.0, "relay": 0}
 
@@ -163,11 +176,14 @@ func observe(target: Node2D) -> void:
 		report.help = previous.get("help", false)
 		if previous.source != actor.get_instance_id() or int(previous.get("relay", 0)) > 0:
 			memory.incidents.erase(last_seen_id) # genuine personal reconfirmation
-	if memory.remember(report, now()): outbox.append(report)
-	elif memory.incidents.has(last_seen_id):
+	if not memory.remember(report, now()) and memory.incidents.has(last_seen_id):
 		# Continuing actual observation renews personal evidence, but does not
 		# produce repeated assistance messages or fresh hearsay downstream.
 		memory.incidents[last_seen_id].observed_at = now()
+	# Received reports can replace the incident in tactical memory. Compare
+	# broadcasts with our own last published sighting instead.
+	if memory.remember_published_sighting(report, now()):
+		_queue_report(report)
 
 func receive_message(message: Dictionary, sender: Node2D) -> bool:
 	if message.get("kind", "") == "corpse": return receive_corpse(message, sender)
@@ -182,7 +198,8 @@ func receive_message(message: Dictionary, sender: Node2D) -> bool:
 	if int(message.get("relay", 0)) > 1: return false
 	if not memory.valid_report(message, now()): return false
 	if cleared_incidents.has(message.incident) and float(message.observed_at) <= float(cleared_incidents[message.incident]): return false
-	var new_evidence: bool = memory.remember(message, now())
+	var relay_level := int(message.get("relay", 0))
+	var new_evidence: bool = memory.accept_delivery(message) and memory.remember(message, now())
 	if new_evidence: acknowledgements.erase(message.incident)
 	var civilian_witness = sender.escort != null and sender.escort.report_to_guard_enabled and sender.escort.can_recruit() and not is_instance_valid(sender.escort.leader) and int(message.get("source", 0)) == sender.get_instance_id()
 	if (message.get("witness", false) or civilian_witness) and sender.escort != null and actor.defense.alert.level < actor.defense.alert.Level.ALARM:
@@ -201,10 +218,10 @@ func receive_message(message: Dictionary, sender: Node2D) -> bool:
 		if actor.defense.reachable(actor, message.caller_point):
 			task.point = message.caller_point
 			task.support_mode = "cover_withdrawal"
-	if int(message.get("relay", 0)) == 0:
+	if relay_level == 0:
 		var relay = message.duplicate(true)
 		relay.relay = 1
-		outbox.append(relay)
+		_queue_report(relay)
 	actor.defense.alert.report_delivered(sender, actor, message)
 	return true
 
@@ -296,12 +313,12 @@ func danger_response_active() -> bool:
 
 func known_support() -> int:
 	var defenders := 1
+	var incoming := 0.0
+	for enemy in visible_enemies: incoming = maxf(incoming, enemy.attack_damage)
 	for ally in available_local_allies():
 		if ally.guard_ai != null or (ally.escort != null and ally.escort.leader == self and ally.escort.armed):
 			# Injured companions remain group members but aren't treated as a
 			# fresh defender simply because they are physically present.
-			var incoming := 0.0
-			for enemy in visible_enemies: incoming = maxf(incoming, enemy.attack_damage)
 			if ally.current_health > incoming: defenders += 1
 	return defenders
 
@@ -368,7 +385,43 @@ func call_help() -> void:
 	report.retreating = dangerous()
 	report.caller_point = actor.global_position
 	# Only materially changed observations go onto the wire.
-	if memory.remember(report, now()): outbox.append(report)
+	if memory.remember(report, now()): _queue_report(report)
+
+func _queue_report(report: Dictionary) -> void:
+	var key := _report_key(report)
+	var pending: Dictionary = pending_reports.get(key, {})
+	if pending.is_empty():
+		pending_reports[key] = report
+		if report.get("help", false):
+			var first_warning := outbox.find_custom(func(message: Dictionary) -> bool:
+				return not message.get("help", false)
+			)
+			if first_warning >= 0:
+				outbox.insert(first_warning, report)
+				return
+		outbox.append(report)
+	elif float(report.observed_at) >= float(pending.observed_at):
+		# Keep the dictionary in its queue position, including for reports
+		# with optional fields that disappeared in the newer observation.
+		pending.clear()
+		pending.merge(report)
+
+func _report_key(report: Dictionary) -> String:
+	return "%s:%s:%s" % [report.incident, report.get("help", false), report.get("relay", 0)]
+
+func _send_reports() -> void:
+	if outbox.is_empty():
+		return
+	var reports: Array[Dictionary] = []
+	var sent := 0
+	while sent < REPORTS_PER_DECISION and not outbox.is_empty():
+		var message: Dictionary = outbox.pop_front()
+		pending_reports.erase(_report_key(message))
+		if memory.valid_report(message, now()):
+			reports.append(message)
+			sent += 1
+	if not reports.is_empty():
+		actor.defense.broadcast_reports(actor, reports, communication_radius)
 
 func score(task: Dictionary) -> float:
 	var distance: float = actor.global_position.distance_to(task.point)
@@ -603,11 +656,10 @@ func update_ai(delta: float) -> bool:
 	if NavigationServer2D.map_get_iteration_id(actor.navigation_agent.get_navigation_map()) == 0: return true
 	if actor.defense.organized != null and actor.defense.organized.active():
 		if now() >= next_decision:
-			next_decision = now() + decision_interval
+			next_decision = now() + _decision_delay()
 			memory.expire(now())
 			sense()
-			for message in outbox: actor.defense.broadcast(actor, message, communication_radius)
-			outbox.clear()
+			_send_reports()
 		# The same local B2 evidence is used by travel decisions. No old ALARM
 		# task may override church defense or repeatedly cancel physical combat.
 		return actor.defense.organized.update_actor(actor, delta)
@@ -615,7 +667,7 @@ func update_ai(delta: float) -> bool:
 	memory.lifetime = memory_seconds
 	var decision = now() >= next_decision
 	if decision:
-		next_decision = now() + decision_interval
+		next_decision = now() + _decision_delay()
 		memory.expire(now())
 		if investigation.phase != investigation.Phase.NONE and now() - investigation.started > investigation_seconds:
 			investigation.end("expired", "bounded local response expired during interruption")
@@ -631,8 +683,7 @@ func update_ai(delta: float) -> bool:
 		investigation.sense()
 		investigation.start_pending_corpse()
 		if investigation.phase == investigation.Phase.APPROACH: investigation.recruit_locally()
-		for message in outbox: actor.defense.broadcast(actor, message, communication_radius)
-		outbox.clear()
+		_send_reports()
 		if visible_enemies.is_empty() and last_seen_id != 0 and investigation.phase == investigation.Phase.NONE: start_search()
 		if not visible_enemies.is_empty() and danger_response_active():
 			var first_escalation: bool = investigation.escalate()
@@ -645,8 +696,12 @@ func update_ai(delta: float) -> bool:
 				retreat_until = now() + commitment_seconds
 				suspend()
 				set_state(State.RETREAT)
-	# Reject stale live references after each frame, before any position access.
-	visible_enemies = visible_enemies.filter(func(enemy): return is_instance_valid(enemy) and actor.threat_detection._is_visible_target(enemy))
+	# Refresh the whole group across different physics steps. The opponent
+	# actually pursued or engaged still needs current line of sight.
+	if Engine.get_physics_frames() % VISIBILITY_REFRESH_STEPS == visibility_phase:
+		visible_enemies = visible_enemies.filter(actor.threat_detection._is_visible_target)
+	else:
+		visible_enemies = visible_enemies.filter(func(enemy): return actor.threat_detection._is_valid_zombie(enemy))
 	for enemy in visible_enemies:
 		if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 			enemy.engage_defender(actor) # self-defense also applies at pursuit/retreat limits
@@ -699,6 +754,11 @@ func update_ai(delta: float) -> bool:
 	if not visible_enemies.is_empty():
 		if not alliance.is_empty(): alliance.status = "interrupted"
 		suspend()
+		while not visible_enemies.is_empty() and not actor.threat_detection._is_visible_target(visible_enemies[0]):
+			visible_enemies.pop_front()
+		if visible_enemies.is_empty():
+			halt()
+			return true
 		var enemy: Node2D = visible_enemies[0]
 		if pursuit_target != enemy.get_instance_id():
 			pursuit_target = enemy.get_instance_id()

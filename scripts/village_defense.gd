@@ -220,12 +220,17 @@ func alarm_point(actor: Node2D) -> Vector2:
 	return Vector2.INF
 
 func broadcast(sender: Node2D, message: Dictionary, radius: float) -> void:
+	broadcast_reports(sender, [message], radius)
+
+func broadcast_reports(sender: Node2D, messages: Array[Dictionary], radius: float) -> void:
 	if not can_process() or not sender.is_alive() or not sender.local_warning.communication_enabled: return
 	# No recursive delivery: recipients only store, relay on their next decision tick.
-	for other in nearby(sender, radius):
-		if not other.is_alive(): continue
-		if other.guard_ai != null: other.guard_ai.receive_message(message, sender)
-		elif other.escort != null: other.escort.receive_message(message, sender)
+	var recipients := nearby(sender, radius)
+	for message in messages:
+		for other in recipients:
+			if not other.is_alive(): continue
+			if other.guard_ai != null: other.guard_ai.receive_message(message, sender)
+			elif other.escort != null: other.escort.receive_message(message, sender)
 
 func mobilize_civilians() -> void:
 	# Compatibility hook: equipment is only granted at physical church arrival.

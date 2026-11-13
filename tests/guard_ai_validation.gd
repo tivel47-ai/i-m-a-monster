@@ -66,6 +66,8 @@ func run() -> void:
 	await fixture()
 	await communication_tests()
 	await fixture()
+	report_backlog_tests()
+	await fixture()
 	await companion_tests()
 	await fixture()
 	await cooperation_tests()
@@ -192,6 +194,29 @@ func communication_tests() -> void:
 	civilian.actor.global_position = defense.organized.center
 	defense.organized.check_arrival(civilian.actor)
 	check(civilian.armed and defense.organized.arrived(civilian.actor), "Physical church arrival arms and joins the defense")
+
+func report_backlog_tests() -> void:
+	var sender = guards[0]
+	var relay = guards[1]
+	var recipient = guards[2]
+	var point := Vector2(1500, 980)
+	var first = report_for(8101, point)
+	first.source = sender.actor.get_instance_id()
+	var second = report_for(8101, point, 2)
+	second.source = guards[3].actor.get_instance_id()
+	check(relay.receive_message(first, sender.actor), "A nearby guard accepts the first observation")
+	check(relay.receive_message(second, guards[3].actor), "A second witness can update the danger estimate")
+	check(not relay.receive_message(first, sender.actor), "An old observation cannot re-enter through the merged incident")
+	check(relay.outbox.size() == 1 and relay.outbox[0].source == second.source, "Two pending relays about the same incident share one queue entry")
+	var help = report_for(8102, point, 3, true)
+	help.source = sender.actor.get_instance_id()
+	relay._queue_report(report_for(8103, point))
+	relay._queue_report(help)
+	relay._send_reports()
+	check(recipient.memory.incidents.has(8102) and recipient.memory.incidents.has(8101), "One decision sends urgent help and one queued observation")
+	check(relay.outbox.size() == 1 and not recipient.memory.incidents.has(8103), "Other reports wait for the next decision")
+	relay._send_reports()
+	check(relay.outbox.is_empty() and recipient.memory.incidents.has(8103), "The next decision sends the remaining report")
 
 func companion_tests() -> void:
 	physical_alarm()

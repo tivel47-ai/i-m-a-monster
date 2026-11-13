@@ -166,13 +166,14 @@ func update_patrol(delta: float) -> bool:
 	if state==State.PATROL:
 		patrol_seconds+=delta
 		patrol_elapsed+=delta
-		if _stationed()==null and not _incoming() and _can_return():
+		# Relief can only start at the route's access junction.
+		if _cursor==0 and _stationed()==null and not _incoming() and _can_return():
 			var nearest: Node=self
 			for peer in _peers():
 				if peer.state!=State.PATROL: continue
 				if peer.actor.global_position.distance_squared_to(_zone().global_position)<nearest.actor.global_position.distance_squared_to(_zone().global_position): nearest=peer
 			# Follow the remaining road circuit to its access junction before returning.
-			if nearest==self and _cursor==0 and _begin_return(): return true
+			if nearest==self and _begin_return(): return true
 	pause_remaining=maxf(pause_remaining-delta,0.0)
 	if pause_remaining>0: return true
 	if _steps.is_empty():
