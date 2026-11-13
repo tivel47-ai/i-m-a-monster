@@ -271,11 +271,15 @@ func front_rank(point: Vector2, side: int) -> float:
 	if side == 1: return local.y
 	return absf(local.x)
 
-func flank_counts() -> Array[int]:
+func flank_counts(include_in_transit: bool = false) -> Array[int]:
 	var counts: Array[int] = [0, 0, 0]
 	for id in places:
 		var behavior = controllers.get(id)
 		if behavior == null or not eligible(behavior.actor) or not arrived(behavior.actor) or central_role(behavior.actor): continue
+		if not include_in_transit and behavior.transfer_sector >= 0:
+			var position: Vector2 = behavior.actor.global_position
+			if sector(position) != behavior.transfer_sector or position.distance_to(places[id]) > spacing:
+				continue
 		counts[sector(places[id])] += 1
 	return counts
 
@@ -296,11 +300,12 @@ func update_flank_strength() -> void:
 func reinforcement_target(actor: Node2D) -> int:
 	if not arrived(actor) or central_role(actor) or not places.has(actor.get_instance_id()): return -1
 	var behavior = controller(actor)
-	if actor.is_in_collision() or behavior == null or behavior.mode in ["combat", "assist", "hold_contact"]: return -1
+	if actor.is_in_collision() or behavior == null or behavior.transfer_sector >= 0 or behavior.mode in ["combat", "assist", "hold_contact"]: return -1
 	update_flank_strength()
 	var own := sector(places[actor.get_instance_id()])
 	var target := _reinforcement_flank
 	if target < 0 or target == own: return -1
+	if flank_counts(true)[target] >= ceili(_flank_peak[target] * flank_reinforcement_goal): return -1
 	var counts := flank_counts()
 	if counts[own] <= maxi(1, ceili(_flank_peak[own] * flank_donor_floor)): return -1
 	var intact := float(counts[own]) / maxi(_flank_peak[own], 1) >= 0.8
@@ -350,7 +355,7 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 				free = false
 				break
 		if not free or not service.reachable(actor, point): continue
-		if rebalance and behavior != null and not behavior.safe_path(point): continue
+		if rebalance and reinforce < 0 and behavior != null and not behavior.safe_path(point): continue
 		var value := actor.global_position.distance_to(point)
 		if central:
 			var preferred := center
@@ -366,7 +371,9 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 			best_score = value
 	if best.is_finite():
 		places[id] = best
-		if rebalance and own >= 0 and sector(best) != own: _next_transfer = service.elapsed + 1.0
+		if rebalance and own >= 0 and sector(best) != own:
+			_next_transfer = service.elapsed + 1.0
+			if behavior != null: behavior.transfer_sector = sector(best)
 	return best
 
 func release_place(actor: Node) -> void:

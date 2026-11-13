@@ -560,7 +560,11 @@ func _physics_process(delta: float) -> void:
 		has_target = false
 		detour_remaining = 0.0
 		stalled_seconds = 0.0
-		melee_route.update(self, aggro_target, INFECTION_DISTANCE)
+		if melee_route.update(self, aggro_target, INFECTION_DISTANCE) and melee_route.path.is_empty():
+			_try_other_melee_target()
+			if aggro_target.is_encounter_owner(self):
+				navigation_agent.velocity = Vector2.ZERO
+				return
 		melee_route.move(self, navigation_agent, move_speed, delta)
 		return
 	if melee_route != null and melee_route.target != null:
@@ -854,6 +858,8 @@ func _update_priority_attack() -> void:
 		aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
 		return
 	var target := priority_targets[0]
+	if melee_route != null and is_instance_valid(aggro_target) and priority_targets.has(aggro_target):
+		target = aggro_target
 	if aggro_target != target:
 		if is_instance_valid(aggro_target): aggro_target.leave_encounter(self)
 		aggro_target = target
@@ -867,3 +873,29 @@ func _update_priority_attack() -> void:
 			_start_encounter_attack_timer()
 			return
 	if detour_remaining <= 0.0 and (not has_target or aggro_destination_origin.distance_squared_to(target.global_position) >= 64.0): _set_aggro_destination()
+
+
+func _try_other_melee_target() -> void:
+	var nearby: Array[Node2D] = []
+	var candidates := priority_targets if not priority_targets.is_empty() else aggro_candidates
+	var reach := LOCAL_MELEE_ROUTE.LOCAL_DISTANCE
+	for candidate in candidates:
+		if not is_instance_valid(candidate) or candidate == aggro_target:
+			continue
+		if global_position.distance_squared_to(candidate.global_position) > reach * reach:
+			continue
+		if not (candidate.is_available_for_infection() or candidate.can_join_encounter()) or not _has_line_of_sight(candidate):
+			continue
+		nearby.append(candidate)
+	nearby.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		return global_position.distance_squared_to(a.global_position) < global_position.distance_squared_to(b.global_position)
+	)
+	for candidate in nearby.slice(0, 3):
+		if global_position.distance_squared_to(candidate.global_position) <= INFECTION_DISTANCE * INFECTION_DISTANCE:
+			if candidate.begin_encounter(zombie_visual.color, self):
+				aggro_target = candidate
+				_start_encounter_attack_timer()
+				return
+		elif melee_route.try_target(self, candidate, INFECTION_DISTANCE):
+			aggro_target = candidate
+			return

@@ -361,7 +361,8 @@ func update_escort(delta: float) -> bool:
 					supported_enemy.engage_defender(actor)
 					return true
 				if actor._uses_local_melee_route(supported_enemy):
-					actor._advance_melee_route(supported_enemy, movement_speed, delta, last_leader_point, assistance_radius + supported_enemy.INFECTION_DISTANCE)
+					if not actor._advance_melee_route(supported_enemy, movement_speed, delta, last_leader_point, assistance_radius + supported_enemy.INFECTION_DISTANCE):
+						actor._stop_movement()
 					return true
 				var approach: Vector2 = actor.defense.combat_approach(actor, supported_enemy)
 				if approach.is_finite():

@@ -7,6 +7,7 @@ var enemies: Array[Node2D] = []
 var allies: Array[Node2D] = []
 var seen_since: Dictionary = {}
 var failed: Dictionary = {}
+var blocked_targets: Dictionary = {}
 var goal: Vector2 = Vector2.INF
 var travel_goal: Vector2 = Vector2.INF
 var target: Node2D
@@ -16,6 +17,7 @@ var next_decision: float = 0.0
 var next_plan: float = 0.0
 var next_shot: float = 0.0
 var help_sector: int = -1
+var transfer_sector: int = -1
 var help_origin: Vector2 = Vector2.INF
 var dash_until: float = 0.0
 var started: bool = false
@@ -59,7 +61,7 @@ func remember_failure(point: Vector2) -> void:
 	travel_goal = Vector2.INF
 	goal = Vector2.INF
 	next_plan = now() + formation.decision_interval
-	if mode not in ["combat", "assist", "local_rescue"]: formation.release_place(actor)
+	if transfer_sector < 0 and mode not in ["combat", "assist", "local_rescue"]: formation.release_place(actor)
 
 func sense() -> void:
 	enemies.clear()
@@ -83,6 +85,8 @@ func sense() -> void:
 		if not present.has(id): seen_since.erase(id)
 	for point in failed.keys():
 		if now() >= float(failed[point]): failed.erase(point)
+	for id in blocked_targets.keys():
+		if now() >= float(blocked_targets[id]): blocked_targets.erase(id)
 	# Witnessing an attack on a nearby ally is immediate local evidence.
 	for ally in allies:
 		if actor.global_position.distance_to(ally.global_position) > formation.intercept_distance: continue
@@ -162,6 +166,18 @@ func assistance_sector() -> int:
 	help_sector = best if best != own else -1
 	return best
 
+func combat_limit() -> float:
+	return formation.assistance_distance if transfer_sector >= 0 or help_sector >= 0 else formation.intercept_distance
+
+func can_leave_for_reinforcement(destination_sector: int) -> bool:
+	for enemy in enemies:
+		if (
+			formation.sector(enemy.global_position) != destination_sector
+			or actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance
+		):
+			return false
+	return true
+
 func target_load(enemy: Node2D) -> int:
 	var count = 0
 	for ally in allies:
@@ -178,19 +194,21 @@ func supports_companion(enemy: Node2D) -> bool:
 func choose_target(defending: bool) -> Node2D:
 	var best: Node2D
 	var value = INF
-	var chosen_sector = assistance_sector() if defending else -1
+	var chosen_sector = transfer_sector if transfer_sector >= 0 else (assistance_sector() if defending else -1)
 	for enemy in enemies:
 		var distance = actor.global_position.distance_to(enemy.global_position)
-		if failed_point(enemy.global_position): continue
+		if failed_point(enemy.global_position) or blocked_targets.has(enemy.get_instance_id()): continue
 		var firing = ranged() and distance <= actor.defense_weapon_range
+		if transfer_sector >= 0 and ranged() and not firing: continue
 		var load := target_load(enemy)
 		var supporting := supports_companion(enemy)
 		if defending:
-			var limit = formation.assistance_distance if help_sector >= 0 else formation.intercept_distance
+			var limit := combat_limit()
 			if not firing and (distance > limit or home().distance_to(enemy.global_position) > limit): continue
 			if not firing and formation.sector(enemy.global_position) != chosen_sector:
 				# A fight beside this post is local defense even across a sector edge.
-				if not supporting or home().distance_to(enemy.global_position) > formation.intercept_distance: continue
+				var support_limit: float = limit if transfer_sector >= 0 else formation.intercept_distance
+				if not supporting or home().distance_to(enemy.global_position) > support_limit: continue
 		else:
 			if distance > formation.intercept_distance or not supporting: continue
 		var depth := enemy.global_position.distance_to(formation.center)
@@ -221,7 +239,7 @@ func shoot(enemy: Node2D) -> bool:
 	return true
 
 func approach_point(enemy: Node2D) -> Vector2:
-	var limit: float = formation.assistance_distance if help_sector >= 0 else formation.intercept_distance
+	var limit := combat_limit()
 	if enemy.is_assaulting_building():
 		var approach: Vector2 = formation.service.combat_approach(actor, enemy, goal)
 		if not approach.is_finite() or failed_point(approach) or (formation.arrived(actor) and approach.distance_to(home()) > limit):
@@ -243,21 +261,23 @@ func approach_point(enemy: Node2D) -> Vector2:
 			best_score = score
 	return best
 
-func engage(enemy: Node2D, delta: float) -> void:
+func engage(enemy: Node2D, delta: float) -> bool:
 	target = enemy
 	mode = "assist" if help_sector >= 0 else "combat"
-	if shoot(enemy): return
+	if shoot(enemy): return true
 	if ranged() and formation.arrived(actor):
 		target = null
 		halt() # A moving target cannot pull a ranged defender out of its position.
-		return
+		return false
 	if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 		enemy.engage_defender(actor)
 		halt()
 	elif actor._uses_local_melee_route(enemy):
-		var limit: float = formation.assistance_distance if help_sector >= 0 else formation.intercept_distance
 		var defending: bool = formation.arrived(actor)
-		actor._advance_melee_route(enemy, movement_speed(defending), delta, home() if defending else Vector2.INF, limit)
+		if not actor._advance_melee_route(enemy, movement_speed(defending), delta, home() if defending else Vector2.INF, combat_limit()):
+			blocked_targets[enemy.get_instance_id()] = now() + formation.decision_interval * 2.0
+			target = null
+			return false
 	else:
 		var approach := goal
 		if not approach.is_finite() or approach.distance_to(enemy.global_position) > enemy.INFECTION_DISTANCE - actor.arrival_tolerance:
@@ -266,6 +286,8 @@ func engage(enemy: Node2D, delta: float) -> void:
 			failed[enemy.global_position] = now() + formation.decision_interval
 			help_sector = -1
 			target = null
+			return false
+	return true
 
 func inspect_break_in(delta: float) -> bool:
 	if actor.guard_ai == null or not enemies.is_empty():
@@ -356,9 +378,9 @@ func travel(destination: Vector2, delta: float) -> void:
 	if can_fight:
 		var nearest: Node2D
 		for enemy in enemies:
+			if blocked_targets.has(enemy.get_instance_id()) or failed_point(enemy.global_position): continue
 			if actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance and (nearest == null or actor.global_position.distance_to(enemy.global_position) < actor.global_position.distance_to(nearest.global_position)): nearest = enemy
-		if nearest != null:
-			engage(nearest, delta)
+		if nearest != null and engage(nearest, delta):
 			return
 	# Physical dash past a locally observed blockade. Failed endpoints are temporarily excluded.
 	var clearance_best = -INF
@@ -428,7 +450,7 @@ func rescue_target() -> Node2D:
 		if not formation.arrived(ally) or formation.inside(ally.global_position) or not ally.is_in_collision(): continue
 		if home().distance_to(ally.global_position) > formation.assistance_distance: continue
 		for enemy in enemies:
-			if ally.encounter_participants.has(enemy) and actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance:
+			if not blocked_targets.has(enemy.get_instance_id()) and ally.encounter_participants.has(enemy) and actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance:
 				for other in enemies:
 					if other != enemy and actor.global_position.distance_to(other.global_position) <= formation.intercept_distance: return null
 				return enemy
@@ -458,17 +480,28 @@ func update(delta: float) -> bool:
 		halt()
 		return true
 	if is_instance_valid(target) and not actor.threat_detection._is_visible_target(target): target = null
+	if transfer_sector >= 0:
+		var still_assigned: bool = formation.places.has(actor.get_instance_id()) and formation.sector(home()) == transfer_sector
+		if not still_assigned or actor.global_position.distance_to(home()) <= actor.arrival_tolerance:
+			transfer_sector = -1
+			target = null
 	var defending = formation.arrived(actor) and (formation.places.has(actor.get_instance_id()) or formation.inside(actor.global_position, formation.intercept_distance))
 	if defending and not formation.places.has(actor.get_instance_id()): formation.position_for(actor)
 	if actor.priest_routine == null:
 		if decision or not is_instance_valid(target): target = choose_target(defending)
 		if target != null:
 			# Never let a moving target drag the defender beyond its original local area.
-			var limit = formation.assistance_distance if help_sector >= 0 else formation.intercept_distance
+			var limit := combat_limit()
 			if (defending and (ranged() or target.global_position.distance_to(home()) <= limit)) or (not defending and actor.global_position.distance_to(target.global_position) <= formation.intercept_distance):
-				engage(target, delta)
-				return true
+				if engage(target, delta):
+					if transfer_sector >= 0:
+						travel_goal = Vector2.INF
+						next_plan = 0.0
+					return true
 			target = null
+	if transfer_sector >= 0:
+		travel(home(), delta)
+		return true
 	if escort_wait(delta): return true
 	if not formation.arrived(actor):
 		var escorted_goal = escort_destination()
@@ -488,22 +521,26 @@ func update(delta: float) -> bool:
 		return true
 	if defending and actor.priest_routine == null:
 		var rescue = rescue_target()
-		if rescue != null:
-			engage(rescue, delta)
+		if rescue != null and engage(rescue, delta):
 			mode = "local_rescue"
 			return true
 		if inspect_break_in(delta): return true
 	help_sector = -1
 	var point = formation.position_for(actor)
-	# A free rear defender can fill a safe gap; transfers require local calm.
+	# A free rear defender can fill a gap or reinforce a distant threatened flank.
 	if decision and now() >= next_gap_check:
 		next_gap_check = now() + formation.decision_interval
 		if point.is_finite() and actor.global_position.distance_to(point) <= actor.arrival_tolerance:
 			var previous: Vector2 = point
-			var reinforce: int = formation.reinforcement_target(actor) if enemies.is_empty() else -1
-			point = formation.position_for(actor, Vector2.INF, INF, true, enemies.is_empty(), reinforce)
+			var reinforce: int = formation.reinforcement_target(actor)
+			if reinforce >= 0 and not can_leave_for_reinforcement(reinforce):
+				reinforce = -1
+			point = formation.position_for(actor, Vector2.INF, INF, true, enemies.is_empty() or reinforce >= 0, reinforce)
 			if point != previous: next_gap_check = now() + formation.contraction_delay
 	if point.is_finite():
+		if transfer_sector >= 0:
+			travel(point, delta)
+			return true
 		mode = "return" if not formation.inside(actor.global_position) else "position"
 		if safe_path(point): move_to(point, delta)
 		else: halt()

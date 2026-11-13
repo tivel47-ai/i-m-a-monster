@@ -775,7 +775,8 @@ func update_ai(delta: float) -> bool:
 		if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 			enemy.engage_defender(actor)
 		elif actor._uses_local_melee_route(enemy):
-			actor._advance_melee_route(enemy, movement_speed(), delta, pursuit_origin, pursuit_distance)
+			if not actor._advance_melee_route(enemy, movement_speed(), delta, pursuit_origin, pursuit_distance):
+				halt()
 		else: move_to(actor.defense.combat_approach(actor, enemy, movement_goal), delta)
 		return true
 	if investigation.update(delta): return true

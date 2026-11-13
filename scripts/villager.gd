@@ -178,11 +178,14 @@ func _uses_local_melee_route(enemy: Node2D) -> bool:
 
 func _advance_melee_route(
 	enemy: Node2D, speed: float, delta: float, home := Vector2.INF, leash := INF
-) -> void:
+) -> bool:
+	melee_route.update(self, enemy, enemy.INFECTION_DISTANCE, home, leash)
+	if melee_route.path.is_empty():
+		return false
 	if has_destination:
 		_stop_movement()
-	melee_route.update(self, enemy, enemy.INFECTION_DISTANCE, home, leash)
 	melee_route.move(self, navigation_agent, speed, delta)
+	return true
 
 
 func _advance_navigation(goal: Vector2, speed: float, delta: float) -> NavigationResult:
@@ -461,7 +464,8 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 		return
 	if (
 		autonomous_movement_enabled and infection_state == InfectionState.AVAILABLE
-		and melee_route != null and melee_route.last_update == Engine.get_physics_frames()
+		and melee_route != null and not melee_route.path.is_empty()
+		and melee_route.last_update == Engine.get_physics_frames()
 	):
 		return
 	if not autonomous_movement_enabled or infection_state != InfectionState.AVAILABLE or not (has_destination or threat_reaction.has_route):

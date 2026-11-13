@@ -57,7 +57,7 @@ func applies(actor: Node2D, enemy: Node2D, melee_distance: float) -> bool:
 func update(
 	actor: CharacterBody2D, enemy: Node2D, melee_distance: float,
 	home := Vector2.INF, leash := INF
-) -> void:
+) -> bool:
 	var frame := Engine.get_physics_frames()
 	var origin := actor.global_position
 	var space := actor.get_world_2d().direct_space_state
@@ -81,6 +81,17 @@ func update(
 			path = _find_path(actor, enemy.global_position, melee_distance, home, leash)
 		last_position = origin
 		next_check = frame + RETRY_FRAMES + actor.get_instance_id() % 5
+		return true
+	return false
+
+
+func try_target(actor: CharacterBody2D, enemy: Node2D, reach: float, home := Vector2.INF, leash := INF) -> bool:
+	var alternative := _find_path(actor, enemy.global_position, reach, home, leash)
+	if alternative.is_empty():
+		return false
+	target = enemy
+	path = alternative
+	return true
 
 
 func _configure_query(actor: CharacterBody2D) -> void:
