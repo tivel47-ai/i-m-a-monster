@@ -61,7 +61,7 @@ func check_assignments_and_destinations() -> void:
 			activities[zone.activity] = true
 			used[zone.zone_id] = true
 			if zone.activity == actor.Activity.HOME:
-				var expected := "Home%02d" % (index%12+1) if index<24 else ("HomeGuardPost" if index<29 else "HomeChapel")
+				var expected := "Home%02d" % int(actor.get_meta("residential_home", 0)) if role == "peasant" else ("HomeGuardPost" if role == "guard" else "HomeChapel")
 				correct = correct and str(zone.zone_id) == expected
 			if zone.activity == actor.Activity.WORK:
 				correct = correct and (str(zone.zone_id) == "Work"+str(actor.get_meta("work_site")) or (role == "artisan" and zone.zone_id == &"WorkWell") or str(zone.zone_id).begins_with("WorkGarden") or (role == "guard" and zone.zone_id == &"WorkGuardRoad") or (role == "priest" and zone.zone_id == &"WorkCemetery"))
@@ -92,7 +92,10 @@ func check_assignments_and_destinations() -> void:
 	for actor in map.villagers:
 		for zone in zone_list(actor):
 			if zone.activity == 2: social_users[zone.zone_id] = int(social_users.get(zone.zone_id,0)) + 1
-	check(social_users.size()==9 and int(social_users.get(&"SocialSquare",0))==30, "Public gathering areas are shared by multiple actual residents")
+	var direct_square_users := 0
+	for actor in map.villagers:
+		if actor.priest_guard == null: direct_square_users += 1
+	check(social_users.size()==9 and int(social_users.get(&"SocialSquare",0))==direct_square_users, "Public gathering areas are shared by civilians and ordinary guards")
 
 
 func check_preferences() -> void:
@@ -183,8 +186,9 @@ func observe_village(seconds: int) -> void:
 			remaining.append(actor.wait_remaining)
 			previous_zones.append(actor.current_zone)
 		await frames(1)
-		for index in range(30):
+		for index in range(map.villagers.size()):
 			var actor = map.villagers[index]
+			if actor.priest_guard != null: continue
 			var distance: float = actor.position.distance_to(before[index])
 			travel[index] += distance
 			if actor.guard_patrol!=null:
@@ -220,16 +224,18 @@ func observe_village(seconds: int) -> void:
 			var walkers := 0
 			for distance in local_travel:
 				if distance>5: walkers+=1
-			print("INITIAL 180 SECOND WINDOW actual local walkers=",walkers," / 25 civilians (5 guards use patrol routes)")
+			print("INITIAL 180 SECOND WINDOW actual local walkers=",walkers," / 32 civilians (10 guards use patrol routes)")
 		if tick+1 >= seconds*60 and tick%60 == 59:
 			var all_transitioned := true
-			for index in range(30):
+			for index in range(map.villagers.size()):
+				if map.villagers[index].priest_guard != null: continue
 				if map.villagers[index].guard_patrol!=null:
 					all_transitioned=all_transitioned and map.villagers[index].guard_patrol.waypoints_reached>10 and travel[index]>60
 					continue
 				all_transitioned = all_transitioned and local_travel[index]>5 and arrivals[index]>=2 and completed[index]>=1 and visited[index].size()>=2
 			if all_transitioned: break
-	for index in range(30):
+	for index in range(map.villagers.size()):
+		if map.villagers[index].priest_guard != null: continue
 		if map.villagers[index].guard_patrol!=null:
 			check(travel[index]>60 and map.villagers[index].guard_patrol.waypoints_reached>10,
 				"Guard physically follows road patrol instead of civilian zone cycles: "+str(map.villagers[index].name))
@@ -237,7 +243,7 @@ func observe_village(seconds: int) -> void:
 		print("ZONE OBSERVATION ",map.villagers[index].name," travel=",snappedf(travel[index],0.1)," local=",snappedf(local_travel[index],0.1)," arrivals=",arrivals[index]," completed=",completed[index]," local routes=",local_routes[index]," zones=",visited[index].size())
 		check(travel[index]>60 and local_travel[index]>5 and arrivals[index]>=2 and completed[index]>=1 and visited[index].size()>=2,
 			"Real zone entry, local walking, completed activity and subsequent territory reached: "+str(map.villagers[index].name))
-	check(safe and contained and clocks and distinct,"All thirty preserve physical safety, zone boundaries, activity clocks and distinct assigned destinations")
+	check(safe and contained and clocks and distinct,"Civilian and guard routines preserve physical safety, zone boundaries, activity clocks and distinct assigned destinations")
 	print("VILLAGE ZONE SIMULATION seconds=",observed_seconds," peak neighbours within 40=",peak_neighbours)
 
 

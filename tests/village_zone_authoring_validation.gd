@@ -162,7 +162,7 @@ func run() -> void:
 	check(geography(rebuilt)==original_geometry,"Rebuilding preserves all authored visual/collision/navigation geography")
 	var actual := preferences(rebuilt)
 	if actual!=expected_preferences: preference_diff(expected_preferences,actual,"")
-	check(actual==expected_preferences,"All 30 resident exports/colors/component settings, explicit assignments, edited zone polygons and alert preferences survive rebuilding")
+	check(actual==expected_preferences,"Resident exports/colors/component settings, explicit assignments, edited zone polygons and alert preferences survive rebuilding")
 	check(not rebuilt.has_node("ResidentRoutes") and rebuilt.get_node("ActivityZones").get_child_count()==59,"Rebuild retains zones instead of restoring 150 obsolete personal markers")
 	dispose(rebuilt)
 	check(rebuild(REBUILT,REPEATED,"stage3_authoring_build2.log")==0,"Second reconstruction succeeds with the same saved assignments")

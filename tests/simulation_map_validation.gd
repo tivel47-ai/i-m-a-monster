@@ -53,13 +53,13 @@ func run() -> void:
 	await frames(5)
 	nav = map.get_world_2d().navigation_map
 	check(map.get_meta("map_size")==Vector2(3000,2000) and map.get_node("Camera2D").map_bounds==Rect2(0,0,3000,2000),"World and camera bounds are 3000 x 2000")
-	check(map.total_residents==32 and units.size()==3 and map.mission_state==map.MissionState.ACTIVE,"Thirty-two counted residents and three playable zombies initialize")
+	check(map.total_residents==44 and units.size()==3 and map.mission_state==map.MissionState.ACTIVE,"Forty-four counted residents and three playable zombies initialize")
 	var roles := {"peasant":0,"artisan":0,"guard":0,"priest":0,"priest_guard":0}
 	var valid_configuration := true
 	for resident in map.villagers:
 		roles[resident.get_meta("village_role")] += 1
 		valid_configuration = valid_configuration and resident.get_node_or_null(resident.home_point_path) is Marker2D and resident.get_node_or_null(resident.points_of_interest_path)!=null and not resident.activity_zone_paths.is_empty() and not resident.marker_activity_fallback_enabled
-	check(roles=={"peasant":19,"artisan":5,"guard":5,"priest":1,"priest_guard":2},"Role allocation is 19 / 5 / 5 / 1 / 2 with dedicated priest protectors")
+	check(roles=={"peasant":26,"artisan":5,"guard":10,"priest":1,"priest_guard":2},"Role allocation is 26 / 5 / 10 / 1 / 2 with dedicated priest protectors")
 	check(valid_configuration,"Every NPC has zone assignments and preserved functional shelter references")
 	var types := {"small":0,"large":0,"square":0,"L":0,"farmhouse":0}
 	for house in get_nodes_in_group("simulation_houses"):
@@ -205,14 +205,14 @@ func run() -> void:
 			stationed_guards+=1
 		else:
 			print("Inactive guard: ",resident.name," state=",resident.guard_patrol.state," distance=",travelled[i])
-	check(moving_civilians==25 and moving_guards>=4 and moving_guards+stationed_guards==5,"All 25 civilians and at least four guards actually travel in 60 seconds; remaining guard must be on post duty: civilians=%s patrol=%s stationed=%s"%[moving_civilians,moving_guards,stationed_guards])
+	check(moving_civilians==32 and moving_guards>=9 and moving_guards+stationed_guards==10,"All 32 civilians and at least nine guards actually travel in 60 seconds; remaining guard must be on post duty: civilians=%s patrol=%s stationed=%s"%[moving_civilians,moving_guards,stationed_guards])
 	check(arrivals.size()>15 and no_wall_crossing,"Peaceful activity arrivals and no static-obstacle overlap; arrivals="+str(arrivals.size()))
 	# Existing mission threshold and idempotent counts on larger population.
-	for i in range(25): map._on_resident_died(map.villagers[i])
-	check(map.mission_state==map.MissionState.ACTIVE,"25 of 32 does not complete 80 percent objective")
-	map._on_resident_died(map.villagers[25])
-	map._on_resident_died(map.villagers[25])
-	check(map.killed_residents==26 and map.mission_state==map.MissionState.WON,"26 of 32 completes objective with duplicate protection")
+	for i in range(35): map._on_resident_died(map.villagers[i])
+	check(map.mission_state==map.MissionState.ACTIVE,"35 of 44 does not complete 80 percent objective")
+	map._on_resident_died(map.villagers[35])
+	map._on_resident_died(map.villagers[35])
+	check(map.killed_residents==36 and map.mission_state==map.MissionState.WON,"36 of 44 completes objective with duplicate protection")
 	map.queue_free()
 	await frames(3)
 	var original: Node2D = load("res://scenes/test_map.tscn").instantiate()

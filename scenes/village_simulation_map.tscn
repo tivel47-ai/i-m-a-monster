@@ -5801,6 +5801,260 @@ attack_damage = 20.0
 [node name="PriestGuard" parent="Villagers/PriestGuard2" index="9"]
 slot = 1
 
+[node name="Peasant20" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(740, 440)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+civilian_profile = "Peasant"
+home_point_path = NodePath("../../VillagePointsOfInterest/Home1")
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/Home01"), NodePath("../../ActivityZones/WorkGarden0"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkNorthwest"), NodePath("../../ActivityZones/WalkCenter")])
+marker_activity_fallback_enabled = false
+preferred_district = &"northwest"
+nearby_zone_distance = 650.0
+metadata/village_role = "peasant"
+metadata/residential_home = 1
+metadata/work_site = "Garden0"
+metadata/activity_district = "northwest"
+
+[node name="Polygon2D" parent="Villagers/Peasant20" index="0" unique_id=1358113620]
+color = Color(0.7176471, 0.6784314, 0.5294118, 1)
+
+[node name="Peasant21" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(1170, 565)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+civilian_profile = "Peasant"
+home_point_path = NodePath("../../VillagePointsOfInterest/Home5")
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/Home05"), NodePath("../../ActivityZones/WorkGarden3"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkChurch"), NodePath("../../ActivityZones/WalkCenter")])
+marker_activity_fallback_enabled = false
+preferred_district = &"northwest"
+nearby_zone_distance = 650.0
+metadata/village_role = "peasant"
+metadata/residential_home = 5
+metadata/work_site = "Garden3"
+metadata/activity_district = "northwest"
+
+[node name="Polygon2D" parent="Villagers/Peasant21" index="0" unique_id=1358113620]
+color = Color(0.7176471, 0.6784314, 0.5294118, 1)
+
+[node name="Peasant22" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(2260, 575)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+civilian_profile = "Peasant"
+home_point_path = NodePath("../../VillagePointsOfInterest/Home6")
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/Home06"), NodePath("../../ActivityZones/WorkWell"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkCenter"), NodePath("../../ActivityZones/WalkArtisan")])
+marker_activity_fallback_enabled = false
+preferred_district = &"center"
+nearby_zone_distance = 650.0
+metadata/village_role = "peasant"
+metadata/residential_home = 6
+metadata/work_site = "Well"
+metadata/activity_district = "center"
+
+[node name="Polygon2D" parent="Villagers/Peasant22" index="0" unique_id=1358113620]
+color = Color(0.7176471, 0.6784314, 0.5294118, 1)
+
+[node name="Peasant23" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(550, 1120)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+civilian_profile = "Peasant"
+home_point_path = NodePath("../../VillagePointsOfInterest/Home8")
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/Home08"), NodePath("../../ActivityZones/WorkGarden7"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkFarm"), NodePath("../../ActivityZones/WalkCenter")])
+marker_activity_fallback_enabled = false
+preferred_district = &"farm"
+nearby_zone_distance = 650.0
+metadata/village_role = "peasant"
+metadata/residential_home = 8
+metadata/work_site = "Garden7"
+metadata/activity_district = "farm"
+
+[node name="Polygon2D" parent="Villagers/Peasant23" index="0" unique_id=1358113620]
+color = Color(0.7176471, 0.6784314, 0.5294118, 1)
+
+[node name="Peasant24" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(665, 1475)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+civilian_profile = "Peasant"
+home_point_path = NodePath("../../VillagePointsOfInterest/Home2")
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/Home02"), NodePath("../../ActivityZones/WorkFarmLane"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkFarm"), NodePath("../../ActivityZones/WalkCenter")])
+marker_activity_fallback_enabled = false
+preferred_district = &"farm"
+nearby_zone_distance = 650.0
+metadata/village_role = "peasant"
+metadata/residential_home = 2
+metadata/work_site = "FarmLane"
+metadata/activity_district = "farm"
+
+[node name="Polygon2D" parent="Villagers/Peasant24" index="0" unique_id=1358113620]
+color = Color(0.7176471, 0.6784314, 0.5294118, 1)
+
+[node name="Peasant25" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(1550, 1550)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+civilian_profile = "Peasant"
+home_point_path = NodePath("../../VillagePointsOfInterest/Home7")
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/Home07"), NodePath("../../ActivityZones/WorkSouthRoad"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkSouth"), NodePath("../../ActivityZones/WalkCenter")])
+marker_activity_fallback_enabled = false
+preferred_district = &"south"
+nearby_zone_distance = 650.0
+metadata/village_role = "peasant"
+metadata/residential_home = 7
+metadata/work_site = "SouthRoad"
+metadata/activity_district = "south"
+
+[node name="Polygon2D" parent="Villagers/Peasant25" index="0" unique_id=1358113620]
+color = Color(0.7176471, 0.6784314, 0.5294118, 1)
+
+[node name="Peasant26" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(2495, 1015)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+civilian_profile = "Peasant"
+home_point_path = NodePath("../../VillagePointsOfInterest/Home9")
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/Home09"), NodePath("../../ActivityZones/WorkSquare"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkArtisan"), NodePath("../../ActivityZones/WalkCenter")])
+marker_activity_fallback_enabled = false
+preferred_district = &"artisan"
+nearby_zone_distance = 650.0
+metadata/village_role = "peasant"
+metadata/residential_home = 9
+metadata/work_site = "Square"
+metadata/activity_district = "artisan"
+
+[node name="Polygon2D" parent="Villagers/Peasant26" index="0" unique_id=1358113620]
+color = Color(0.7176471, 0.6784314, 0.5294118, 1)
+
+[node name="Guard31" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(400, 665)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
+home_weight = 15.0
+work_weight = 65.0
+social_weight = 15.0
+wander_weight = 5.0
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/HomeGuardPost"), NodePath("../../ActivityZones/WorkGuardYard"), NodePath("../../ActivityZones/WorkGuardRoad"), NodePath("../../ActivityZones/SocialNorthwest"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialWell"), NodePath("../../ActivityZones/SocialFarm"), NodePath("../../ActivityZones/SocialArtisan"), NodePath("../../ActivityZones/SocialSouth"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialGuard"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkGuard"), NodePath("../../ActivityZones/WalkArtisan")])
+marker_activity_fallback_enabled = false
+preferred_district = &"guard"
+nearby_zone_distance = 650.0
+metadata/village_role = "guard"
+metadata/residential_home = 6
+metadata/work_site = "GuardYard"
+metadata/activity_district = "guard"
+
+[node name="Polygon2D" parent="Villagers/Guard31" index="0" unique_id=1358113620]
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
+
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard31"]
+script = ExtResource("10_nkg87")
+route_path = NodePath("../../../GuardPatrolRoutes/WestCircuit")
+post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
+post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
+post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
+
+[node name="Guard32" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(565, 1720)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
+home_weight = 15.0
+work_weight = 65.0
+social_weight = 15.0
+wander_weight = 5.0
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/HomeGuardPost"), NodePath("../../ActivityZones/WorkGuardYard"), NodePath("../../ActivityZones/WorkGuardRoad"), NodePath("../../ActivityZones/SocialNorthwest"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialWell"), NodePath("../../ActivityZones/SocialFarm"), NodePath("../../ActivityZones/SocialArtisan"), NodePath("../../ActivityZones/SocialSouth"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialGuard"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkGuard"), NodePath("../../ActivityZones/WalkArtisan")])
+marker_activity_fallback_enabled = false
+preferred_district = &"guard"
+nearby_zone_distance = 650.0
+metadata/village_role = "guard"
+metadata/residential_home = 7
+metadata/work_site = "GuardYard"
+metadata/activity_district = "guard"
+
+[node name="Polygon2D" parent="Villagers/Guard32" index="0" unique_id=1358113620]
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
+
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard32"]
+script = ExtResource("10_nkg87")
+route_path = NodePath("../../../GuardPatrolRoutes/FarmCircuit")
+post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
+post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
+post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
+
+[node name="Guard33" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(2830, 1180)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
+home_weight = 15.0
+work_weight = 65.0
+social_weight = 15.0
+wander_weight = 5.0
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/HomeGuardPost"), NodePath("../../ActivityZones/WorkGuardYard"), NodePath("../../ActivityZones/WorkGuardRoad"), NodePath("../../ActivityZones/SocialNorthwest"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialWell"), NodePath("../../ActivityZones/SocialFarm"), NodePath("../../ActivityZones/SocialArtisan"), NodePath("../../ActivityZones/SocialSouth"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialGuard"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkGuard"), NodePath("../../ActivityZones/WalkArtisan")])
+marker_activity_fallback_enabled = false
+preferred_district = &"guard"
+nearby_zone_distance = 650.0
+metadata/village_role = "guard"
+metadata/residential_home = 8
+metadata/work_site = "GuardYard"
+metadata/activity_district = "guard"
+
+[node name="Polygon2D" parent="Villagers/Guard33" index="0" unique_id=1358113620]
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
+
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard33"]
+script = ExtResource("10_nkg87")
+route_path = NodePath("../../../GuardPatrolRoutes/BridgeCircuit")
+post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
+post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
+post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
+
+[node name="Guard34" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(2080, 480)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
+home_weight = 15.0
+work_weight = 65.0
+social_weight = 15.0
+wander_weight = 5.0
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/HomeGuardPost"), NodePath("../../ActivityZones/WorkGuardYard"), NodePath("../../ActivityZones/WorkGuardRoad"), NodePath("../../ActivityZones/SocialNorthwest"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialWell"), NodePath("../../ActivityZones/SocialFarm"), NodePath("../../ActivityZones/SocialArtisan"), NodePath("../../ActivityZones/SocialSouth"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialGuard"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkGuard"), NodePath("../../ActivityZones/WalkArtisan")])
+marker_activity_fallback_enabled = false
+preferred_district = &"guard"
+nearby_zone_distance = 650.0
+metadata/village_role = "guard"
+metadata/residential_home = 9
+metadata/work_site = "GuardYard"
+metadata/activity_district = "guard"
+
+[node name="Polygon2D" parent="Villagers/Guard34" index="0" unique_id=1358113620]
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
+
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard34"]
+script = ExtResource("10_nkg87")
+route_path = NodePath("../../../GuardPatrolRoutes/NorthCircuit")
+post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
+post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
+post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
+
+[node name="Guard35" parent="Villagers" instance=ExtResource("9_vjkkk")]
+position = Vector2(1760, 1753)
+points_of_interest_path = NodePath("../../VillagePointsOfInterest")
+home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
+home_weight = 15.0
+work_weight = 65.0
+social_weight = 15.0
+wander_weight = 5.0
+activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/HomeGuardPost"), NodePath("../../ActivityZones/WorkGuardYard"), NodePath("../../ActivityZones/WorkGuardRoad"), NodePath("../../ActivityZones/SocialNorthwest"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialWell"), NodePath("../../ActivityZones/SocialFarm"), NodePath("../../ActivityZones/SocialArtisan"), NodePath("../../ActivityZones/SocialSouth"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialGuard"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkGuard"), NodePath("../../ActivityZones/WalkArtisan")])
+marker_activity_fallback_enabled = false
+preferred_district = &"guard"
+nearby_zone_distance = 650.0
+metadata/village_role = "guard"
+metadata/residential_home = 10
+metadata/work_site = "GuardYard"
+metadata/activity_district = "guard"
+
+[node name="Polygon2D" parent="Villagers/Guard35" index="0" unique_id=1358113620]
+color = Color(0.2901961, 0.6431373, 0.77254903, 1)
+
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard35"]
+script = ExtResource("10_nkg87")
+route_path = NodePath("../../../GuardPatrolRoutes/SouthEastCircuit")
+post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
+post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
+post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
+
 [node name="Zombies" type="Node2D" parent="." unique_id=326596473]
 
 [node name="Zombie1" parent="Zombies" unique_id=1210245640 instance=ExtResource("11_ugq7x")]
@@ -5846,3 +6100,15 @@ position = Vector2(170, 990)
 [editable path="Villagers/Priest30"]
 [editable path="Villagers/PriestGuard1"]
 [editable path="Villagers/PriestGuard2"]
+[editable path="Villagers/Peasant20"]
+[editable path="Villagers/Peasant21"]
+[editable path="Villagers/Peasant22"]
+[editable path="Villagers/Peasant23"]
+[editable path="Villagers/Peasant24"]
+[editable path="Villagers/Peasant25"]
+[editable path="Villagers/Peasant26"]
+[editable path="Villagers/Guard31"]
+[editable path="Villagers/Guard32"]
+[editable path="Villagers/Guard33"]
+[editable path="Villagers/Guard34"]
+[editable path="Villagers/Guard35"]

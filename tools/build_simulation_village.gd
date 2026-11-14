@@ -34,6 +34,7 @@ var npc_preferences: Dictionary = {}
 var zones: Dictionary = {}
 var zone_preferences: Dictionary = {}
 var alert_preferences: Dictionary = {}
+var defense_preferences: Dictionary = {}
 var zone_root: Node2D
 var patrol_root: Node2D
 var patrol_preferences: Dictionary = {}
@@ -418,6 +419,11 @@ func build() -> void:
 	var alert: Node = load("res://scenes/village_alert.tscn").instantiate()
 	attach(village, alert, "VillageAlert")
 	for key in alert_preferences: alert.set(key, alert_preferences[key])
+	var defense := preload("res://scripts/village_defense.gd").new()
+	attach(village, defense, "VillageDefense")
+	defense.bell_reach = 50.0
+	defense.bell_path = NodePath("../NavigationRegion2D/Buildings/Public/AlarmBell")
+	for key in defense_preferences: defense.set(key, defense_preferences[key])
 	var camera := source.get_node("Camera2D").duplicate() as Camera2D
 	attach(village,camera,"Camera2D")
 	camera.position = Vector2(650,1000)
@@ -506,6 +512,8 @@ func read_npc_preferences() -> void:
 				for key in ["points","position","rotation","scale"]: values[key]=route.get(key)
 			patrol_preferences[str(route.name)]=values
 	alert_preferences = exported_values(previous.get_node("VillageAlert"))
+	var previous_defense := previous.get_node_or_null("VillageDefense")
+	if previous_defense != null: defense_preferences = exported_values(previous_defense)
 	previous.placement.free()
 	previous.free()
 
@@ -711,19 +719,51 @@ func populate() -> void:
 	var peasant_districts := ["northwest","northwest","northwest","farm","northwest","center","south","farm","artisan","northwest","south","farm","farm","farm","farm","farm","farm","center","center"]
 	var home_districts := ["northwest","northwest","northwest","center","northwest","center","south","farm","artisan","northwest","south","farm"]
 	var artisan_jobs := ["SmithYard","Carpenter","Weaver","Storage","SmithYard"]
-	for i in range(30):
+	var extra_peasants := [
+		[Vector2(740, 440), 1, "Garden0", "northwest", "WalkNorthwest"],
+		[Vector2(1170, 565), 5, "Garden3", "northwest", "WalkChurch"],
+		[Vector2(2260, 575), 6, "Well", "center", "WalkArtisan"],
+		[Vector2(550, 1120), 8, "Garden7", "farm", "WalkFarm"],
+		[Vector2(665, 1475), 2, "FarmLane", "farm", "WalkFarm"],
+		[Vector2(1550, 1550), 7, "SouthRoad", "south", "WalkSouth"],
+		[Vector2(2495, 1015), 9, "Square", "artisan", "WalkArtisan"],
+	]
+	var extra_guard_positions := [
+		Vector2(400, 665), Vector2(565, 1720), Vector2(2830, 1180),
+		Vector2(2080, 480), Vector2(1760, 1753),
+	]
+	var patrol_routes := ["WestCircuit", "FarmCircuit", "BridgeCircuit", "NorthCircuit", "SouthEastCircuit"]
+	for i in range(spawn_points.size() + extra_peasants.size() + extra_guard_positions.size()):
 		var npc := load("res://scenes/villager.tscn").instantiate(PackedScene.GEN_EDIT_STATE_INSTANCE) as CharacterBody2D
+		var extra := i - spawn_points.size()
+		var new_peasant := extra >= 0 and extra < extra_peasants.size()
+		var new_guard := extra >= extra_peasants.size()
 		var role := "peasant" if i<19 else ("artisan" if i<24 else ("guard" if i<29 else "priest"))
-		attach(residents,npc,role.capitalize()+str(i+1))
+		var number := i + 1
+		if new_peasant:
+			role = "peasant"
+			number = 20 + extra
+		elif new_guard:
+			role = "guard"
+			number = 31 + extra - extra_peasants.size()
+		attach(residents,npc,role.capitalize()+str(number))
 		village.set_editable_instance(npc,true)
-		npc.position = spawn_points[i]
+		var home_number := i % 12 + 1
+		if new_peasant:
+			npc.position = extra_peasants[extra][0]
+			home_number = extra_peasants[extra][1]
+		elif new_guard:
+			npc.position = extra_guard_positions[number - 31]
+			home_number = number - 25
+		else:
+			npc.position = spawn_points[i]
 		npc.set_meta("village_role",role)
 		var job: String
 		var district: String
-		if i<19:
+		if role == "peasant":
 			npc.civilian_profile = "Peasant"
-			job = peasant_jobs[i]
-			district = peasant_districts[i]
+			job = extra_peasants[extra][2] if new_peasant else peasant_jobs[i]
+			district = extra_peasants[extra][3] if new_peasant else peasant_districts[i]
 		elif i<24:
 			npc.civilian_profile = "Craftsman"
 			job = artisan_jobs[i-19]
@@ -735,14 +775,14 @@ func populate() -> void:
 		else:
 			# Shared civilian threat/combat profiles; peaceful role components are added below.
 			npc.civilian_profile = "Villager"
-			job = "GuardYard" if i<29 else "Church"
-			district = "guard" if i<29 else "church"
+			job = "GuardYard" if role == "guard" else "Church"
+			district = role if role == "guard" else "church"
 			npc.home_weight = 15
 			npc.work_weight = 65
 			npc.social_weight = 15
 			npc.wander_weight = 5
 		var assigned: Array[NodePath] = []
-		var home_title := "Home%02d" % (i%12+1) if i<24 else ("HomeGuardPost" if i<29 else "HomeChapel")
+		var home_title := "Home%02d" % home_number if role in ["peasant", "artisan"] else ("HomeGuardPost" if role == "guard" else "HomeChapel")
 		var work_title := "Work"+job
 		if role != "artisan": assigned.append(npc.get_path_to(zones[home_title]))
 		assigned.append(npc.get_path_to(zones[work_title]))
@@ -750,25 +790,26 @@ func populate() -> void:
 		if i in [0,3,7]:
 			var garden_path := npc.get_path_to(zones["WorkGarden"+str(i)])
 			if not assigned.has(garden_path): assigned.append(garden_path)
-		if i>=24: assigned.append(npc.get_path_to(zones["WorkGuardRoad" if i<29 else "WorkCemetery"]))
+		if role in ["guard", "priest"]: assigned.append(npc.get_path_to(zones["WorkGuardRoad" if role == "guard" else "WorkCemetery"]))
 		if role in ["peasant", "artisan"]:
 			for title in ["SocialSquare", "SocialChurch", "SocialTavern"]: assigned.append(npc.get_path_to(zones[title]))
 		else:
 			for title in zones:
 				var zone: ActivityZone2D = zones[title]
 				if zone.activity == 2 and zone.allows_resident(npc): assigned.append(npc.get_path_to(zone))
-		var walking := ["Walk"+home_districts[i%12].capitalize(), "Walk"+district.capitalize(), "WalkCenter"] if i<24 else (["WalkGuard","WalkArtisan"] if i<29 else ["WalkChurch","WalkCemetery"])
+		var walking := ["Walk"+home_districts[home_number-1].capitalize(), "Walk"+district.capitalize(), "WalkCenter"] if role in ["peasant", "artisan"] else (["WalkGuard","WalkArtisan"] if role == "guard" else ["WalkChurch","WalkCemetery"])
+		if new_peasant: walking = [extra_peasants[extra][4], "WalkCenter"]
 		for title in walking:
 			var path := npc.get_path_to(zones[title])
 			if not assigned.has(path): assigned.append(path)
 		npc.activity_zone_paths = assigned
 		npc.marker_activity_fallback_enabled = false
-		npc.preferred_district = StringName(home_districts[i%12] if role == "peasant" else district)
+		npc.preferred_district = StringName(home_districts[home_number-1] if role == "peasant" and not new_peasant else district)
 		npc.nearby_zone_distance = 650.0
 		npc.points_of_interest_path = NodePath("../../VillagePointsOfInterest")
-		npc.home_point_path = NodePath("../../VillagePointsOfInterest/" + ("Home"+str(i%12+1) if i<24 else ("GuardYard" if i<29 else "Church")))
+		npc.home_point_path = NodePath("../../VillagePointsOfInterest/" + ("Home"+str(home_number) if role in ["peasant", "artisan"] else ("GuardYard" if role == "guard" else "Church")))
 		npc.work_point_path = NodePath("../../VillagePointsOfInterest/" + job) if role == "artisan" else NodePath()
-		npc.set_meta("residential_home", i%12+1)
+		npc.set_meta("residential_home", home_number)
 		npc.set_meta("work_site", job)
 		npc.set_meta("activity_district",district)
 		npc.get_node("Polygon2D").color = {"peasant":Color("b7ad87"),"artisan":Color("a68764"),"guard":Color("879ca0"),"priest":Color("c4bcac")}[role]
@@ -777,7 +818,7 @@ func populate() -> void:
 		if role=="guard":
 			var patrol: Node=load("res://scripts/guard_patrol.gd").new()
 			attach(npc,patrol,"GuardPatrol")
-			var route_name: String=["WestCircuit","FarmCircuit","BridgeCircuit","NorthCircuit","SouthEastCircuit"][i-24]
+			var route_name: String = patrol_routes[number - 31 if new_guard else i - 24]
 			patrol.route_path=patrol.get_path_to(patrol_root.get_node(route_name))
 			patrol.post_access_path=patrol.get_path_to(patrol_root.get_node("PostAccess"))
 			patrol.post_zone_path=patrol.get_path_to(zones["HomeGuardPost"])
@@ -803,7 +844,9 @@ func populate() -> void:
 			for component in preferences.components:
 				for property_name in preferences.components[component]: npc.get_node(component).set(property_name, preferences.components[component][property_name])
 	load("res://tools/priest_guard_setup.gd").install(village)
-	for title in ["PriestGuard1","PriestGuard2"]:
+	for index in range(2):
+		var title := "PriestGuard%d" % (index + 1)
+		residents.move_child(residents.get_node(title), spawn_points.size() + index)
 		if not npc_preferences.has(title): continue
 		var npc = residents.get_node(title)
 		var preferences: Dictionary = npc_preferences[title]

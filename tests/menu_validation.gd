@@ -208,18 +208,18 @@ func run() -> void:
 	click("Зомби")
 	click("Начать миссию")
 	await frames(5)
-	check(app.mission.total_residents == 32 and get_nodes_in_group("player_units").size() == 3, "Mission 1 launches through the shared menu loader")
+	check(app.mission.total_residents == 44 and get_nodes_in_group("player_units").size() == 3, "Mission 1 launches through the shared menu loader")
 	esc()
 	var new_positions := []
 	for resident in app.mission.villagers: new_positions.append(resident.position)
 	await frames(10)
 	var new_frozen := true
-	for i in range(32): new_frozen = new_frozen and app.mission.villagers[i].position == new_positions[i]
-	check(paused and new_frozen, "Mission 1 pauses all thirty-two residents through existing menu")
+	for i in range(app.mission.villagers.size()): new_frozen = new_frozen and app.mission.villagers[i].position == new_positions[i]
+	check(paused and new_frozen, "Mission 1 pauses all residents through existing menu")
 	esc()
-	for i in range(26): app.mission._on_resident_died(app.mission.villagers[i])
+	for i in range(36): app.mission._on_resident_died(app.mission.villagers[i])
 	await frames()
-	check(app.screen == app.Screen.RESULTS and "Миссия №1" in app.result_text.text and "Жителей: 32" in app.result_text.text and "Убито: 26" in app.result_text.text, "Mission 1 uses the existing 80 percent objective and results")
+	check(app.screen == app.Screen.RESULTS and "Миссия №1" in app.result_text.text and "Жителей: 44" in app.result_text.text and "Убито: 36" in app.result_text.text, "Mission 1 uses the existing 80 percent objective and results")
 	click("К выбору миссии")
 	await frames()
 	check(app.mission == null and get_nodes_in_group("player_units").is_empty(), "New map cleans up fully for mission switching and restart")

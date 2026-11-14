@@ -16,7 +16,7 @@ func run() -> void:
 		if actor.autonomous_movement_enabled: guards.append(actor)
 	await frames(5)
 	nav=map.get_world_2d().navigation_map
-	check(guards.size()==5,"Five real guards use optional patrol components; civilian simulation stays separate")
+	check(guards.size()==10,"Ten real guards use optional patrol components; civilian simulation stays separate")
 	var route_names: Dictionary={}
 	for actor in guards:
 		var patrol: Node=actor.guard_patrol
@@ -30,7 +30,7 @@ func run() -> void:
 		for index in range(1,line.size()):
 			var path:=path_to(line[index-1],line[index])
 			valid_routes=valid_routes and not path.is_empty() and path[-1].distance_to(line[index])<=1 and clear_path(path)
-	check(valid_routes and route_names.size()==3,"Three distinct road circuits and shared post approach are navigable with real body clearance")
+	check(valid_routes and route_names.size()==5,"Five distinct road circuits and shared post approach are navigable with real body clearance")
 	var roads: Array[Polygon2D]=[]
 	for node in map.get_node("Roads").get_children():
 		if node is Polygon2D and (node.has_meta("centerline") or node.name==&"Square"): roads.append(node)
@@ -38,9 +38,12 @@ func run() -> void:
 	var on_road:=0
 	var post_peak:=0
 	var empty_post_frames:=0
-	var in_patrol: Array[float]=[0,0,0,0,0]
-	var stationed: Array[float]=[0,0,0,0,0]
-	var distance: Array[float]=[0,0,0,0,0]
+	var in_patrol: Array[float] = []
+	var stationed: Array[float] = []
+	var distance: Array[float] = []
+	for samples in [in_patrol, stationed, distance]:
+		samples.resize(guards.size())
+		samples.fill(0.0)
 	var safe:=true
 	var claims_safe:=true
 	for tick in range(54000): # 900 simulated seconds, several full patrol rotations.
@@ -49,7 +52,7 @@ func run() -> void:
 		await frames(1)
 		var near:=0
 		var claims:=0
-		for index in range(5):
+		for index in range(guards.size()):
 			var actor=guards[index]
 			var patrol=actor.guard_patrol
 			distance[index]+=actor.position.distance_to(before[index])
@@ -72,7 +75,7 @@ func run() -> void:
 	check(empty_post_frames==0,"Post retains a guard until relief arrives; empty frames="+str(empty_post_frames))
 	var total_patrol:=0.0
 	var total_stationed:=0.0
-	for index in range(5):
+	for index in range(guards.size()):
 		var patrol=guards[index].guard_patrol
 		total_patrol+=in_patrol[index]
 		total_stationed+=stationed[index]

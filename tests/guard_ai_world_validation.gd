@@ -116,7 +116,7 @@ func run() -> void:
 		actor.threat_detection.detection_enabled = true
 	var positions: Array[Vector2] = []
 	for guard in guards: positions.append(guard.actor.position)
-	await frames(10800) # 180 simulated seconds with all 30 inhabitants
+	await frames(10800) # 180 simulated seconds with the full population
 	var moving := 0
 	var followers := 0
 	var valid := true
@@ -129,7 +129,7 @@ func run() -> void:
 		if guards[i].state == guards[i].State.ALERT_PATROL and guards[i].movement_goal.is_finite():
 			valid = valid and guards[i].territory_distance(guards[i].movement_goal) <= guards[i].territory_margin
 	print("WORLD METRICS: moving guards=",moving," active civilian followers=",followers)
-	check(moving == 5 and valid, "WORLD: 180-second ALARM simulation moves all five defenders without crowding a single global target or violating capacities")
+	check(moving == guards.size() and valid, "WORLD: 180-second ALARM simulation moves all defenders without crowding a single global target or violating capacities")
 	map.queue_free()
 	await frames(3)
 	print("Guard AI world validation failures: ",failures)

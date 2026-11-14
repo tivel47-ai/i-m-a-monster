@@ -347,4 +347,4 @@ func integration_tests() -> void:
 	var reachable := true
 	for point in points: reachable = reachable and defense.reachable(g.actor, point)
 	check(reachable, "51: Dynamic sampling rejects disconnected water/obstacle destinations")
-	check(guards.size()==5 and civilians.size()==25 and defense.bell != null, "52: Mission wiring supplies five defenders, civilians and a physical bell without scene changes")
+	check(guards.size()==10 and civilians.size()==32 and defense.bell != null, "52: Mission wiring supplies ten defenders, civilians and a physical bell")

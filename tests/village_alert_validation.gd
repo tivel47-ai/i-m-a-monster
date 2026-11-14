@@ -71,11 +71,11 @@ func check_large_population() -> void:
 		unit.set_physics_process(false)
 		unit.navigation_agent.avoidance_enabled=false
 	await frames(5)
-	check(alert._registered.size()==30 and alert.score==0,"Thirty residents register independently of public incident state")
+	check(alert._registered.size()==44 and alert.score==0,"Forty-four residents register independently of public incident state")
 	var target=get_nodes_in_group("player_units")[0]
 	for actor in map.villagers:
 		for i in range(10): actor.threat_recognized.emit(target)
-	check(alert.score==0,"Three hundred private signal notifications cannot magically alert the village")
+	check(alert.score==0,"Repeated private signal notifications cannot magically alert the village")
 	var sender=map.villagers[0]
 	var receiver=map.villagers[1]
 	sender.position=Vector2(1450,1000)

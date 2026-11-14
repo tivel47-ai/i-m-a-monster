@@ -18,7 +18,7 @@ func run() -> void:
 	for actor in guards: actor.autonomous_movement_enabled = true
 	await frames(5)
 	nav = map.get_world_2d().navigation_map
-	check(map.total_residents == 32 and ceili(map.total_residents * map.TARGET_PERCENT / 100.0) == 26, "Two added residents count toward the 26-of-32 objective")
+	check(map.total_residents == 44 and ceili(map.total_residents * map.TARGET_PERCENT / 100.0) == 36, "Priest guards are included in the 36-of-44 objective")
 	for actor in guards:
 		check(actor.guard_ai == null and actor.escort == null and actor.guard_patrol == null, "Protector excluded from guard reports, recruitment, post duty: " + actor.name)
 		check(actor.max_health == 150.0 and actor.attack_damage == 20.0 and actor.get_node("CollisionShape2D").shape.size == Vector2(7.8,15.6), "Current scene guard combat overrides and physical size preserved")
