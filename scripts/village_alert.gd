@@ -36,9 +36,11 @@ enum Level { NORMAL, SUSPICION, ALARM, ORGANIZED_DEFENSE }
 @export var combat_danger: float = 8.0
 @export_range(0, 1) var first_corpse_probability: float = 0.05
 @export_range(0, 1) var corpse_probability_step: float = 0.10
+@export var role_based_corpse_alarm: bool = false
 var corpses: Dictionary = {}
 var registered_corpses: Dictionary = {}
 var corpse_decisions: Dictionary = {}
+var registered_civilian_corpses: int = 0
 var combat_episodes: Dictionary = {}
 ## Seed may be assigned by validation tools after initialization.
 var rng := RandomNumberGenerator.new()
@@ -274,10 +276,23 @@ func confirm_corpse(guard: Node2D, message: Dictionary, source: Node2D = null) -
 	var id := int(message.get("incident", 0))
 	if not _registered.has(guard.get_instance_id()) or not corpses.has(id):
 		return
+	var body = corpses[id].get_ref()
+	if not is_instance_valid(body) or body.infection_state != body.InfectionState.DEAD:
+		return
+	var civilian: bool = not role_based_corpse_alarm or (body.escort != null and body.escort.role() in ["peasant", "artisan"])
 	advance_level(Level.SUSPICION)
-	if _register_corpse(id) and level < Level.ALARM:
-		corpse_decisions[id] = false
-		guard.guard_ai.investigation.queue_corpse(message)
+	var first_registration := _register_corpse(id)
+	if level >= Level.ALARM:
+		return
+	if first_registration:
+		if civilian:
+			registered_civilian_corpses += 1
+			corpse_decisions[id] = false
+		if civilian or source != guard:
+			guard.guard_ai.investigation.queue_corpse(message)
+	if not civilian and source == guard and not corpse_decisions.get(id, false):
+		if guard.defense.visible(guard, body, guard.threat_detection.detection_radius) and guard.guard_ai.raise_alarm_for_confirmed_death(message):
+			corpse_decisions[id] = true
 
 
 func observe_corpse(observer: Node2D, message: Dictionary) -> void:
@@ -302,7 +317,8 @@ func _register_corpse(id: int) -> bool:
 	return true
 
 func corpse_probability() -> float:
-	return clampf(first_corpse_probability + maxf(registered_corpses.size() - 1, 0) * corpse_probability_step, 0.0, 1.0)
+	var count := registered_civilian_corpses if role_based_corpse_alarm else registered_corpses.size()
+	return clampf(first_corpse_probability + maxi(count - 1, 0) * corpse_probability_step, 0.0, 1.0)
 
 func decide_corpse_alarm(ids: Array) -> bool:
 	if level >= Level.ALARM:

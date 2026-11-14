@@ -6,6 +6,7 @@ const ESCORT = preload("res://scripts/civilian_escort.gd")
 const PRIEST = preload("res://scripts/priest_ai.gd")
 @export var bell_reach: float = 24.0
 @export var bell_interaction_seconds: float = 1.0
+@export var bell_path: NodePath
 @export var safety_spacing: float = 24.0
 @export var safety_radius: float = 75.0
 var safety_reservations: Dictionary = {}
@@ -21,7 +22,8 @@ var guard_group_combat := false
 func initialize(residents: Array[Node], village_alert: Node) -> void:
 	alert = village_alert
 	guard_group_combat = get_parent().get_meta("guard_group_combat", false)
-	bell = get_parent().get_node_or_null("VillagePointsOfInterest/Bell")
+	if not bell_path.is_empty(): bell = get_node_or_null(bell_path)
+	if bell == null: bell = get_parent().get_node_or_null("VillagePointsOfInterest/Bell")
 	if bell == null: bell = get_parent().get_node_or_null("PointsOfInterest/Bell")
 	if bell == null: bell = get_parent().get_node_or_null("NavigationRegion2D/Solids/Bell")
 	for actor in residents:
@@ -206,14 +208,25 @@ func ring(actor: Node2D) -> bool:
 	return alert.activate_bell(actor)
 
 func bell_visible(actor: Node2D) -> bool:
+	return _bell_visible_from(actor, actor.global_position)
+
+func _bell_visible_from(actor: Node2D, point: Vector2) -> bool:
 	if not is_instance_valid(bell): return false
 	var excluded: Array[RID] = [actor.get_rid()]
 	if bell is CollisionObject2D: excluded.append(bell.get_rid())
-	var ray = PhysicsRayQueryParameters2D.create(actor.global_position, bell.global_position, 1, excluded)
+	var ray = PhysicsRayQueryParameters2D.create(point, bell.global_position, 1, excluded)
 	return actor.get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
 
 func alarm_point(actor: Node2D) -> Vector2:
 	if not is_instance_valid(bell): return Vector2.INF
+	if not bell_path.is_empty():
+		if actor.global_position.distance_to(bell.global_position) <= bell_reach and bell_visible(actor):
+			return actor.global_position
+		var radius: float = bell_reach - actor.arrival_tolerance
+		for point in sample_points(actor, bell.global_position, radius, 12):
+			if point.distance_to(bell.global_position) <= radius and _bell_visible_from(actor, point):
+				return point
+		return Vector2.INF
 	if reachable(actor, bell.global_position): return bell.global_position
 	for point in sample_points(actor, bell.global_position, bell_reach, 8):
 		if point.distance_to(bell.global_position) <= bell_reach: return point

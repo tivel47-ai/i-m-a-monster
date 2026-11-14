@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="11_ugq7x"]
 [ext_resource type="Script" uid="uid://bcgm133eekdng" path="res://scripts/priest_routine.gd" id="30_priest_routine"]
 [ext_resource type="PackedScene" path="res://scenes/priest_guard.tscn" id="31_priest_guard"]
+[ext_resource type="Script" path="res://scripts/village_defense.gd" id="32_village_defense"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -1416,7 +1417,7 @@ scale = Vector2(1.2266475, 1.2386074)
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(50, -36, 50, 36, -50, 36, -50, -36)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage01/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage01/Roof" unique_id=50925671]
 color = Color(0.3144706, 0.2731765, 0.21917649, 1)
 polygon = PackedVector2Array(50, 36, -50, 36, -50, 0, 50, 0)
 
@@ -1444,7 +1445,7 @@ polygon = PackedVector2Array(-49, -44, 49, -44, 49, 44, -49, 44)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(44, -39, 44, 39, -44, 39, -44, -39)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage02/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage02/Roof" unique_id=1395046757]
 color = Color(0.30494118, 0.2731765, 0.2509412, 1)
 polygon = PackedVector2Array(44, 39, -44, 39, -44, 0, 44, 0)
 
@@ -1471,7 +1472,7 @@ polygon = PackedVector2Array(-54, -39, 54, -39, 54, 39, -54, 39)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(49, -34, 49, 34, -49, 34, -49, -34)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage03/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage03/Roof" unique_id=445108416]
 color = Color(0.37164706, 0.32717648, 0.23823531, 1)
 polygon = PackedVector2Array(49, 34, -49, 34, -49, 0, 49, 0)
 
@@ -1498,7 +1499,7 @@ polygon = PackedVector2Array(-58, -42, 58, -42, 58, 42, -58, 42)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(53, -37, 53, 37, -53, 37, -53, -37)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage04/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage04/Roof" unique_id=723536446]
 color = Color(0.27, 0.2827059, 0.27952942, 1)
 polygon = PackedVector2Array(53, 37, -53, 37, -53, 0, 53, 0)
 
@@ -1525,7 +1526,7 @@ polygon = PackedVector2Array(-83, -54, 83, -54, 83, 54, -83, 54)
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(78, -49, 78, 49, -78, 49, -78, -49)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage05/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage05/Roof" unique_id=1205836748]
 color = Color(0.3144706, 0.2731765, 0.21917649, 1)
 polygon = PackedVector2Array(78, 49, -78, 49, -78, 0, 78, 0)
 
@@ -1552,7 +1553,7 @@ polygon = PackedVector2Array(-79, -58, 79, -58, 79, 58, -79, 58)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(74, -53, 74, 53, -74, 53, -74, -53)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage06/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage06/Roof" unique_id=1725999690]
 color = Color(0.30494118, 0.2731765, 0.2509412, 1)
 polygon = PackedVector2Array(74, 53, -74, 53, -74, 0, 74, 0)
 
@@ -1579,7 +1580,7 @@ polygon = PackedVector2Array(-85, -52, 85, -52, 85, 52, -85, 52)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(80, -47, 80, 47, -80, 47, -80, -47)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage07/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage07/Roof" unique_id=9168999]
 color = Color(0.37164706, 0.32717648, 0.23823531, 1)
 polygon = PackedVector2Array(80, 47, -80, 47, -80, 0, 80, 0)
 
@@ -1606,7 +1607,7 @@ polygon = PackedVector2Array(-56, -56, 56, -56, 56, 56, -56, 56)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(51, -51, 51, 51, -51, 51, -51, -51)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage08/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage08/Roof" unique_id=525963711]
 color = Color(0.27, 0.2827059, 0.27952942, 1)
 polygon = PackedVector2Array(51, 51, -51, 51, -51, 0, 51, 0)
 
@@ -1639,7 +1640,7 @@ scale = Vector2(1.8649572, 0.9960166)
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(-55, -55, 55, -55, 55, 55, -11, 55, -11, 135, -55, 135)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage09/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage09/Roof" unique_id=939451386]
 color = Color(0.3144706, 0.2731765, 0.21917649, 1)
 polygon = PackedVector2Array(55, 55, -11, 55, -11, 135, -55, 135, -55, 40, 55, 40)
 
@@ -1666,7 +1667,7 @@ polygon = PackedVector2Array(-85, -75, 85, -75, 85, -8, 8, -8, 8, 75, -85, 75)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(80, -70, 80, -13, 5.92893, -13, 3, -10.07107, 3, 70, -80, 70, -80, -70)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage10/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage10/Roof" unique_id=1701503178]
 color = Color(0.30494118, 0.2731765, 0.2509412, 1)
 polygon = PackedVector2Array(3, 70, -80, 70, -80, 0, 3, 0)
 
@@ -1693,7 +1694,7 @@ polygon = PackedVector2Array(-90, -74, 90, -74, 90, -8, 8, -8, 8, 74, -90, 74)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(85, -69, 85, -13, 5.92893, -13, 3, -10.07107, 3, 69, -85, 69, -85, -69)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage11/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Cottage11/Roof" unique_id=1803041153]
 color = Color(0.37164706, 0.32717648, 0.23823531, 1)
 polygon = PackedVector2Array(3, 69, -85, 69, -85, 0, 3, 0)
 
@@ -1720,7 +1721,7 @@ polygon = PackedVector2Array(-114, -46, 114, -46, 114, 46, -114, 46)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(109, -41, 109, 41, -109, 41, -109, -41)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Farmhouse12/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Residential/Farmhouse12/Roof" unique_id=1467203656]
 color = Color(0.27, 0.2827059, 0.27952942, 1)
 polygon = PackedVector2Array(109, 41, -109, 41, -109, 0, 109, 0)
 
@@ -1754,7 +1755,7 @@ scale = Vector2(1.3214285, 1.2384615)
 color = Color(0.3372549, 0.36862746, 0.3764706, 1)
 polygon = PackedVector2Array(41, -145, 41, -41.92893, 43.92893, -39, 107, -39, 107, 35, 43.92893, 35, 41, 37.92893, 41, 125, -41, 125, -41, 37.92893, -43.92893, 35, -107, 35, -107, -39, -43.92893, -39, -41, -41.92893, -41, -145)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church/Roof" unique_id=860363626]
 color = Color(0.2731765, 0.29858825, 0.30494118, 1)
 polygon = PackedVector2Array(107, 35, 43.928932, 35, 41, 37.928932, 41, 125, -41, 125, -41, 37.928932, -43.928932, 35, -107, 35, -107, -10, 107, -10)
 
@@ -1975,7 +1976,7 @@ rotation = 1.7139033
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(85, -60, 85, 60, -85, 60, -85, -60)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Tavern/Roof" unique_id=1874386225]
 color = Color(0.3144706, 0.2731765, 0.21917649, 1)
 polygon = PackedVector2Array(85, 60, -85, 60, -85, 0, 85, 0)
 
@@ -2003,7 +2004,7 @@ polygon = PackedVector2Array(-65, -75, 65, -75, 65, 75, -65, 75)
 color = Color(0.27058825, 0.29411766, 0.28627452, 1)
 polygon = PackedVector2Array(60, -70, 60, 70, -60, 70, -60, -70)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/GuardPost/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/GuardPost/Roof" unique_id=1740509600]
 color = Color(0.21917649, 0.23823531, 0.23188236, 1)
 polygon = PackedVector2Array(60, 70, -60, 70, -60, 0, 60, 0)
 
@@ -2032,7 +2033,7 @@ polygon = PackedVector2Array(-90, -65, 90, -65, 90, 65, -90, 65)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(85, -60, 85, 60, -85, 60, -85, -60)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Blacksmith/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Blacksmith/Roof" unique_id=1127591252]
 color = Color(0.30494118, 0.2731765, 0.2509412, 1)
 polygon = PackedVector2Array(85, 60, -85, 60, -85, 0, 85, 0)
 
@@ -2059,7 +2060,7 @@ polygon = PackedVector2Array(-72.5, -55, 72.5, -55, 72.5, 55, -72.5, 55)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(67.5, -50, 67.5, 50, -67.5, 50, -67.5, -50)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Carpenter/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Carpenter/Roof" unique_id=1700978088]
 color = Color(0.37164706, 0.32717648, 0.23823531, 1)
 polygon = PackedVector2Array(67.5, 50, -67.5, 50, -67.5, 0, 67.5, 0)
 
@@ -2086,7 +2087,7 @@ polygon = PackedVector2Array(-65, -51, 65, -51, 65, 51, -65, 51)
 color = Color(0.3882353, 0.3372549, 0.27058825, 1)
 polygon = PackedVector2Array(60, -46, 60, 46, -60, 46, -60, -46)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Weaver/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Weaver/Roof" unique_id=1798113481]
 color = Color(0.3144706, 0.2731765, 0.21917649, 1)
 polygon = PackedVector2Array(60, 46, -60, 46, -60, 0, 60, 0)
 
@@ -2113,7 +2114,7 @@ polygon = PackedVector2Array(-60, -40, 60, -40, 60, 40, -60, 40)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(55, -35, 55, 35, -55, 35, -55, -35)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Storage/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Workshops/Storage/Roof" unique_id=719948575]
 color = Color(0.27, 0.2827059, 0.27952942, 1)
 polygon = PackedVector2Array(55, 35, -55, 35, -55, 0, 55, 0)
 
@@ -2169,7 +2170,7 @@ polygon = PackedVector2Array(-24, -23, 24, -23, 24, 23, -24, 23)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(19, -18, 19, 18, -19, 18, -19, -18)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed1/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed1/Roof" unique_id=1672261954]
 color = Color(0.30494118, 0.2731765, 0.2509412, 1)
 polygon = PackedVector2Array(19, 18, -19, 18, -19, 0, 19, 0)
 
@@ -2196,7 +2197,7 @@ polygon = PackedVector2Array(-24, -23, 24, -23, 24, 23, -24, 23)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(19, -18, 19, 18, -19, 18, -19, -18)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed6/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed6/Roof" unique_id=1968470889]
 color = Color(0.37164706, 0.32717648, 0.23823531, 1)
 polygon = PackedVector2Array(19, 18, -19, 18, -19, 0, 19, 0)
 
@@ -2223,7 +2224,7 @@ polygon = PackedVector2Array(-24, -23, 24, -23, 24, 23, -24, 23)
 color = Color(0.33333334, 0.34901962, 0.34509805, 1)
 polygon = PackedVector2Array(19, -18, 19, 18, -19, 18, -19, -18)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed11/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/HomeShed11/Roof" unique_id=1612793024]
 color = Color(0.27, 0.2827059, 0.27952942, 1)
 polygon = PackedVector2Array(19, 18, -19, 18, -19, 0, 19, 0)
 
@@ -2250,7 +2251,7 @@ polygon = PackedVector2Array(-70, -50, 70, -50, 70, 50, -70, 50)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(65, -45, 65, 45, -65, 45, -65, -45)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/Barn/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/Barn/Roof" unique_id=1960373076]
 color = Color(0.37164706, 0.32717648, 0.23823531, 1)
 polygon = PackedVector2Array(65, 45, -65, 45, -65, 0, 65, 0)
 
@@ -2277,7 +2278,7 @@ polygon = PackedVector2Array(-36, -27, 36, -27, 36, 27, -36, 27)
 color = Color(0.3764706, 0.3372549, 0.30980393, 1)
 polygon = PackedVector2Array(31, -22, 31, 22, -31, 22, -31, -22)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/FieldStore/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Agricultural/FieldStore/Roof" unique_id=1477033615]
 color = Color(0.30494118, 0.2731765, 0.2509412, 1)
 polygon = PackedVector2Array(31, 22, -31, 22, -31, 0, 31, 0)
 
@@ -3279,7 +3280,7 @@ polygon = PackedVector2Array(-24, -25, 24, -25, 24, 25, -24, 25)
 color = Color(0.45882353, 0.40392157, 0.29411766, 1)
 polygon = PackedVector2Array(19, -20, 19, 20, -19, 20, -19, -20)
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/River/RiverStore/Roof"]
+[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/River/RiverStore/Roof" unique_id=929280258]
 color = Color(0.37164706, 0.32717648, 0.23823531, 1)
 polygon = PackedVector2Array(19, 20, -19, 20, -19, 0, 19, 0)
 
@@ -4634,6 +4635,13 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_selection")
 
 [node name="VillageAlert" parent="." unique_id=732062171 instance=ExtResource("3_mtxfa")]
 debug_enabled = true
+first_corpse_probability = 0.15
+role_based_corpse_alarm = true
+
+[node name="VillageDefense" type="Node" parent="."]
+script = ExtResource("32_village_defense")
+bell_reach = 50.0
+bell_path = NodePath("../NavigationRegion2D/Buildings/Public/AlarmBell")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=305544344]
 position = Vector2(650, 1000)
@@ -4642,7 +4650,6 @@ min_zoom = 0.45
 map_bounds = Rect2(0, 0, 3000, 2000)
 
 [node name="ActivityZones" type="Node2D" parent="." unique_id=1957561038]
-visible = false
 
 [node name="Home01" parent="ActivityZones" unique_id=1791943697 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(634.964, 594.1011)
@@ -4867,10 +4874,10 @@ location_path = NodePath("../../Roads/Square")
 allowed_roles = PackedStringArray("peasant")
 
 [node name="WorkBell" parent="ActivityZones" unique_id=233286112 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
-position = Vector2(1661.0001, 916)
-scale = Vector2(0.95, 0.46)
+position = Vector2(1682.6799, 912.0886)
+scale = Vector2(1.3799994, 0.53379995)
 color = Color(1, 1, 1, 0)
-polygon = PackedVector2Array(-86, -47, 14, -47, 14, 53, -86, 53)
+polygon = PackedVector2Array(-92.52173, -194.9956, -69.33325, -196.8689, -69.33325, -47.000122, -14.968414, -47, -14.682129, -196.8689, 14, -194.9956, 14, 53, -92.52173, 52.288086)
 activity = 1
 zone_id = &"WorkBell"
 district_id = &"center"

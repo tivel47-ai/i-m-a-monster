@@ -59,12 +59,15 @@ func offer(kind: int, report: Dictionary, now: float) -> Dictionary:
 			task.point = report.point
 			return task
 	if tasks.size() >= maxi(capacity, 1):
-		# Keep active/urgent work; replace the oldest pending low-severity task only.
+		# A confirmed death can preempt active work and reserves its bell task.
+		var confirmed_death: bool = report.get("confirmed_death", false)
 		var victim: Dictionary = {}
 		for task in tasks:
-			if task.status != "active" and (victim.is_empty() or float(task.report.get("count", 1)) < float(victim.report.get("count", 1))):
+			if task.report.get("confirmed_death", false): continue
+			if task.status == "active" and not confirmed_death: continue
+			if victim.is_empty() or float(task.report.get("count", 1)) < float(victim.report.get("count", 1)):
 				victim = task
-		if victim.is_empty() or int(victim.report.get("count", 1)) > int(report.get("count", 1)):
+		if victim.is_empty() or (not confirmed_death and int(victim.report.get("count", 1)) > int(report.get("count", 1))):
 			return {}
 		finish(victim, "canceled", "capacity")
 	serial += 1

@@ -411,7 +411,11 @@ func update_escort(delta: float) -> bool:
 		var point: Vector2 = actor.defense.alarm_point(actor)
 		if not actor.defense.reachable(actor, point): return false
 		actor.threat_reaction.cancel_response()
-		if actor.global_position.distance_to(point) <= actor.defense.bell_reach:
+		var can_ring: bool = actor.global_position.distance_to(point) <= actor.defense.bell_reach
+		if not actor.defense.bell_path.is_empty():
+			can_ring = actor.global_position.distance_to(actor.defense.bell.global_position) <= actor.defense.bell_reach and actor.defense.bell_visible(actor)
+			if can_ring: actor._stop_movement()
+		if can_ring:
 			bell_elapsed += delta
 			if bell_elapsed >= actor.defense.bell_interaction_seconds: actor.defense.ring(actor)
 		else:

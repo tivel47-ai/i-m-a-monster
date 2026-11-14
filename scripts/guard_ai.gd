@@ -379,6 +379,28 @@ func offer_alarm(report: Dictionary) -> void:
 	var task = memory.offer(State.RAISE_ALARM, report, now())
 	if not task.is_empty(): task.point = actor.defense.alarm_point(actor)
 
+func raise_alarm_for_confirmed_death(report: Dictionary) -> bool:
+	if not actor.autonomous_movement_enabled: return false
+	for pending in memory.tasks:
+		if pending.kind == State.RAISE_ALARM and pending.report.get("confirmed_death", false): return true
+	var point: Vector2 = actor.defense.alarm_point(actor)
+	if not point.is_finite(): return false
+	var alarm_report := report.duplicate(true)
+	alarm_report.incident = -int(report.incident)
+	alarm_report.observed_at = now()
+	alarm_report.confirmed_death = true
+	var task = memory.offer(State.RAISE_ALARM, alarm_report, now())
+	if task.is_empty(): return false
+	task.point = point
+	investigation.end("interrupted", "personally confirmed death requires the bell")
+	end_cooperation("interrupted")
+	suspend()
+	active = task
+	active.status = "active"
+	selected_at = now()
+	bell_elapsed = 0.0
+	return true
+
 func call_help() -> void:
 	if visible_enemies.is_empty(): return
 	var report = _report(last_seen_id, last_seen_point, visible_enemies.size(), true)
@@ -426,6 +448,7 @@ func _send_reports() -> void:
 func score(task: Dictionary) -> float:
 	var distance: float = actor.global_position.distance_to(task.point)
 	if not actor.defense.reachable(actor, task.point): return -INF
+	if task.kind == State.RAISE_ALARM and task.report.get("confirmed_death", false): return INF
 	var urgency = float(task.report.get("count", 1)) * float(task.report.get("credibility", 0.5))
 	var value = urgency * 3.0 - distance / maxf(tactical_speed, 1.0)
 	if task.kind == State.RAISE_ALARM: value += urgency * 2.0 + memory.incidents.size()
@@ -470,7 +493,7 @@ func choose_task() -> void:
 	if best.is_empty():
 		active = {}
 		return
-	if not active.is_empty() and best.id != active.id and now() - selected_at < commitment_seconds: return
+	if not active.is_empty() and best.id != active.id and best_score != INF and now() - selected_at < commitment_seconds: return
 	if active.is_empty() or best.id != active.id:
 		suspend()
 		active = best
@@ -782,7 +805,7 @@ func update_ai(delta: float) -> bool:
 	if investigation.update(delta): return true
 	if decision: choose_task()
 	if not active.is_empty() and not memory.tasks.has(active): active = {}
-	if maintain_followers(): return true
+	if (active.is_empty() or not active.report.get("confirmed_death", false)) and maintain_followers(): return true
 	if not active.is_empty():
 		if active.kind == State.GROUP_PATROL: return execute_alliance(delta)
 		set_state(active.kind as State)
@@ -809,7 +832,14 @@ func update_ai(delta: float) -> bool:
 					else: finish("infeasible", "bell interaction blocked")
 			else:
 				bell_elapsed = 0.0
-				if move_to(active.point, delta) == actor.NavigationResult.FAILED: finish("infeasible", "bell unreachable")
+				var result := move_to(active.point, delta)
+				if result == actor.NavigationResult.FAILED:
+					finish("infeasible", "bell unreachable")
+				elif result == actor.NavigationResult.ARRIVED and not actor.defense.bell_path.is_empty():
+					var approach: Vector2 = actor.defense.alarm_point(actor)
+					if approach.is_finite() and approach.distance_to(active.point) > actor.arrival_tolerance:
+						active.point = approach
+					else: finish("infeasible", "no clear bell approach")
 		else:
 			var result = move_to(active.point, delta)
 			if result == actor.NavigationResult.FAILED: finish("infeasible", "incident unreachable")

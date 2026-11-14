@@ -263,6 +263,9 @@ func start_pending_corpse() -> void:
 		return
 	if corpse_queue.is_empty() or phase != Phase.NONE or not guard.active.is_empty() or not guard.alliance.is_empty() or not guard.visible_enemies.is_empty():
 		return
+	for pending in guard.memory.tasks:
+		if pending.kind == guard.State.RAISE_ALARM and pending.report.get("confirmed_death", false):
+			return
 	var message: Dictionary = corpse_queue.pop_front()
 	if guard.now() - float(message.received_at) > guard.investigation_seconds:
 		return
