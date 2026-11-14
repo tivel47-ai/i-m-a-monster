@@ -6,6 +6,7 @@ const OUTPUT := "res://scenes/village_simulation_map.tscn"
 const NAVIGATION := "res://scenes/village_simulation_navigation.tres"
 const ROAD := Color("71654f")
 const PATH := Color("645d47")
+const TAVERN_ANGLE := 1.7139033
 const HOUSES := [
 	["Cottage01", "small", Vector2(620, 470), Vector2(110, 82), -0.12],
 	["Cottage02", "small", Vector2(890, 680), Vector2(98, 88), 0.16],
@@ -46,6 +47,7 @@ var reset_zone_geometry := false
 var reset_road_geometry := false
 var reset_patrol_routes := PackedStringArray()
 var road_preferences: Dictionary = {}
+var tavern_nodes: Dictionary = {}
 
 func _initialize() -> void:
 	for argument in OS.get_cmdline_user_args():
@@ -375,17 +377,39 @@ func build() -> void:
 	entrance_path(weaver,"WeaverPath",Vector2(2060,1200))
 	entrance_path(storage,"StoragePath",Vector2(2480,1230))
 
-	var tavern := building(public_buildings,"Tavern",Vector2(1740,1420),Vector2(180,130),-0.08,"tavern",0)
+	var tavern := tavern_nodes.get("building") as StaticBody2D
+	if tavern == null:
+		tavern = building(public_buildings,"Tavern",Vector2(1926,1458),Vector2(180,130),-0.08,"tavern",0)
+		for child_name in ["Footprint", "CollisionPolygon2D", "Roof", "Door"]:
+			tavern.get_node(child_name).rotation = TAVERN_ANGLE
+		tavern.get_node("Door").position = Vector2(-60.48525, -8.862)
+	else:
+		attach(public_buildings, tavern, "Tavern")
+		assign_owners(tavern)
 	var guard_post := building(public_buildings,"GuardPost",Vector2(2310,1510),Vector2(130,150),0.06,"guard",3)
-	label_at(details,"TavernLabel","Таверна",Vector2(1690,1500))
+	if tavern_nodes.has("label"):
+		attach(details, tavern_nodes["label"], "TavernLabel")
+	else:
+		label_at(details,"TavernLabel","Таверна",Vector2(1908,1341))
 	label_at(details,"GuardLabel","Пост стражи",Vector2(2250,1605))
-	marker("Tavern",Vector2(1715,1300),true)
+	if tavern_nodes.has("marker"):
+		attach(points, tavern_nodes["marker"], "Tavern")
+	else:
+		marker("Tavern",Vector2(1826,1416),true)
 	marker("GuardYard",Vector2(2230,1640))
 	marker("GuardRoad",Vector2(2300,1380))
 	marker("NorthRoad",Vector2(1900,550))
 	marker("WestRoad",Vector2(650,940))
 	marker("SouthRoad",Vector2(1540,1760))
-	entrance_path(tavern,"TavernApproach",Vector2(1630,1290),[Vector2(1600,1530),Vector2(1590,1360)])
+	if tavern_nodes.has("approach"):
+		attach(roads, tavern_nodes["approach"], "TavernApproach0")
+	else:
+		var door := tavern.get_node("Door") as Polygon2D
+		road("TavernApproach", [
+			door.to_global(Vector2(0, 9)),
+			door.to_global(Vector2(0, 42)),
+			nearest_street(Vector2(1800, 1320)),
+		], 22, PATH, true, str(village.get_path_to(tavern)))
 	entrance_path(guard_post,"GuardDoorPath",Vector2(2140,1620),[Vector2(2290,1640)])
 
 	build_river()
@@ -482,6 +506,18 @@ func exported_values(node: Node) -> Dictionary:
 func read_npc_preferences() -> void:
 	if not ResourceLoader.exists(preferences_source): return
 	var previous: Node2D = load(preferences_source).instantiate()
+	var tavern_paths := {
+		"building": "NavigationRegion2D/Buildings/Public/Tavern",
+		"label": "Environment/TavernLabel",
+		"marker": "VillagePointsOfInterest/Tavern",
+	}
+	if not reset_road_geometry:
+		tavern_paths["approach"] = "Roads/TavernApproach0"
+	for key in tavern_paths:
+		var authored := previous.get_node_or_null(tavern_paths[key])
+		if authored != null:
+			tavern_nodes[key] = authored
+			authored.get_parent().remove_child(authored)
 	for npc in previous.get_node("Villagers").get_children():
 		var values := exported_values(npc)
 		# Old routing paths are obsolete. New valid explicit assignments survive rebuilds.
@@ -579,8 +615,11 @@ func build_activity_zones() -> void:
 	zone_box("HomeChapel",0,Vector2(1405,595),Vector2(100,90),"church","NavigationRegion2D/Buildings/Public/Church",priest)
 	zone_box("WorkChurch",1,Vector2(1400,598),Vector2(110,95),"church","NavigationRegion2D/Buildings/Public/Church",priest)
 	zone_box("WorkCemetery",1,Vector2(1730,290),Vector2(310,220),"church","Environment/CemeteryYard",priest)
-	for entry in [["Northwest",Vector2(710,653),Vector2(90,105),"northwest","Roads/WestLane0"],["Square",Vector2(1530,965),Vector2(150,100),"center","Roads/Square"],["Well",Vector2(1380,970),Vector2(110,80),"center","NavigationRegion2D/Buildings/Public/Well"],["Farm",Vector2(735,1445),Vector2(120,100),"farm","Environment/EastField"],["Artisan",Vector2(2230,900),Vector2(120,100),"artisan","Environment/WorkYard"],["South",Vector2(1500,1635),Vector2(120,90),"south","Roads/FarmLane0"],["Tavern",Vector2(1710,1290),Vector2(180,60),"south","NavigationRegion2D/Buildings/Public/Tavern"],["Guard",Vector2(2230,1650),Vector2(140,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost"],["Church",Vector2(1540,530),Vector2(120,70),"church","NavigationRegion2D/Buildings/Public/Church"]]:
-		zone_box("Social"+entry[0],2,entry[1],entry[2],entry[3],entry[4],guards if entry[0] == "Guard" else PackedStringArray())
+	for entry in [["Northwest",Vector2(710,653),Vector2(90,105),"northwest","Roads/WestLane0"],["Square",Vector2(1530,965),Vector2(150,100),"center","Roads/Square"],["Well",Vector2(1380,970),Vector2(110,80),"center","NavigationRegion2D/Buildings/Public/Well"],["Farm",Vector2(735,1445),Vector2(120,100),"farm","Environment/EastField"],["Artisan",Vector2(2230,900),Vector2(120,100),"artisan","Environment/WorkYard"],["South",Vector2(1500,1635),Vector2(120,90),"south","Roads/FarmLane0"],["Tavern",Vector2(1757.5981,1429.1898),Vector2(180,60),"south","NavigationRegion2D/Buildings/Public/Tavern"],["Guard",Vector2(2230,1650),Vector2(140,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost"],["Church",Vector2(1540,530),Vector2(120,70),"church","NavigationRegion2D/Buildings/Public/Church"]]:
+		var zone := zone_box("Social"+entry[0],2,entry[1],entry[2],entry[3],entry[4],guards if entry[0] == "Guard" else PackedStringArray())
+		if entry[0] == "Tavern" and not zone_preferences.get("SocialTavern", {}).has("polygon"):
+			zone.rotation = 1.660164
+			zone.scale = Vector2(1, 2.1913574)
 	for entry in [["Northwest",Vector2(780,790),Vector2(70,160),"northwest"],["Center",Vector2(1540,1125),Vector2(100,110),"center"],["Farm",Vector2(505,1400),Vector2(130,100),"farm"],["Artisan",Vector2(2045,990),Vector2(70,120),"artisan"],["South",Vector2(1595,1745),Vector2(150,90),"south"],["Guard",Vector2(2155,1455),Vector2(110,110),"guard"],["Church",Vector2(1520,635),Vector2(90,100),"church"],["Cemetery",Vector2(1730,290),Vector2(310,220),"church"]]:
 		zone_box("Walk"+entry[0],3,entry[1],entry[2],entry[3],"",guards if entry[0] == "Guard" else (priest if entry[0] == "Cemetery" else PackedStringArray()))
 

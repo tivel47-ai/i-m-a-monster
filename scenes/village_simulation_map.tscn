@@ -11,7 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="11_ugq7x"]
 [ext_resource type="Script" uid="uid://bcgm133eekdng" path="res://scripts/priest_routine.gd" id="30_priest_routine"]
 [ext_resource type="PackedScene" path="res://scenes/priest_guard.tscn" id="31_priest_guard"]
-[ext_resource type="Script" path="res://scripts/village_defense.gd" id="32_village_defense"]
+[ext_resource type="Script" uid="uid://c4ylnuqxnmwo" path="res://scripts/village_defense.gd" id="32_village_defense"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -4638,7 +4638,7 @@ debug_enabled = true
 first_corpse_probability = 0.15
 role_based_corpse_alarm = true
 
-[node name="VillageDefense" type="Node" parent="."]
+[node name="VillageDefense" type="Node" parent="." unique_id=1948643686]
 script = ExtResource("32_village_defense")
 bell_reach = 50.0
 bell_path = NodePath("../NavigationRegion2D/Buildings/Public/AlarmBell")
@@ -5768,8 +5768,9 @@ points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 home_point_path = NodePath("../../VillagePointsOfInterest/Church")
 home_weight = 15.0
 work_weight = 65.0
-social_weight = 15.0
+social_weight = 25.0
 wander_weight = 5.0
+social_duration = Vector2(20, 30)
 activity_zone_paths = Array[NodePath]([NodePath("../../ActivityZones/HomeChapel"), NodePath("../../ActivityZones/WorkChurch"), NodePath("../../ActivityZones/WorkCemetery"), NodePath("../../ActivityZones/SocialNorthwest"), NodePath("../../ActivityZones/SocialSquare"), NodePath("../../ActivityZones/SocialWell"), NodePath("../../ActivityZones/SocialFarm"), NodePath("../../ActivityZones/SocialArtisan"), NodePath("../../ActivityZones/SocialSouth"), NodePath("../../ActivityZones/SocialTavern"), NodePath("../../ActivityZones/SocialChurch"), NodePath("../../ActivityZones/WalkChurch"), NodePath("../../ActivityZones/WalkCemetery")])
 marker_activity_fallback_enabled = false
 preferred_district = &"church"
@@ -5801,7 +5802,7 @@ attack_damage = 20.0
 [node name="PriestGuard" parent="Villagers/PriestGuard2" index="9"]
 slot = 1
 
-[node name="Peasant20" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Peasant20" parent="Villagers" unique_id=1191044117 instance=ExtResource("9_vjkkk")]
 position = Vector2(740, 440)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 civilian_profile = "Peasant"
@@ -5818,7 +5819,7 @@ metadata/activity_district = "northwest"
 [node name="Polygon2D" parent="Villagers/Peasant20" index="0" unique_id=1358113620]
 color = Color(0.7176471, 0.6784314, 0.5294118, 1)
 
-[node name="Peasant21" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Peasant21" parent="Villagers" unique_id=1956459440 instance=ExtResource("9_vjkkk")]
 position = Vector2(1170, 565)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 civilian_profile = "Peasant"
@@ -5835,7 +5836,7 @@ metadata/activity_district = "northwest"
 [node name="Polygon2D" parent="Villagers/Peasant21" index="0" unique_id=1358113620]
 color = Color(0.7176471, 0.6784314, 0.5294118, 1)
 
-[node name="Peasant22" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Peasant22" parent="Villagers" unique_id=669227635 instance=ExtResource("9_vjkkk")]
 position = Vector2(2260, 575)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 civilian_profile = "Peasant"
@@ -5852,7 +5853,7 @@ metadata/activity_district = "center"
 [node name="Polygon2D" parent="Villagers/Peasant22" index="0" unique_id=1358113620]
 color = Color(0.7176471, 0.6784314, 0.5294118, 1)
 
-[node name="Peasant23" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Peasant23" parent="Villagers" unique_id=1794637166 instance=ExtResource("9_vjkkk")]
 position = Vector2(550, 1120)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 civilian_profile = "Peasant"
@@ -5869,7 +5870,7 @@ metadata/activity_district = "farm"
 [node name="Polygon2D" parent="Villagers/Peasant23" index="0" unique_id=1358113620]
 color = Color(0.7176471, 0.6784314, 0.5294118, 1)
 
-[node name="Peasant24" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Peasant24" parent="Villagers" unique_id=671702996 instance=ExtResource("9_vjkkk")]
 position = Vector2(665, 1475)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 civilian_profile = "Peasant"
@@ -5886,7 +5887,7 @@ metadata/activity_district = "farm"
 [node name="Polygon2D" parent="Villagers/Peasant24" index="0" unique_id=1358113620]
 color = Color(0.7176471, 0.6784314, 0.5294118, 1)
 
-[node name="Peasant25" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Peasant25" parent="Villagers" unique_id=378536050 instance=ExtResource("9_vjkkk")]
 position = Vector2(1550, 1550)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 civilian_profile = "Peasant"
@@ -5903,7 +5904,7 @@ metadata/activity_district = "south"
 [node name="Polygon2D" parent="Villagers/Peasant25" index="0" unique_id=1358113620]
 color = Color(0.7176471, 0.6784314, 0.5294118, 1)
 
-[node name="Peasant26" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Peasant26" parent="Villagers" unique_id=435376502 instance=ExtResource("9_vjkkk")]
 position = Vector2(2495, 1015)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 civilian_profile = "Peasant"
@@ -5920,7 +5921,7 @@ metadata/activity_district = "artisan"
 [node name="Polygon2D" parent="Villagers/Peasant26" index="0" unique_id=1358113620]
 color = Color(0.7176471, 0.6784314, 0.5294118, 1)
 
-[node name="Guard31" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Guard31" parent="Villagers" unique_id=216331274 instance=ExtResource("9_vjkkk")]
 position = Vector2(400, 665)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
@@ -5940,14 +5941,14 @@ metadata/activity_district = "guard"
 [node name="Polygon2D" parent="Villagers/Guard31" index="0" unique_id=1358113620]
 color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
-[node name="GuardPatrol" type="Node" parent="Villagers/Guard31"]
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard31" unique_id=836327104]
 script = ExtResource("10_nkg87")
 route_path = NodePath("../../../GuardPatrolRoutes/WestCircuit")
 post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
 post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
 post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
 
-[node name="Guard32" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Guard32" parent="Villagers" unique_id=1786563279 instance=ExtResource("9_vjkkk")]
 position = Vector2(565, 1720)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
@@ -5967,14 +5968,14 @@ metadata/activity_district = "guard"
 [node name="Polygon2D" parent="Villagers/Guard32" index="0" unique_id=1358113620]
 color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
-[node name="GuardPatrol" type="Node" parent="Villagers/Guard32"]
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard32" unique_id=1057575435]
 script = ExtResource("10_nkg87")
 route_path = NodePath("../../../GuardPatrolRoutes/FarmCircuit")
 post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
 post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
 post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
 
-[node name="Guard33" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Guard33" parent="Villagers" unique_id=1032577736 instance=ExtResource("9_vjkkk")]
 position = Vector2(2830, 1180)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
@@ -5994,14 +5995,14 @@ metadata/activity_district = "guard"
 [node name="Polygon2D" parent="Villagers/Guard33" index="0" unique_id=1358113620]
 color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
-[node name="GuardPatrol" type="Node" parent="Villagers/Guard33"]
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard33" unique_id=1533505839]
 script = ExtResource("10_nkg87")
 route_path = NodePath("../../../GuardPatrolRoutes/BridgeCircuit")
 post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
 post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
 post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
 
-[node name="Guard34" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Guard34" parent="Villagers" unique_id=1504669763 instance=ExtResource("9_vjkkk")]
 position = Vector2(2080, 480)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
@@ -6021,14 +6022,14 @@ metadata/activity_district = "guard"
 [node name="Polygon2D" parent="Villagers/Guard34" index="0" unique_id=1358113620]
 color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
-[node name="GuardPatrol" type="Node" parent="Villagers/Guard34"]
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard34" unique_id=179808996]
 script = ExtResource("10_nkg87")
 route_path = NodePath("../../../GuardPatrolRoutes/NorthCircuit")
 post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
 post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
 post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
 
-[node name="Guard35" parent="Villagers" instance=ExtResource("9_vjkkk")]
+[node name="Guard35" parent="Villagers" unique_id=992362790 instance=ExtResource("9_vjkkk")]
 position = Vector2(1760, 1753)
 points_of_interest_path = NodePath("../../VillagePointsOfInterest")
 home_point_path = NodePath("../../VillagePointsOfInterest/GuardYard")
@@ -6048,7 +6049,7 @@ metadata/activity_district = "guard"
 [node name="Polygon2D" parent="Villagers/Guard35" index="0" unique_id=1358113620]
 color = Color(0.2901961, 0.6431373, 0.77254903, 1)
 
-[node name="GuardPatrol" type="Node" parent="Villagers/Guard35"]
+[node name="GuardPatrol" type="Node" parent="Villagers/Guard35" unique_id=85236261]
 script = ExtResource("10_nkg87")
 route_path = NodePath("../../../GuardPatrolRoutes/SouthEastCircuit")
 post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
