@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/village_simulation_map.tscn" id="1_map"]
+[ext_resource type="PackedScene" path="res://scenes/zombie.tscn" id="2_zombie"]
+
+[node name="MissionOneWithZombies" instance=ExtResource("1_map")]
+
+[node name="Zombie1" parent="." instance=ExtResource("2_zombie")]
+position = Vector2(170, 900)
+
+[node name="Zombie2" parent="." instance=ExtResource("2_zombie")]
+position = Vector2(170, 945)
+
+[node name="Zombie3" parent="." instance=ExtResource("2_zombie")]
+position = Vector2(170, 990)

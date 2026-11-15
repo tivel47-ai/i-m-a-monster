@@ -61,7 +61,7 @@ func check_private_combat() -> void:
 	await clear_map()
 
 func check_large_population() -> void:
-	map=load("res://scenes/village_simulation_map.tscn").instantiate()
+	map=load("res://tests/fixtures/mission_one_with_zombies.tscn").instantiate()
 	root.add_child(map)
 	alert=map.get_node("VillageAlert")
 	for actor in map.villagers:

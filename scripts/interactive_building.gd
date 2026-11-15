@@ -30,6 +30,7 @@ var _crossing_started := false
 var _crossing_lane := 0.0
 var _crossing_approach := Vector2.INF
 var _crossing_stalled := 0.0
+var _next_exit_hit := 0.0
 var _paths: Dictionary = {}
 var _rest: Dictionary = {}
 var _shot_after: Dictionary = {}
@@ -124,6 +125,18 @@ func cancel_assault(zombie: CharacterBody2D) -> void:
 		_end_crossing()
 	if zombie.building_task == self:
 		zombie.building_task = null
+
+
+func prepare_resident_conversion(resident: Node2D) -> Vector2:
+	var spawn_position := resident.global_position
+	if _crossing == resident:
+		# A new body cannot inherit the outgoing resident's threshold exception.
+		# Use the approach on its current side if it was partway through.
+		if _crossing_started:
+			spawn_position = _crossing_approach
+		_end_crossing()
+	shelter_queue.erase(resident)
+	return spawn_position
 
 
 func adopt_conversion(resident: Node2D, zombie: CharacterBody2D) -> void:
@@ -276,11 +289,13 @@ func _begin_crossing(actor: CharacterBody2D, exits: bool) -> void:
 
 
 func _choose_lane(actor: CharacterBody2D) -> void:
+	_crossing_approach = Vector2.INF
+	if NavigationServer2D.map_get_iteration_id(layout.map) == 0:
+		return
 	var flank := minf(16.0, layout.half_width - layout.side_clearance(actor) - 2.0)
 	var clearance := layout.clearance(actor) + rules.crossing_clearance
 	var inside_depth := maxf(BuildingInterior.PORTAL_OFFSET, layout.entry_clearance(actor) + 1.0)
 	var best := INF
-	_crossing_approach = Vector2.INF
 	var body := actor.get_node("CollisionShape2D") as CollisionShape2D
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = body.shape
@@ -348,6 +363,12 @@ func _advance_crossing(delta: float) -> void:
 			and absf(_lateral(actor.global_position) - _crossing_lane) < 3.0)
 		if not lined_up and not _walk(actor, _crossing_approach, speed, delta, _crossing_out):
 			return
+		if zombie and _crossing_out and _blocked():
+			if _elapsed >= _next_exit_hit:
+				_next_exit_hit = _elapsed + maxf(actor.attack_interval, 0.01)
+				_damage_entrance(actor.attack_damage)
+			if _blocked():
+				return
 		_crossing_started = true
 		actor.add_collision_exception_with(layout.threshold)
 		_refresh_entrance()

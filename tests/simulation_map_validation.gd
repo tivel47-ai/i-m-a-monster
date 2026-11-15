@@ -46,7 +46,7 @@ func reset_units(at: Vector2) -> void:
 func run() -> void:
 	seed(104729)
 	root.size = Vector2i(1280,720)
-	map = load("res://scenes/village_simulation_map.tscn").instantiate()
+	map = load("res://tests/fixtures/mission_one_with_zombies.tscn").instantiate()
 	root.add_child(map)
 	units = get_nodes_in_group("player_units")
 	for resident in map.villagers: resident.autonomous_movement_enabled = false

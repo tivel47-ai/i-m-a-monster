@@ -8,6 +8,7 @@ const SELECTION_DRAG_THRESHOLD := 8.0
 const PLAYER_SELECTION_LAYER := 4
 const GROUP_PLACEMENT = preload("res://scripts/group_placement.gd")
 const MISSION_HUD = preload("res://scripts/mission_hud.gd")
+const ZOMBIE_INFECTION = preload("res://scripts/zombie_infection.gd")
 var placement = GROUP_PLACEMENT.new()
 var mission_hud: Control
 
@@ -15,6 +16,8 @@ const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
 const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
 @export var developer_guard_spawn_enabled := false
+@export var zombie_infection_enabled := false
+var zombie_infection: ZOMBIE_INFECTION
 var developer_mode := false
 var developer_spawn := ""
 @export var building_rules := BuildingRules.new()
@@ -25,7 +28,6 @@ var choosing_building := false
 enum MissionState {
 	ACTIVE,
 	WON,
-	LOST,
 }
 
 var villagers: Array[Node] = []
@@ -61,6 +63,8 @@ var command_screen_position := Vector2.ZERO
 
 func _ready() -> void:
 	developer_mode = bool(get_meta("developer_mode", false))
+	if zombie_infection_enabled and get_meta("race_id", "zombie") == "zombie":
+		zombie_infection = ZOMBIE_INFECTION.new()
 	add_child(command_overlay)
 	command_overlay.z_index = 100
 	command_overlay.draw.connect(_draw_command_overlay)
@@ -161,6 +165,7 @@ func toggle_building_order() -> void:
 	if choosing_building:
 		cancel_order_preview()
 	elif mission_state == MissionState.ACTIVE and not buildings.is_empty() and not _command_units().is_empty():
+		cancel_infection_targeting()
 		cancel_selection()
 		command_active = false
 		developer_spawn = ""
@@ -181,13 +186,57 @@ func cancel_order_preview() -> bool:
 
 
 func _pick_assault_building(world_position: Vector2) -> void:
-	for building in buildings:
-		if not building.contains(world_position):
-			continue
-		for unit in _command_units():
-			unit.issue_player_building_order(building)
-		cancel_order_preview()
+	var building := _building_at(world_position)
+	if building == null:
 		return
+	for unit in _command_units():
+		unit.issue_player_building_order(building)
+	cancel_order_preview()
+
+
+func _building_at(world_position: Vector2) -> InteractiveBuilding:
+	for building in buildings:
+		if building.contains(world_position):
+			return building
+	return null
+
+
+func toggle_infection_targeting() -> void:
+	if zombie_infection == null or zombie_infection.charges == 0 or mission_state != MissionState.ACTIVE:
+		return
+	if zombie_infection.targeting:
+		cancel_infection_targeting()
+		return
+	cancel_selection()
+	cancel_order_preview()
+	developer_spawn = ""
+	zombie_infection.targeting = true
+	mission_hud.refresh_developer_tool()
+	mission_hud.refresh_infection()
+
+
+func cancel_infection_targeting() -> bool:
+	if zombie_infection == null or not zombie_infection.targeting:
+		return false
+	zombie_infection.targeting = false
+	mission_hud.refresh_infection()
+	return true
+
+
+func _infect_at(world_position: Vector2) -> void:
+	if mission_state != MissionState.ACTIVE or not zombie_infection.targeting:
+		return
+	for resident in villagers:
+		if not is_instance_valid(resident) or not resident.is_alive() or is_instance_valid(resident.interior_building):
+			continue
+		var visual: Polygon2D = resident.polygon
+		if visual.is_visible_in_tree() and Geometry2D.is_point_in_polygon(visual.to_local(world_position) - visual.offset, visual.polygon):
+			if zombie_infection.infect(resident):
+				mission_hud.refresh_infection()
+			return
+	var building := _building_at(world_position)
+	if building != null and zombie_infection.infect_occupant(building):
+		mission_hud.refresh_infection()
 
 func set_developer_mode(enabled: bool) -> void:
 	developer_mode = enabled
@@ -233,9 +282,18 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		if cancel_infection_targeting():
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouse and is_instance_valid(mission_hud) and mission_hud.is_pointer_over_ui(event.position):
 		if selection_in_progress:
 			_finish_selection(selection_current_screen)
+		return
+	if zombie_infection != null and zombie_infection.targeting and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_infect_at(_screen_to_world(event.position))
+		get_viewport().set_input_as_handled()
 		return
 	if choosing_building and event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -314,22 +372,12 @@ func _process(_delta: float) -> void:
 	_update_command_preview(_delta)
 	if choosing_building and _command_units().is_empty():
 		cancel_order_preview()
-	if mission_state != MissionState.ACTIVE:
-		return
-	for unit in get_tree().get_nodes_in_group("player_units"):
-		if is_ancestor_of(unit) and not unit.is_dead:
-			return
-	# An ongoing conversion can still restore the player's army.
-	for resident in villagers:
-		if is_instance_valid(resident) and resident.infection_state == resident.InfectionState.TRANSFORMING:
-			return
-	mission_state = MissionState.LOST
-	status_label.text = "ПОРАЖЕНИЕ! Все зомби потеряны"
-	_emit_result()
 
 
 func _emit_result() -> void:
-	mission_finished.emit("victory" if mission_state == MissionState.WON else "defeat", {
+	if not is_inside_tree() or mission_state != MissionState.WON:
+		return
+	mission_finished.emit("victory", {
 		"total": total_residents, "infected": infected_residents, "killed": killed_residents,
 	})
 
@@ -497,15 +545,21 @@ func _on_resident_converted(resident: Node) -> void:
 		return
 
 	converted_resident_ids[resident_id] = true
-	_refresh_mission_progress()
 
+	var spawn_position: Vector2 = resident.global_position
+	if is_instance_valid(resident.building_task):
+		spawn_position = resident.building_task.prepare_resident_conversion(resident)
 	var new_zombie := ZOMBIE_SCENE.instantiate()
-	new_zombie.position = to_local(resident.global_position)
+	new_zombie.position = to_local(spawn_position)
 	add_child(new_zombie)
-	new_zombie.get_node("Polygon2D").color = resident.get_node("Polygon2D").color
+	if resident.infection_source != resident.InfectionSource.PLAYER_ABILITY:
+		new_zombie.get_node("Polygon2D").color = resident.get_node("Polygon2D").color
 	if is_instance_valid(resident.interior_building):
 		resident.interior_building.adopt_conversion(resident, new_zombie)
 	resident.queue_free()
+	_refresh_mission_progress()
+	if is_instance_valid(mission_hud):
+		mission_hud.refresh_units()
 
 
 func _on_resident_died(resident: Node) -> void:
@@ -517,6 +571,9 @@ func _on_resident_died(resident: Node) -> void:
 		return
 
 	dead_resident_ids[resident_id] = true
+	if zombie_infection != null and resident.killed_by_player_monster:
+		zombie_infection.record_non_converting_kill()
+		mission_hud.refresh_infection()
 	_refresh_mission_progress()
 
 

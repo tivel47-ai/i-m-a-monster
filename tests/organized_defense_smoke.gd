@@ -24,7 +24,7 @@ func fixture() -> void:
 	if is_instance_valid(map):
 		map.queue_free()
 		await frames(2)
-	map = load("res://scenes/village_simulation_map.tscn").instantiate()
+	map = load("res://tests/fixtures/mission_one_with_zombies.tscn").instantiate()
 	root.add_child(map)
 	guards.clear()
 	civilians.clear()

@@ -2,7 +2,7 @@ extends "res://tests/simulation_map_validation.gd"
 
 func run() -> void:
 	seed(7126)
-	map = load("res://scenes/village_simulation_map.tscn").instantiate()
+	map = load("res://tests/fixtures/mission_one_with_zombies.tscn").instantiate()
 	root.add_child(map)
 	units = get_nodes_in_group("player_units")
 	reset_units(Vector2(100,100))
@@ -95,7 +95,7 @@ func run() -> void:
 	quit(1 if failures else 0)
 
 func check_conversion_and_evidence() -> void:
-	map = load("res://scenes/village_simulation_map.tscn").instantiate()
+	map = load("res://tests/fixtures/mission_one_with_zombies.tscn").instantiate()
 	root.add_child(map)
 	units = get_nodes_in_group("player_units")
 	reset_units(Vector2(100,100))

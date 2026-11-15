@@ -581,12 +581,11 @@ func _dispose_mission() -> void:
 	get_tree().paused = false
 
 func _on_mission_finished(outcome: String, summary: Dictionary) -> void:
-	if screen not in [Screen.GAMEPLAY, Screen.PAUSE, Screen.CONFIRM_LEAVE]: return
+	if outcome != "victory" or screen not in [Screen.GAMEPLAY, Screen.PAUSE, Screen.CONFIRM_LEAVE]: return
 	mission.cancel_selection()
 	mission.process_mode = Node.PROCESS_MODE_DISABLED
 	get_tree().paused = false
-	result_text.text = "%s — %s\nЖителей: %d\nЗаражено: %d\nУбито: %d" % [
-		"Победа" if outcome == "victory" else "Поражение",
+	result_text.text = "Победа — %s\nЖителей: %d\nЗаражено: %d\nУбито: %d" % [
 		CATALOG.MISSIONS[selected_mission].name, summary.total, summary.infected, summary.killed]
 	_show(Screen.RESULTS)
 

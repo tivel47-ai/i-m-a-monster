@@ -5,6 +5,8 @@ var objective_label: Label
 var alert_label: Label
 var monster_button: Button
 var building_button: Button
+var infection_button: Button
+var infection_segments: Array[ColorRect] = []
 var _refresh_elapsed := 0.0
 var _blocks: Array[Control] = []
 var developer_button: Button
@@ -78,6 +80,8 @@ func _build() -> void:
 	monster_button.pressed.connect(_select_all_zombies)
 	army_box.add_child(monster_button)
 
+	if mission.zombie_infection != null:
+		_build_infection()
 	var abilities := _panel(0.32, 0.90, 0.73, 1.0)
 	_label(abilities, "Способности", 16)
 	var commands := _panel(0.80, 0.88, 1.0, 1.0)
@@ -89,6 +93,54 @@ func _build() -> void:
 	building_button.tooltip_text = "Выберите зомби, затем укажите здание на карте"
 	building_button.pressed.connect(mission.toggle_building_order)
 	orders.add_child(building_button)
+
+
+func _build_infection() -> void:
+	var panel := _panel(0.18, 0.89, 0.32, 1.0)
+	var box := VBoxContainer.new()
+	panel.add_child(box)
+	infection_button = Button.new()
+	infection_button.toggle_mode = true
+	infection_button.add_theme_font_size_override("font_size", 13)
+	infection_button.tooltip_text = "ЛКМ по жителю или зданию · ПКМ отменяет наведение"
+	infection_button.icon = _infection_icon()
+	infection_button.pressed.connect(mission.toggle_infection_targeting)
+	box.add_child(infection_button)
+	var progress := HBoxContainer.new()
+	progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(progress)
+	for i in range(mission.ZOMBIE_INFECTION.KILLS_PER_CHARGE):
+		var segment := ColorRect.new()
+		segment.custom_minimum_size.y = 4
+		segment.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		progress.add_child(segment)
+		infection_segments.append(segment)
+	refresh_infection()
+
+
+func _infection_icon() -> ImageTexture:
+	var icon := Image.create_empty(13, 13, false, Image.FORMAT_RGBA8)
+	for y in range(13):
+		for x in range(13):
+			var distance := absi(x - 6) + absi(y - 6)
+			if distance <= 6:
+				icon.set_pixel(x, y, Color("b8dc79") if distance <= 4 else Color("566943"))
+	icon.fill_rect(Rect2i(5, 3, 3, 7), Color("26382a"))
+	icon.fill_rect(Rect2i(3, 5, 7, 3), Color("26382a"))
+	return ImageTexture.create_from_image(icon)
+
+
+func refresh_infection() -> void:
+	if infection_button == null:
+		return
+	var ability = mission.zombie_infection
+	infection_button.text = "Инфицирование ×%d" % ability.charges
+	infection_button.disabled = ability.charges == 0
+	infection_button.set_pressed_no_signal(ability.targeting)
+	for i in infection_segments.size():
+		infection_segments[i].color = Color("b8dc79") if i < ability.recovery_progress else Color("435049")
+
 
 func _build_developer_tools() -> void:
 	developer_button = Button.new()
@@ -147,6 +199,7 @@ func set_developer_mode(enabled: bool) -> void:
 func _choose_developer_tool(kind: String) -> void:
 	if not kind.is_empty():
 		mission.cancel_order_preview()
+		mission.cancel_infection_targeting()
 	mission.developer_spawn = kind
 	refresh_developer_tool()
 

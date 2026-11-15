@@ -21,6 +21,7 @@ enum InfectionState {
 
 enum Activity { NONE = -1, HOME, WORK, SOCIAL, WANDER }
 enum NavigationResult { MOVING, ARRIVED, FAILED }
+enum InfectionSource { NONE, ZOMBIE_COMBAT, PLAYER_ABILITY }
 
 @export var max_health: float = 100.0
 @export var attack_damage: float = 15.0
@@ -81,6 +82,9 @@ var progress_position: Vector2
 var stalled_seconds: float = 0.0
 
 var infection_state: InfectionState = InfectionState.AVAILABLE
+var infection_source := InfectionSource.NONE
+var player_infection_timer: Timer
+var killed_by_player_monster := false
 var current_health: float
 var converted_color: Color
 var encounter_participants: Array[Node2D] = []
@@ -88,6 +92,8 @@ var building_task: Node
 var interior_building: Node:
 	set(value):
 		interior_building = value
+		if has_player_infection():
+			queue_redraw()
 		for indicator in [threat_detection, threat_reaction, local_warning]:
 			if is_instance_valid(indicator):
 				indicator.queue_redraw()
@@ -535,7 +541,32 @@ func is_alive() -> bool:
 	)
 
 
-func take_damage(amount: float) -> void:
+func has_player_infection() -> bool:
+	return infection_source == InfectionSource.PLAYER_ABILITY and is_alive()
+
+
+func can_receive_player_infection() -> bool:
+	return (
+		current_health > 0.0
+		and infection_state in [InfectionState.AVAILABLE, InfectionState.IN_COLLISION]
+		and infection_source == InfectionSource.NONE
+	)
+
+
+func apply_player_infection(duration: float) -> bool:
+	if not can_receive_player_infection():
+		return false
+	infection_source = InfectionSource.PLAYER_ABILITY
+	player_infection_timer = Timer.new()
+	player_infection_timer.one_shot = true
+	player_infection_timer.timeout.connect(_complete_conversion)
+	add_child(player_infection_timer)
+	player_infection_timer.start(duration)
+	queue_redraw()
+	return true
+
+
+func take_damage(amount: float, attacker: Node = null) -> void:
 	if not is_alive() or current_health <= 0.0 or amount <= 0.0:
 		return
 
@@ -548,7 +579,7 @@ func take_damage(amount: float) -> void:
 	if infection_state == InfectionState.TRANSFORMING:
 		_end_encounter()
 	else:
-		_die()
+		_die(attacker)
 
 
 func receive_zombie_attack(amount: float, chance: float, zombie: Node2D) -> void:
@@ -562,6 +593,7 @@ func receive_zombie_attack(amount: float, chance: float, zombie: Node2D) -> void
 
 	if (
 		infection_state == InfectionState.IN_COLLISION
+		and not has_player_infection()
 		and randf() < clampf(chance, 0.0, 1.0)
 	):
 		var zombie_visual := zombie.get_node_or_null("Polygon2D") as Polygon2D
@@ -569,14 +601,15 @@ func receive_zombie_attack(amount: float, chance: float, zombie: Node2D) -> void
 			converted_color = zombie_visual.color
 		_start_transformation()
 
-	take_damage(amount)
+	take_damage(amount, zombie)
 
 
 func _start_transformation() -> void:
-	if infection_state != InfectionState.IN_COLLISION:
+	if infection_state != InfectionState.IN_COLLISION or has_player_infection():
 		return
 
 	infection_state = InfectionState.TRANSFORMING
+	infection_source = InfectionSource.ZOMBIE_COMBAT
 	local_warning.clear_report()
 	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
@@ -585,10 +618,14 @@ func _start_transformation() -> void:
 	transformation_timer.start()
 
 
-func _die() -> void:
-	if infection_state == InfectionState.DEAD:
+func _die(attacker: Node = null) -> void:
+	if not is_alive():
+		return
+	if has_player_infection():
+		_complete_conversion()
 		return
 
+	killed_by_player_monster = is_instance_valid(attacker) and attacker.is_in_group("player_units")
 	infection_state = InfectionState.DEAD
 	local_warning.clear_report()
 	threat_reaction.cancel_response()
@@ -702,10 +739,18 @@ func _on_encounter_attack_timer_timeout() -> void:
 
 
 func _on_transformation_timer_timeout() -> void:
-	if infection_state != InfectionState.TRANSFORMING:
+	if infection_state == InfectionState.TRANSFORMING:
+		_complete_conversion()
+
+
+func _complete_conversion() -> void:
+	if not is_alive():
 		return
 
 	infection_state = InfectionState.CONVERTED
+	transformation_timer.stop()
+	if is_instance_valid(player_infection_timer):
+		player_infection_timer.stop()
 	local_warning.clear_report()
 	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
@@ -715,7 +760,9 @@ func _on_transformation_timer_timeout() -> void:
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
-	polygon.color = converted_color
+	if infection_source == InfectionSource.ZOMBIE_COMBAT:
+		polygon.color = converted_color
+	queue_redraw()
 	converted.emit(self)
 
 
@@ -732,3 +779,8 @@ func _draw() -> void:
 		true
 	)
 	draw_rect(health_rect, Color(0.05, 0.05, 0.05), false, 0.65)
+	if has_player_infection() and not is_instance_valid(interior_building):
+		draw_colored_polygon(
+			PackedVector2Array([Vector2(0, -24), Vector2(3, -21), Vector2(0, -18), Vector2(-3, -21)]),
+			Color("b8dc79")
+		)

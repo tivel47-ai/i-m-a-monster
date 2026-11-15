@@ -482,6 +482,7 @@ func build() -> void:
 		error = ResourceSaver.save(navigation, NAVIGATION)
 		navigation.take_over_path(NAVIGATION)
 	village.set_script(load("res://scripts/test_map.gd"))
+	village.zombie_infection_enabled = true
 	var packed := PackedScene.new()
 	if error == OK: error = packed.pack(village)
 	if error == OK: error = ResourceSaver.save(packed,output_path)
@@ -896,8 +897,3 @@ func populate() -> void:
 				var value = preferences.components[component][key]
 				if component == "PriestGuard" and key == "patrol_points" and value.is_empty(): continue
 				npc.get_node(component).set(key, value)
-	var zombies := container(village,"Zombies")
-	for i in range(3):
-		var zombie := load("res://scenes/zombie.tscn").instantiate() as CharacterBody2D
-		attach(zombies,zombie,"Zombie"+str(i+1))
-		zombie.position = Vector2(170,900+i*45)

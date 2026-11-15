@@ -8,7 +8,6 @@
 [ext_resource type="Script" uid="uid://dgfka70jpwf2q" path="res://scripts/guard_patrol_route_2d.gd" id="8_aki2m"]
 [ext_resource type="PackedScene" uid="uid://bt7e18e7p513v" path="res://scenes/villager.tscn" id="9_vjkkk"]
 [ext_resource type="Script" uid="uid://xxgvwwo1b67t" path="res://scripts/guard_patrol.gd" id="10_nkg87"]
-[ext_resource type="PackedScene" uid="uid://dheq7yk5t4w73" path="res://scenes/zombie.tscn" id="11_ugq7x"]
 [ext_resource type="Script" uid="uid://bcgm133eekdng" path="res://scripts/priest_routine.gd" id="30_priest_routine"]
 [ext_resource type="PackedScene" path="res://scenes/priest_guard.tscn" id="31_priest_guard"]
 [ext_resource type="Script" uid="uid://c4ylnuqxnmwo" path="res://scripts/village_defense.gd" id="32_village_defense"]
@@ -38,6 +37,7 @@ border_color = Color(0.45, 0.85, 1, 0.95)
 [node name="VillageSimulationMap" type="Node2D" unique_id=1788305390]
 script = ExtResource("1_4nt34")
 developer_guard_spawn_enabled = true
+zombie_infection_enabled = true
 metadata/local_melee_routing = true
 metadata/guard_group_combat = true
 metadata/map_size = Vector2(3000, 2000)
@@ -6055,17 +6055,6 @@ route_path = NodePath("../../../GuardPatrolRoutes/SouthEastCircuit")
 post_access_path = NodePath("../../../GuardPatrolRoutes/PostAccess")
 post_zone_path = NodePath("../../../ActivityZones/HomeGuardPost")
 post_center_path = NodePath("../../../NavigationRegion2D/Buildings/Public/GuardPost")
-
-[node name="Zombies" type="Node2D" parent="." unique_id=326596473]
-
-[node name="Zombie1" parent="Zombies" unique_id=1210245640 instance=ExtResource("11_ugq7x")]
-position = Vector2(170, 900)
-
-[node name="Zombie2" parent="Zombies" unique_id=1865253270 instance=ExtResource("11_ugq7x")]
-position = Vector2(170, 945)
-
-[node name="Zombie3" parent="Zombies" unique_id=395894147 instance=ExtResource("11_ugq7x")]
-position = Vector2(170, 990)
 
 [connection signal="minimum_size_changed" from="CanvasLayer/MissionPanel" to="CanvasLayer/MissionPanel" method="reset_size"]
 
