@@ -3,6 +3,9 @@ extends Node
 const CATALOG = preload("res://scripts/mission_catalog.gd")
 const SETTINGS = preload("res://scripts/game_settings.gd")
 const MISSION_PREVIEW = preload("res://scripts/mission_preview.gd")
+const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
+const MENU_BACKGROUND = preload("res://assets/ui/undead_menu_background.png")
+const WORDMARK = preload("res://assets/ui/monster_wordmark.png")
 enum Screen { MAIN, SETTINGS, MISSIONS, RACES, GAMEPLAY, PAUSE, CONFIRM_LEAVE, RESULTS, DEVELOPMENT }
 var screen: Screen = Screen.MAIN
 var selected_mission := ""
@@ -11,6 +14,7 @@ var mission: Node2D
 var settings = SETTINGS.new()
 var pages: Dictionary = {}
 var ui: Control
+var menu_background: TextureRect
 var race_list: VBoxContainer
 var race_preview: VBoxContainer
 var race_details: VBoxContainer
@@ -69,6 +73,7 @@ func _show(next: Screen) -> void:
 	for key in pages:
 		pages[key].visible = key == screen
 	ui.visible = screen != Screen.GAMEPLAY
+	menu_background.modulate = Color.WHITE if screen == Screen.MAIN else Color(0.42, 0.42, 0.42)
 	if is_instance_valid(developer_button): developer_button.visible = screen == Screen.MAIN
 	if ui.visible:
 		_focus_page(screen, development_button if returning_from_development else null)
@@ -103,22 +108,62 @@ func _text(parent: Node, value: String, font_size := 22) -> Label:
 	parent.add_child(label)
 	return label
 
-func _page(id: Screen, title: String) -> VBoxContainer:
+func _page(id: Screen, title: String, centered := false) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
 	ui.add_child(scroll)
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	scroll.offset_left = 40
 	scroll.offset_top = 24
 	scroll.offset_right = -40
-	scroll.offset_bottom = -24
+	scroll.offset_bottom = -170 if id == Screen.MAIN else -24
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var content: Control = scroll
+	if centered:
+		var center := CenterContainer.new()
+		center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.add_child(center)
+		content = center
+	if id != Screen.MAIN:
+		var panel := PanelContainer.new()
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		panel.add_theme_stylebox_override("panel",
+			DARK_THEME.surface(Color("100c10ed"), DARK_THEME.EDGE, 24))
+		content.add_child(panel)
+		content = panel
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 16)
-	scroll.add_child(box)
-	_text(box, title, 36)
+	content.add_child(box)
+	if id != Screen.MAIN:
+		var heading := _text(box, title, 36)
+		heading.add_theme_color_override("font_color", DARK_THEME.HEADING)
+		if centered:
+			box.custom_minimum_size.x = 460
+			heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var rule := ColorRect.new()
+		rule.color = Color("52252e")
+		rule.custom_minimum_size.y = 1
+		rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(rule)
 	pages[id] = scroll
 	return box
+
+func _style_main_button(button: Button) -> void:
+	button.custom_minimum_size = Vector2(294, 56)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.add_theme_font_size_override("font_size", 26)
+	var marker := Label.new()
+	marker.text = "◆"
+	marker.position = Vector2(22, 15)
+	marker.add_theme_color_override("font_color", DARK_THEME.ACCENT)
+	marker.add_theme_font_size_override("font_size", 18)
+	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marker.hide()
+	button.add_child(marker)
+	button.focus_entered.connect(marker.show)
+	button.focus_exited.connect(marker.hide)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -127,27 +172,28 @@ func _build_ui() -> void:
 	ui = Panel.new()
 	layer.add_child(ui)
 	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var theme := Theme.new()
-	theme.default_font_size = 22
-	var background := StyleBoxFlat.new()
-	background.bg_color = Color("161d18")
-	theme.set_stylebox("panel", "Panel", background)
-	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color("344332") if state == "normal" else Color("4c6043")
-		if state == "disabled": style.bg_color = Color("272e29")
-		style.set_content_margin_all(10)
-		if state == "focus":
-			style.set_border_width_all(2)
-			style.border_color = Color("bbcf94")
-		theme.set_stylebox(state, "Button", style)
-	ui.theme = theme
-	var main := _page(Screen.MAIN, "I’m a Monster")
-	_text(main, "Тактический прототип • первая деревня")
-	_button(main, "Начать игру", func():
-		if screen == Screen.MAIN: _show(Screen.MISSIONS))
-	_button(main, "Настройки", func():
-		if screen == Screen.MAIN: _open_settings(Screen.MAIN))
+	ui.theme = DARK_THEME.build(22, 8)
+	ui.add_theme_stylebox_override("panel", DARK_THEME.surface(DARK_THEME.INK, DARK_THEME.INK, 0))
+	menu_background = TextureRect.new()
+	menu_background.texture = MENU_BACKGROUND
+	menu_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	menu_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	menu_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(menu_background)
+	menu_background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var main := _page(Screen.MAIN, "", true)
+	var logo := TextureRect.new()
+	logo.texture = WORDMARK
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.custom_minimum_size = Vector2(740, 245)
+	logo.accessibility_name = "I’m a Monster"
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	main.add_child(logo)
+	_style_main_button(_button(main, "Начать игру", func():
+		if screen == Screen.MAIN: _show(Screen.MISSIONS)))
+	_style_main_button(_button(main, "Настройки", func():
+		if screen == Screen.MAIN: _open_settings(Screen.MAIN)))
 	developer_button = Button.new()
 	developer_button.text = "🔧"
 	developer_button.tooltip_text = "Включить режим разработки"
@@ -164,7 +210,7 @@ func _build_ui() -> void:
 		developer_mode = not developer_mode
 		_update_developer_button()
 		if is_instance_valid(mission): mission.set_developer_mode(developer_mode))
-	var options := _page(Screen.SETTINGS, "Настройки")
+	var options := _page(Screen.SETTINGS, "Настройки", true)
 	var fullscreen := CheckButton.new()
 	fullscreen.text = "Полноэкранный режим"
 	fullscreen.button_pressed = settings.fullscreen
@@ -286,7 +332,7 @@ func _build_ui() -> void:
 	start_button.custom_minimum_size.x = 240
 	start_button.disabled = true
 	_build_development_page()
-	var pause := _page(Screen.PAUSE, "Пауза")
+	var pause := _page(Screen.PAUSE, "Пауза", true)
 	_button(pause, "Продолжить", func():
 		if screen == Screen.PAUSE: _resume())
 	_button(pause, "Перезапустить миссию", _restart_mission)
@@ -294,12 +340,12 @@ func _build_ui() -> void:
 		if screen == Screen.PAUSE: _open_settings(Screen.PAUSE))
 	_button(pause, "В главное меню", func():
 		if screen == Screen.PAUSE: _show(Screen.CONFIRM_LEAVE))
-	var confirm := _page(Screen.CONFIRM_LEAVE, "Покинуть миссию?")
+	var confirm := _page(Screen.CONFIRM_LEAVE, "Покинуть миссию?", true)
 	_text(confirm, "Текущая попытка будет потеряна. Результат миссии не будет записан.")
 	_button(confirm, "Остаться", func():
 		if screen == Screen.CONFIRM_LEAVE: _show(Screen.PAUSE))
 	_button(confirm, "Выйти", _leave_mission)
-	var results := _page(Screen.RESULTS, "Итог миссии")
+	var results := _page(Screen.RESULTS, "Итог миссии", true)
 	result_text = _text(results, "")
 	_button(results, "К выбору миссии", func():
 		if screen == Screen.RESULTS:
@@ -426,7 +472,8 @@ func _open_development() -> void:
 	_clear_children(development_tree)
 	development_branches = race.development
 	var base := PanelContainer.new()
-	base.add_theme_stylebox_override("panel", _development_style("354436", "a3b48a", 24))
+	base.add_theme_stylebox_override("panel",
+		DARK_THEME.surface(Color("2a171e"), DARK_THEME.ACCENT, 8))
 	_place_development_node(base, Vector2(0.5, 0.85))
 	var base_label := _text(base, "Базовая форма", 18)
 	base_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -438,12 +485,6 @@ func _open_development() -> void:
 		item.set_pressed_no_signal(node.id in applied)
 		item.toggled.connect(func(_pressed: bool): _refresh_development_selection())
 		item.add_theme_font_size_override("font_size", 18)
-		var radius := 8 if node.has("parent") else 24
-		item.add_theme_stylebox_override("normal", _development_style("29362d", "738775", radius))
-		item.add_theme_stylebox_override("hover", _development_style("3a4b3d", "a3b48a", radius))
-		item.add_theme_stylebox_override("pressed", _development_style("445337", "d7ce8b", radius))
-		item.add_theme_stylebox_override("hover_pressed", _development_style("546341", "eee0a0", radius))
-		item.add_theme_stylebox_override("disabled", _development_style("202823", "4b5a4f", radius))
 		_place_development_node(item, node.position)
 		development_items[node.id] = item
 	_refresh_development_selection()
@@ -460,17 +501,10 @@ func _place_development_node(control: Control, position_ratio: Vector2) -> void:
 	control.offset_top = -24
 	control.offset_bottom = 24
 
-func _development_style(fill: String, border: String, radius: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(fill)
-	style.border_color = Color(border)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(radius)
-	return style
-
 func _draw_development_branches() -> void:
 	var area := Rect2(Vector2.ZERO, development_tree.size)
-	development_tree.draw_style_box(_development_style("101813", "344239", 12), area)
+	development_tree.draw_rect(area, DARK_THEME.INK)
+	development_tree.draw_rect(area.grow(-0.5), DARK_THEME.EDGE, false, 1.0)
 	var centers := {"": Vector2(0.5, 0.85) * area.size}
 	for node in development_branches:
 		var start: Vector2 = centers[node.get("parent", "")]
@@ -481,9 +515,9 @@ func _draw_development_branches() -> void:
 		for step in range(17):
 			var weight := step / 16.0
 			points.append(start.lerp(bend, weight).lerp(bend.lerp(end, weight), weight))
-		development_tree.draw_polyline(points, Color("29392f"), 12, true)
+		development_tree.draw_polyline(points, Color("20171b"), 8, true)
 		var active := development_items[node.id].button_pressed
-		development_tree.draw_polyline(points, Color("c3b675") if active else Color("687b69"), 3, true)
+		development_tree.draw_polyline(points, Color("ce6373") if active else DARK_THEME.EDGE, 3, true)
 
 func _refresh_development_selection() -> void:
 	var selection := PackedStringArray()
@@ -521,16 +555,13 @@ func _apply_development() -> void:
 
 func _update_developer_button() -> void:
 	developer_button.tooltip_text = "Выключить режим разработки" if developer_mode else "Включить режим разработки"
-	developer_button.add_theme_color_override("font_color", Color("e6d77c") if developer_mode else Color("68746b"))
-	developer_button.add_theme_color_override("font_hover_color", Color("fff0a0") if developer_mode else Color("a5b1a4"))
-	developer_button.add_theme_color_override("font_pressed_color", Color("e6d77c"))
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("56663e") if developer_mode else Color("253029")
-	style.set_border_width_all(2)
-	style.border_color = Color("d7c568") if developer_mode else Color("3c4b40")
-	style.set_corner_radius_all(4)
-	developer_button.add_theme_stylebox_override("normal", style)
-	developer_button.add_theme_stylebox_override("hover", style)
+	developer_button.add_theme_color_override("font_color",
+		DARK_THEME.HEADING if developer_mode else DARK_THEME.MUTED)
+	if developer_mode:
+		developer_button.add_theme_stylebox_override("normal",
+			developer_button.get_theme_stylebox("pressed"))
+	else:
+		developer_button.remove_theme_stylebox_override("normal")
 
 func _start_mission() -> void:
 	if screen != Screen.RACES or not CATALOG.MISSIONS.has(selected_mission): return

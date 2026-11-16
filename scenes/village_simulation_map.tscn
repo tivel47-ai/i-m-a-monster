@@ -38,6 +38,7 @@ border_color = Color(0.45, 0.85, 1, 0.95)
 script = ExtResource("1_4nt34")
 developer_guard_spawn_enabled = true
 zombie_infection_enabled = true
+dark_fantasy_hud = true
 standalone_race_id = "zombie"
 metadata/local_melee_routing = true
 metadata/guard_group_combat = true

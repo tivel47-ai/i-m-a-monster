@@ -18,6 +18,7 @@ const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
 @export var developer_guard_spawn_enabled := false
 @export var zombie_infection_enabled := false
+@export var dark_fantasy_hud := false
 @export var standalone_race_id := ""
 @export_range(0.01, 5.0, 0.01, "or_greater") var assault_increment_seconds := 0.35
 var horde_commands: ZOMBIE_HORDE_COMMANDS

@@ -48,7 +48,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED: queue_redraw()
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("101711"))
+	draw_rect(Rect2(Vector2.ZERO, size), Color("090809"))
 	if map_rect.size.x <= 0 or map_rect.size.y <= 0: return
 	var available := (size - Vector2(16, 16)).max(Vector2.ONE)
 	var ratio := minf(available.x / map_rect.size.x, available.y / map_rect.size.y)
@@ -58,4 +58,4 @@ func _draw() -> void:
 		for point in shape.points:
 			points.append(origin + (point - map_rect.position) * ratio)
 		draw_colored_polygon(points, shape.color)
-	draw_rect(Rect2(origin, map_rect.size * ratio), Color("819374"), false, 1.0)
+	draw_rect(Rect2(origin, map_rect.size * ratio), Color("73555f"), false, 1.0)

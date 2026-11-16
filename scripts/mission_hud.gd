@@ -1,6 +1,7 @@
 extends Control
 
 const INFECTION_ORB = preload("res://scripts/infection_orb.gdshader")
+const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
 const INFECTION_ORB_SIZE := 92.0
 
 var mission: Node2D
@@ -23,6 +24,8 @@ var developer_tool_label: Label
 
 func _ready() -> void:
 	mission = get_parent().get_parent() as Node2D
+	if mission.dark_fantasy_hud:
+		theme = DARK_THEME.build(16, 4)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
@@ -42,10 +45,14 @@ func _panel(left: float, top: float, right: float, bottom: float) -> PanelContai
 	panel.offset_right = -8
 	panel.offset_bottom = -8
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.11, 0.10, 0.85)
-	style.set_corner_radius_all(7)
-	style.set_content_margin_all(8)
+	var style: StyleBoxFlat
+	if mission.dark_fantasy_hud:
+		style = DARK_THEME.surface(Color("100c10e6"), DARK_THEME.EDGE, 8)
+	else:
+		style = StyleBoxFlat.new()
+		style.bg_color = Color(0.07, 0.11, 0.10, 0.85)
+		style.set_corner_radius_all(7)
+		style.set_content_margin_all(8)
 	panel.add_theme_stylebox_override("panel", style)
 	add_child(panel)
 	_blocks.append(panel)
