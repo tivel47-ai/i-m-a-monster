@@ -342,6 +342,10 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if zombie_infection != null and InputMap.has_action("race_ability") and event.is_action_pressed("race_ability", false, true):
+		toggle_infection_targeting()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 		if cancel_infection_targeting():
 			get_viewport().set_input_as_handled()

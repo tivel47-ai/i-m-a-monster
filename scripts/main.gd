@@ -33,6 +33,14 @@ var reset_development_button: Button
 var apply_development_button: Button
 var result_text: Label
 var settings_status: Label
+var settings_draft: RefCounted
+var settings_panels: Array[Control] = []
+var settings_sections: Array[Button] = []
+var settings_key_buttons: Dictionary[String, Button] = {}
+var settings_capture := ""
+var settings_fullscreen: CheckButton
+var settings_speed: HSlider
+var settings_speed_label: Label
 var settings_return_screen: Screen = Screen.MAIN
 var mission_scroll: ScrollContainer
 var mission_buttons: Dictionary = {}
@@ -52,6 +60,11 @@ func _ready() -> void:
 	_show(Screen.MAIN)
 
 func _input(event: InputEvent) -> void:
+	if screen == Screen.SETTINGS and not settings_capture.is_empty() and event is InputEventKey:
+		get_viewport().set_input_as_handled()
+		if event.pressed and not event.echo:
+			_capture_settings_key(event)
+		return
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		if event.is_echo():
@@ -68,6 +81,9 @@ func _input(event: InputEvent) -> void:
 			Screen.CONFIRM_LEAVE: _show(Screen.PAUSE)
 
 func _show(next: Screen) -> void:
+	if screen == Screen.SETTINGS and next != Screen.SETTINGS:
+		_end_settings_capture()
+		settings_draft = null
 	var returning_from_development := screen == Screen.DEVELOPMENT and next == Screen.RACES
 	screen = next
 	for key in pages:
@@ -210,30 +226,7 @@ func _build_ui() -> void:
 		developer_mode = not developer_mode
 		_update_developer_button()
 		if is_instance_valid(mission): mission.set_developer_mode(developer_mode))
-	var options := _page(Screen.SETTINGS, "Настройки", true)
-	var fullscreen := CheckButton.new()
-	fullscreen.text = "Полноэкранный режим"
-	fullscreen.button_pressed = settings.fullscreen
-	options.add_child(fullscreen)
-	fullscreen.toggled.connect(func(value: bool):
-		settings.fullscreen = value
-		settings.apply_display()
-		_save_settings())
-	_text(options, "Скорость камеры (WASD), единиц/с")
-	var speed := HSlider.new()
-	speed.min_value = 200
-	speed.max_value = 900
-	speed.step = 50
-	speed.value = settings.camera_speed
-	speed.custom_minimum_size.y = 40
-	options.add_child(speed)
-	var speed_label := _text(options, str(int(speed.value)))
-	speed.value_changed.connect(func(value: float):
-		settings.camera_speed = value
-		speed_label.text = str(int(value))
-		_save_settings())
-	settings_status = _text(options, "Настройки сохраняются автоматически.", 18)
-	_button(options, "Назад", func(): _show(settings_return_screen))
+	_build_settings_page()
 	var missions := _page(Screen.MISSIONS, "Выбор миссии")
 	missions.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_text(missions, "Выберите миссию в списке, затем нажмите «Выбрать расу».", 18)
@@ -352,12 +345,158 @@ func _build_ui() -> void:
 			_dispose_mission()
 			_show(Screen.MISSIONS))
 
-func _save_settings() -> void:
-	settings_status.text = "Настройки сохранены." if settings.save_settings() == OK else "Не удалось сохранить настройки. Изменения действуют до закрытия игры."
+func _build_settings_page() -> void:
+	var options := _page(Screen.SETTINGS, "Настройки")
+	var columns := HBoxContainer.new()
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	columns.add_theme_constant_override("separation", 24)
+	options.add_child(columns)
+	var sections := VBoxContainer.new()
+	sections.custom_minimum_size.x = 200
+	sections.add_theme_constant_override("separation", 8)
+	columns.add_child(sections)
+	var content := PanelContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("100c10ed"), DARK_THEME.EDGE, 16))
+	columns.add_child(content)
+	for title in ["Общее", "Графика", "Звук", "Управление"]:
+		var index := settings_panels.size()
+		var button := _button(sections, title, _select_settings_section.bind(index))
+		button.toggle_mode = true
+		settings_sections.append(button)
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.custom_minimum_size.y = 220
+		content.add_child(scroll)
+		settings_panels.append(scroll)
+		var box := VBoxContainer.new()
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.add_theme_constant_override("separation", 8)
+		scroll.add_child(box)
+		match title:
+			"Графика":
+				settings_fullscreen = CheckButton.new()
+				settings_fullscreen.text = "Полноэкранный режим"
+				box.add_child(settings_fullscreen)
+				settings_fullscreen.toggled.connect(func(value: bool):
+					settings_draft.fullscreen = value
+					settings_status.text = "Есть несохранённые изменения.")
+			"Управление":
+				_build_control_settings(box)
+			_:
+				_text(box, "Настройки появятся позже.")
+
+	settings_status = _text(options, "", 18)
+	settings_status.custom_minimum_size.y = 26
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 12)
+	options.add_child(footer)
+	_button(footer, "Назад", func(): _show(settings_return_screen)).custom_minimum_size.x = 160
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(spacer)
+	_button(footer, "Применить", _apply_settings).custom_minimum_size.x = 160
+
+
+func _build_control_settings(box: VBoxContainer) -> void:
+	settings_speed_label = _text(box, "")
+	settings_speed = HSlider.new()
+	settings_speed.min_value = 200
+	settings_speed.max_value = 900
+	settings_speed.step = 1
+	settings_speed.custom_minimum_size.y = 36
+	box.add_child(settings_speed)
+	settings_speed.value_changed.connect(func(value: float):
+		settings_draft.camera_speed = value
+		settings_speed_label.text = "Скорость камеры: %d ед./с" % int(value)
+		settings_status.text = "Есть несохранённые изменения.")
+	var labels := ["Камера вверх", "Камера влево", "Камера вниз", "Камера вправо", "Основная способность расы"]
+	_text(box, "Нажмите на кнопку справа и выберите новую клавишу.", 18)
+	var index := 0
+	for action: String in SETTINGS.DEFAULT_KEYS:
+		if index == labels.size():
+			_text(box, "Слоты дополнительных способностей (пока пусты)", 18)
+		var row := HBoxContainer.new()
+		box.add_child(row)
+		var title: String = labels[index] if index < labels.size() else "Слот %d" % (index - labels.size() + 1)
+		_text(row, title).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var button := _button(row, "", _begin_settings_capture.bind(action))
+		button.custom_minimum_size = Vector2(150, 40)
+		settings_key_buttons[action] = button
+		index += 1
+
+
+func _select_settings_section(index: int) -> void:
+	_end_settings_capture()
+	for i in settings_panels.size():
+		settings_panels[i].visible = i == index
+		settings_sections[i].set_pressed_no_signal(i == index)
+
+
+func _begin_settings_capture(action: String) -> void:
+	_end_settings_capture()
+	settings_capture = action
+	settings_key_buttons[action].text = "Нажмите клавишу…"
+
+
+func _end_settings_capture() -> void:
+	if not settings_capture.is_empty():
+		var action := settings_capture
+		settings_capture = ""
+		_refresh_settings_key(action)
+
+
+func _refresh_settings_key(action: String) -> void:
+	var key: int = settings_draft.keys[action]
+	var display_key: int = key if DisplayServer.get_name() == "headless" else DisplayServer.keyboard_get_keycode_from_physical(key)
+	settings_key_buttons[action].text = OS.get_keycode_string(display_key if display_key != KEY_NONE else key)
+
+
+func _capture_settings_key(event: InputEventKey) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_end_settings_capture()
+		return
+	var key := event.physical_keycode
+	if not SETTINGS.can_bind(key) or event.alt_pressed or event.ctrl_pressed or event.shift_pressed or event.meta_pressed:
+		settings_status.text = "Выберите одиночную клавишу. Esc отменяет назначение."
+		return
+	for action in settings_draft.keys:
+		if action != settings_capture and settings_draft.keys[action] == key:
+			settings_status.text = "Эта клавиша занята. Выберите другую или нажмите Esc."
+			return
+	settings_draft.keys[settings_capture] = key
+	_end_settings_capture()
+	settings_status.text = "Есть несохранённые изменения."
+
+
+func _apply_settings() -> void:
+	_end_settings_capture()
+	if settings_draft.save_settings() != OK:
+		settings_status.text = "Не удалось сохранить настройки. Попробуйте снова."
+		return
+	settings.fullscreen = settings_draft.fullscreen
+	settings.camera_speed = settings_draft.camera_speed
+	settings.keys = settings_draft.keys.duplicate()
+	settings.apply()
+	settings_status.text = "Настройки сохранены."
+
 
 func _open_settings(origin: Screen) -> void:
 	settings_return_screen = origin
+	settings_capture = ""
+	settings_draft = SETTINGS.new()
+	settings_draft.fullscreen = settings.fullscreen
+	settings_draft.camera_speed = settings.camera_speed
+	settings_draft.keys = settings.keys.duplicate()
+	settings_fullscreen.set_pressed_no_signal(settings_draft.fullscreen)
+	settings_speed.set_value_no_signal(settings_draft.camera_speed)
+	settings_speed_label.text = "Скорость камеры: %d ед./с" % int(settings_speed.value)
+	for action in settings_key_buttons:
+		_refresh_settings_key(action)
+	settings_status.text = ""
+	_select_settings_section(0)
 	_show(Screen.SETTINGS)
+
 
 func _clear_children(parent: Node) -> void:
 	for child in parent.get_children():
