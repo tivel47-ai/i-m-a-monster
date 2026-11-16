@@ -391,6 +391,7 @@ func _advance_crossing(delta: float) -> void:
 		actor.building_task = null
 		if zombie:
 			actor.issue_player_area_move_order(_queue_point(actor, 1, -25.0 if departing.size() % 2 == 0 else 25.0))
+			mission.track_building_exit_clearance(actor)
 		elif residents.is_empty():
 			door_closed = false
 		_end_crossing()

@@ -483,6 +483,7 @@ func build() -> void:
 		navigation.take_over_path(NAVIGATION)
 	village.set_script(load("res://scripts/test_map.gd"))
 	village.zombie_infection_enabled = true
+	village.standalone_race_id = "zombie"
 	var packed := PackedScene.new()
 	if error == OK: error = packed.pack(village)
 	if error == OK: error = ResourceSaver.save(packed,output_path)

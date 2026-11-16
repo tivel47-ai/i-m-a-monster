@@ -32,7 +32,15 @@ func can_receive(source: Node2D) -> bool:
 	if guard.actor.defense.alert.level >= guard.actor.defense.alert.Level.ALARM: return false
 	if phase != Phase.NONE:
 		return phase == Phase.CONTACT and witness != null and witness.get_ref() == source
-	return guard.followers.size() < 2 and guard.alliance.is_empty() and (guard.active.is_empty() or guard.active.kind not in [guard.State.RAISE_ALARM, guard.State.ASSIST])
+	return guard.followers.size() < 2 and guard.alliance.is_empty() and corpse_queue.is_empty() and (
+		guard.active.is_empty() or guard.active.kind not in [
+			guard.State.INVESTIGATE, guard.State.SEARCH, guard.State.RAISE_ALARM, guard.State.ASSIST])
+
+func is_investigating_corpse(id: int) -> bool:
+	if corpse_ids.has(id):
+		return true
+	return corpse_queue.any(func(pending):
+		return pending.incident == id and guard.now() - float(pending.received_at) <= guard.investigation_seconds)
 
 func begin(message: Dictionary, source: Node2D) -> bool:
 	if not can_receive(source) or source.escort == null or not source.escort.reporter.claim(guard): return false

@@ -9,6 +9,7 @@ const PLAYER_SELECTION_LAYER := 4
 const GROUP_PLACEMENT = preload("res://scripts/group_placement.gd")
 const MISSION_HUD = preload("res://scripts/mission_hud.gd")
 const ZOMBIE_INFECTION = preload("res://scripts/zombie_infection.gd")
+const ZOMBIE_HORDE_COMMANDS = preload("res://scripts/zombie_horde_commands.gd")
 var placement = GROUP_PLACEMENT.new()
 var mission_hud: Control
 
@@ -17,6 +18,9 @@ const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
 @export var developer_guard_spawn_enabled := false
 @export var zombie_infection_enabled := false
+@export var standalone_race_id := ""
+@export_range(0.01, 5.0, 0.01, "or_greater") var assault_increment_seconds := 0.35
+var horde_commands: ZOMBIE_HORDE_COMMANDS
 var zombie_infection: ZOMBIE_INFECTION
 var developer_mode := false
 var developer_spawn := ""
@@ -24,6 +28,8 @@ var developer_spawn := ""
 var buildings: Array[InteractiveBuilding] = []
 var shelter_buildings: Dictionary = {}
 var choosing_building := false
+var consume_assault_cancel_release := false
+var marked_command_targets: Dictionary = {}
 
 enum MissionState {
 	ACTIVE,
@@ -63,8 +69,11 @@ var command_screen_position := Vector2.ZERO
 
 func _ready() -> void:
 	developer_mode = bool(get_meta("developer_mode", false))
-	if zombie_infection_enabled and get_meta("race_id", "zombie") == "zombie":
-		zombie_infection = ZOMBIE_INFECTION.new()
+	var race_id: String = get_meta("race_id", standalone_race_id)
+	if race_id == "zombie":
+		horde_commands = ZOMBIE_HORDE_COMMANDS.new(self)
+		if zombie_infection_enabled:
+			zombie_infection = ZOMBIE_INFECTION.new()
 	add_child(command_overlay)
 	command_overlay.z_index = 100
 	command_overlay.draw.connect(_draw_command_overlay)
@@ -164,12 +173,16 @@ func emit_break_in_noise(building: InteractiveBuilding, origin: Vector2, approac
 func toggle_building_order() -> void:
 	if choosing_building:
 		cancel_order_preview()
-	elif mission_state == MissionState.ACTIVE and not buildings.is_empty() and not _command_units().is_empty():
+	elif mission_state == MissionState.ACTIVE and not buildings.is_empty() and (
+		horde_commands != null or not _command_units().is_empty()
+	):
 		cancel_infection_targeting()
 		cancel_selection()
 		command_active = false
 		developer_spawn = ""
 		choosing_building = true
+		if horde_commands != null:
+			horde_commands.assault_feedback = ""
 		mission_hud.refresh_developer_tool()
 		mission_hud.refresh_units()
 
@@ -177,8 +190,12 @@ func toggle_building_order() -> void:
 func cancel_order_preview() -> bool:
 	if not command_active and not choosing_building:
 		return false
+	if choosing_building and horde_commands != null:
+		horde_commands.assault_feedback = ""
 	command_active = false
 	choosing_building = false
+	if horde_commands != null:
+		horde_commands.reset_assault()
 	command_overlay.queue_redraw()
 	if is_instance_valid(mission_hud):
 		mission_hud.refresh_units()
@@ -192,6 +209,46 @@ func _pick_assault_building(world_position: Vector2) -> void:
 	for unit in _command_units():
 		unit.issue_player_building_order(building)
 	cancel_order_preview()
+
+
+func cancel_global_order() -> void:
+	if horde_commands == null or mission_state != MissionState.ACTIVE:
+		return
+	if command_active:
+		cancel_order_preview()
+	horde_commands.cancel()
+	mission_hud.refresh_commands()
+	command_overlay.queue_redraw()
+
+
+func _handle_horde_assault_input(event: InputEventMouseButton, over_ui: bool) -> bool:
+	if event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and choosing_building and (horde_commands.assault_quantity > 0 or not over_ui):
+			if horde_commands.assault_quantity > 0:
+				horde_commands.reset_assault()
+				mission_hud.refresh_commands()
+				command_overlay.queue_redraw()
+			else:
+				cancel_order_preview()
+			consume_assault_cancel_release = true
+			return true
+		if not event.pressed and consume_assault_cancel_release:
+			consume_assault_cancel_release = false
+			return true
+		return not over_ui and choosing_building
+
+	if event.button_index != MOUSE_BUTTON_RIGHT or not choosing_building:
+		return false
+	if event.pressed and not over_ui:
+		var building := _building_at(_screen_to_world(event.position))
+		if building != null:
+			horde_commands.begin_assault(building)
+	elif not event.pressed and horde_commands.assault_quantity > 0:
+		if horde_commands.confirm_assault():
+			choosing_building = false
+	mission_hud.refresh_commands()
+	command_overlay.queue_redraw()
+	return true
 
 
 func _building_at(world_position: Vector2) -> InteractiveBuilding:
@@ -255,6 +312,8 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 		var zombie := ZOMBIE_SCENE.instantiate()
 		zombie.position = to_local(position_on_map)
 		add_child(zombie)
+		if horde_commands != null:
+			horde_commands.inherit(zombie)
 	elif kind == "resident" or (kind == "guard" and developer_guard_spawn_enabled):
 		var resident := VILLAGER_SCENE.instantiate()
 		if kind == "guard":
@@ -286,9 +345,17 @@ func _input(event: InputEvent) -> void:
 		if cancel_infection_targeting():
 			get_viewport().set_input_as_handled()
 			return
-	if event is InputEventMouse and is_instance_valid(mission_hud) and mission_hud.is_pointer_over_ui(event.position):
+	var over_ui: bool = event is InputEventMouse and is_instance_valid(mission_hud) and mission_hud.is_pointer_over_ui(event.position)
+	if horde_commands != null and event is InputEventMouseButton and _handle_horde_assault_input(event, over_ui):
+		get_viewport().set_input_as_handled()
+		return
+	if over_ui:
 		if selection_in_progress:
 			_finish_selection(selection_current_screen)
+		if horde_commands != null and command_active and event is InputEventMouseButton and (
+			event.button_index == MOUSE_BUTTON_RIGHT and not event.pressed
+		):
+			cancel_order_preview()
 		return
 	if zombie_infection != null and zombie_infection.targeting and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -322,7 +389,8 @@ func _input(event: InputEvent) -> void:
 		and event.button_index == MOUSE_BUTTON_RIGHT
 	):
 		if event.pressed:
-			command_active = not _command_units().is_empty()
+			command_active = mission_state == MissionState.ACTIVE and (
+				horde_commands != null or not _command_units().is_empty())
 			command_radius = command_initial_radius
 			command_screen_position = event.position
 			command_center = _screen_to_world(event.position)
@@ -336,6 +404,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	if horde_commands != null:
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			selection_in_progress = true
@@ -368,9 +438,15 @@ func cancel_selection() -> void:
 	selection_rect.hide()
 
 
-func _process(_delta: float) -> void:
-	_update_command_preview(_delta)
-	if choosing_building and _command_units().is_empty():
+func _process(delta: float) -> void:
+	if horde_commands != null and horde_commands.assault_quantity > 0:
+		if horde_commands.update_assault(delta, maxf(assault_increment_seconds, 0.01)):
+			mission_hud.refresh_commands()
+		return
+	if horde_commands != null and horde_commands.refresh_attack_order():
+		mission_hud.refresh_commands()
+	_update_command_preview(delta)
+	if horde_commands == null and choosing_building and _command_units().is_empty():
 		cancel_order_preview()
 
 
@@ -466,6 +542,10 @@ func _screen_to_world(screen_position: Vector2) -> Vector2:
 
 func _issue_area_move_order(center: Vector2, radius: float = 100.0) -> void:
 	var selected_units := _command_units()
+	if horde_commands != null:
+		horde_commands.issue_move(center, radius, selected_units)
+		mission_hud.refresh_commands()
+		return
 
 	if selected_units.is_empty():
 		return
@@ -529,6 +609,8 @@ func _get_player_unit(collider: Object) -> Node:
 
 
 func _apply_selection(selected_units: Array[Node]) -> void:
+	if horde_commands != null:
+		return
 	for unit in get_tree().get_nodes_in_group("player_units"):
 		if is_ancestor_of(unit) and unit.has_method("set_selected"):
 			unit.call("set_selected", selected_units.has(unit))
@@ -556,6 +638,8 @@ func _on_resident_converted(resident: Node) -> void:
 		new_zombie.get_node("Polygon2D").color = resident.get_node("Polygon2D").color
 	if is_instance_valid(resident.interior_building):
 		resident.interior_building.adopt_conversion(resident, new_zombie)
+	elif horde_commands != null:
+		horde_commands.inherit(new_zombie)
 	resident.queue_free()
 	_refresh_mission_progress()
 	if is_instance_valid(mission_hud):
@@ -575,6 +659,23 @@ func _on_resident_died(resident: Node) -> void:
 		zombie_infection.record_non_converting_kill()
 		mission_hud.refresh_infection()
 	_refresh_mission_progress()
+
+
+func track_building_exit_clearance(zombie: Node) -> void:
+	if horde_commands == null:
+		return
+	zombie.clearing_building_exit = true
+	zombie.move_order_finished.connect(
+		_on_building_exit_cleared.bind(zombie), CONNECT_ONE_SHOT | CONNECT_DEFERRED)
+
+
+func _on_building_exit_cleared(_reached: bool, zombie: Node) -> void:
+	if not is_instance_valid(zombie):
+		return
+	zombie.clearing_building_exit = false
+	if mission_state == MissionState.ACTIVE:
+		horde_commands.inherit(zombie)
+	mission_hud.refresh_units()
 
 
 func _refresh_mission_progress() -> void:
@@ -611,10 +712,27 @@ func _refresh_mission_progress() -> void:
 
 
 func _command_units() -> Array[Node]:
+	var units := _available_command_units()
+	if horde_commands != null:
+		return units
+	return units.filter(func(unit): return unit.is_selected)
+
+
+func _available_command_units() -> Array[Node]:
 	var result: Array[Node] = []
 	for unit in get_tree().get_nodes_in_group("player_units"):
-		if is_ancestor_of(unit) and unit.is_selected and unit.can_receive_player_orders(): result.append(unit)
+		if is_ancestor_of(unit) and not unit.is_queued_for_deletion() and unit.can_receive_player_orders():
+			result.append(unit)
 	return result
+
+
+func _owned_zombie_count() -> int:
+	var count := 0
+	for unit in get_tree().get_nodes_in_group("player_units"):
+		if is_ancestor_of(unit) and not unit.is_queued_for_deletion() and unit.is_alive():
+			count += 1
+	return count
+
 
 func _command_targets(center: Vector2, radius: float) -> Array[Node2D]:
 	var result: Array[Node2D] = []
@@ -624,16 +742,20 @@ func _command_targets(center: Vector2, radius: float) -> Array[Node2D]:
 	return result
 
 func _issue_command(center: Vector2, radius: float) -> void:
-	var units := _command_units()
-	if units.is_empty(): return
 	var targets := _command_targets(center, radius)
 	if targets.is_empty(): _issue_area_move_order(center, radius)
 	else:
-		for i in range(units.size()): units[i].issue_player_attack_order(targets, i % targets.size())
+		var units := _command_units()
+		if horde_commands != null:
+			horde_commands.issue_attack(targets, units)
+			mission_hud.refresh_commands()
+		else:
+			for i in range(units.size()):
+				units[i].issue_player_attack_order(targets, i % targets.size())
 
 func _update_command_preview(delta: float) -> void:
 	if command_active:
-		if _command_units().is_empty(): command_active = false
+		if horde_commands == null and _command_units().is_empty(): command_active = false
 		else:
 			command_center = _screen_to_world(command_screen_position)
 			command_radius = minf(command_radius + command_growth_speed * delta, command_max_radius)
@@ -641,28 +763,33 @@ func _update_command_preview(delta: float) -> void:
 
 func _draw_command_overlay() -> void:
 	if choosing_building:
-		var point := get_global_mouse_position()
-		for building in buildings:
-			if not building.contains(point):
-				continue
+		var building := horde_commands.assault_building if horde_commands != null else null
+		if not is_instance_valid(building):
+			building = _building_at(get_global_mouse_position())
+		if is_instance_valid(building):
 			var perimeter := PackedVector2Array()
 			for vertex in building.layout.outline:
 				perimeter.append(to_local(building.layout.to_global(vertex)))
 			perimeter.append(perimeter[0])
 			command_overlay.draw_polyline(perimeter, Color("ecbd7c"), 2.0, true)
-			break
 	if command_active:
 		var color := Color(0.2, 0.8, 1.0, 0.8) if _command_targets(command_center, command_radius).is_empty() else Color(1.0, 0.2, 0.2, 0.8)
 		command_overlay.draw_circle(to_local(command_center), command_radius, Color(color, 0.12))
 		command_overlay.draw_arc(to_local(command_center), command_radius, 0, TAU, 96, color, 2.0)
-	var marked: Dictionary = {}
-	for unit in get_tree().get_nodes_in_group("player_units"):
-		if not is_ancestor_of(unit) or unit.is_dead: continue
-		for target in unit.priority_targets:
-			if is_instance_valid(target) and target.is_alive() and not is_instance_valid(target.interior_building): marked[target] = true
-	for target in marked: command_overlay.draw_circle(to_local(target.global_position + Vector2(0, -25)), 3.0, Color.RED)
+	if horde_commands == null or horde_commands.assault_quantity == 0:
+		marked_command_targets.clear()
+		if horde_commands == null or horde_commands.order == horde_commands.Order.ATTACK:
+			for unit in get_tree().get_nodes_in_group("player_units"):
+				if is_ancestor_of(unit) and not unit.is_dead:
+					for target in unit.priority_targets:
+						if is_instance_valid(target):
+							marked_command_targets[target] = true
+	for target in marked_command_targets:
+		if is_instance_valid(target) and target.is_alive() and not is_instance_valid(target.interior_building):
+			command_overlay.draw_circle(to_local(target.global_position + Vector2(0, -25)), 3.0, Color.RED)
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		consume_assault_cancel_release = false
 		cancel_order_preview()

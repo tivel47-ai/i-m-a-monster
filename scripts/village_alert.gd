@@ -40,6 +40,7 @@ enum Level { NORMAL, SUSPICION, ALARM, ORGANIZED_DEFENSE }
 var corpses: Dictionary = {}
 var registered_corpses: Dictionary = {}
 var corpse_decisions: Dictionary = {}
+var guard_corpse_responses: Dictionary = {}
 var registered_civilian_corpses: int = 0
 var combat_episodes: Dictionary = {}
 ## Seed may be assigned by validation tools after initialization.
@@ -284,6 +285,9 @@ func confirm_corpse(guard: Node2D, message: Dictionary, source: Node2D = null) -
 	var first_registration := _register_corpse(id)
 	if level >= Level.ALARM:
 		return
+	if role_based_corpse_alarm and body.guard_ai != null:
+		_respond_to_guard_corpse(guard, source, body, message, id)
+		return
 	if first_registration:
 		if civilian:
 			registered_civilian_corpses += 1
@@ -293,6 +297,30 @@ func confirm_corpse(guard: Node2D, message: Dictionary, source: Node2D = null) -
 	if not civilian and source == guard and not corpse_decisions.get(id, false):
 		if guard.defense.visible(guard, body, guard.threat_detection.detection_radius) and guard.guard_ai.raise_alarm_for_confirmed_death(message):
 			corpse_decisions[id] = true
+
+
+func _respond_to_guard_corpse(
+	guard: Node2D, source: Node2D, body: Node2D, message: Dictionary, id: int
+) -> void:
+	# The death is registered once. A local response only lasts while a guard can carry it out.
+	var response: Dictionary = guard_corpse_responses.get(id, {})
+	var responder: Node2D = response.guard.get_ref() if not response.is_empty() else null
+	var heading_to_bell: bool = response.get("bell", false)
+	var responding := false
+	if is_instance_valid(responder) and responder.is_alive() and responder.autonomous_movement_enabled and responder.guard_ai.enabled:
+		responding = responder.guard_ai.has_confirmed_death_alarm() if heading_to_bell \
+			else responder.guard_ai.investigation.is_investigating_corpse(id)
+
+	if heading_to_bell and (responding or responder == guard):
+		return
+	if source != guard:
+		if not responding and guard.guard_ai.investigation.can_receive(source):
+			guard.guard_ai.investigation.queue_corpse(message)
+			guard_corpse_responses[id] = {"guard": weakref(guard), "bell": false}
+		return
+	if guard.defense.visible(guard, body, guard.threat_detection.detection_radius) \
+		and guard.guard_ai.raise_alarm_for_confirmed_death(message):
+		guard_corpse_responses[id] = {"guard": weakref(guard), "bell": true}
 
 
 func observe_corpse(observer: Node2D, message: Dictionary) -> void:

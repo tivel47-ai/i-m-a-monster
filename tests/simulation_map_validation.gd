@@ -47,6 +47,7 @@ func run() -> void:
 	seed(104729)
 	root.size = Vector2i(1280,720)
 	map = load("res://tests/fixtures/mission_one_with_zombies.tscn").instantiate()
+	map.set_meta("race_id", "manual_test")
 	root.add_child(map)
 	units = get_nodes_in_group("player_units")
 	for resident in map.villagers: resident.autonomous_movement_enabled = false

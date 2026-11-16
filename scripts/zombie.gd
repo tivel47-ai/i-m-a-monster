@@ -25,6 +25,7 @@ const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 @export var navigation_recovery_limit: int = 3
 
 signal move_order_finished(reached: bool)
+signal horde_move_failed
 var last_move_reached: bool = false
 var progress_position: Vector2
 var stalled_seconds: float = 0.0
@@ -48,6 +49,8 @@ var target_position: Vector2
 var has_target: bool = false
 var priority_targets: Array[Node2D] = []
 var has_player_order: bool = false
+var follows_horde_order := false
+var clearing_building_exit := false
 var aggro_reacquire_delay: float = 0.0
 var aggro_target: Node2D
 var aggro_destination_origin: Vector2
@@ -114,7 +117,7 @@ func _draw() -> void:
 			1.3
 		)
 
-	if has_player_order:
+	if has_player_order and not follows_horde_order:
 		var marker_position := to_local(target_position)
 		var marker_color := Color(0.3, 0.9, 1.0)
 		draw_arc(marker_position, 10.0, 0.0, TAU, 24, marker_color, 2.0)
@@ -152,6 +155,7 @@ func _die() -> void:
 	is_selected = false
 	has_target = false
 	has_player_order = false
+	follows_horde_order = false
 	aggro_reacquire_delay = 0.0
 	velocity = Vector2.ZERO
 	aggro_candidates.clear()
@@ -192,7 +196,7 @@ func is_alive() -> bool:
 
 
 func can_receive_player_orders() -> bool:
-	return not is_dead and not is_instance_valid(interior_building)
+	return not is_dead and not clearing_building_exit and not is_instance_valid(interior_building)
 
 
 func is_assaulting_building() -> bool:
@@ -253,7 +257,15 @@ func issue_player_area_hold_order() -> void:
 	queue_redraw()
 
 
+func cancel_horde_order() -> void:
+	if not follows_horde_order or not can_receive_player_orders():
+		return
+	issue_player_area_hold_order()
+	aggro_reacquire_delay = 0.0
+
+
 func _prepare_for_player_order() -> void:
+	follows_horde_order = false
 	if melee_route != null:
 		melee_route.cancel()
 	if is_instance_valid(building_task):
@@ -874,7 +886,11 @@ func _finish_movement_target() -> void:
 			crowd_return_delay_remaining = maxf(crowd_return_delay, 0.0)
 	if aggro_target == null and has_player_order:
 		has_player_order = false
+		var retry_horde_move := follows_horde_order and not last_move_reached
+		follows_horde_order = false
 		aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
+		if retry_horde_move:
+			horde_move_failed.emit()
 	queue_redraw()
 	if notify_order:
 		move_order_finished.emit(last_move_reached)
@@ -891,6 +907,7 @@ func issue_player_attack_order(targets: Array[Node2D], first: int = 0) -> void:
 func _update_priority_attack() -> void:
 	priority_targets = priority_targets.filter(func(target): return is_instance_valid(target) and target.is_alive() and not is_instance_valid(target.interior_building))
 	if priority_targets.is_empty():
+		follows_horde_order = false
 		if is_instance_valid(aggro_target): aggro_target.leave_encounter(self)
 		aggro_target = null
 		has_target = false

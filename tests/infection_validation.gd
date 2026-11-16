@@ -213,6 +213,11 @@ func outdoors_and_recovery() -> void:
 
 
 func shelter(building: InteractiveBuilding, actor: Node2D) -> bool:
+	var navigation_ready := func() -> bool:
+		return (NavigationServer2D.map_get_iteration_id(building.layout.map) > 0
+			and building.shelter_approach().is_finite())
+	if not await until(navigation_ready, 300):
+		return false
 	actor.global_position = building.shelter_approach()
 	return building.request_shelter(actor) and await until(func(): return actor.interior_building == building, 150)
 
@@ -268,25 +273,25 @@ func interiors() -> void:
 	building.monsters[0].infection_chance = 0.0
 	building.monsters[1].infection_chance = 0.0
 	inside.attack_damage = 1000.0
-	outdoor.set_selected(false)
-	mission.mission_hud._select_all_zombies()
 	inside.issue_player_area_move_order(Vector2(200, 800))
-	check(not inside.can_receive_player_orders() and not inside.is_selected and not inside.has_target
-		and mission._command_units() == [outdoor], "Group selection and direct orders exclude interior zombies")
+	check(not inside.can_receive_player_orders() and not inside.has_target
+		and mission._command_units() == [outdoor], "Global recipients and direct orders exclude interior zombies")
 	check(await until(func(): return guard.is_dead(), 360)
 		and ability.recovery_progress == 1, "Interior combat uses existing AI, and a non-converting interior kill counts")
-	check(await until(func(): return building.monsters.is_empty(), 480) and building.barricade_hp == 0.0
-		and inside.can_receive_player_orders(), "Both zombies destroy the barricade from inside and exit")
-	inside.set_selected(true)
-	inside.issue_player_move_order(Vector2(600, 550))
-	check(inside.is_selected and inside.has_target, "Ordinary selection and orders resume after exit")
+	check(await until(func(): return building.monsters.is_empty() and inside.can_receive_player_orders(), 480)
+		and building.barricade_hp == 0.0, "Both zombies destroy the barricade from inside and exit")
+	check(not inside.follows_horde_order and not inside.has_player_order and mission._command_units().has(inside),
+		"After clearing the exit with no global order, the converted zombie returns to autonomous AI")
 
 
 func threshold_conversion() -> void:
 	settle_residents()
 	var building: InteractiveBuilding = mission.shelter_buildings[mission.get_node("VillagePointsOfInterest/Home1")]
 	var resident: Node2D = residents("peasant")[0]
-	check(await shelter(building, resident), "Resident enters before threshold conversion test")
+	var sheltered := await shelter(building, resident)
+	check(sheltered, "Resident enters before threshold conversion test")
+	if not sheltered:
+		return
 	ability.infect(resident)
 	building.request_resident_exit(resident)
 	if not await until(func(): return building._crossing_started and building.layout.depth(resident) > -5.0, 180):

@@ -383,7 +383,6 @@ func _update_preview() -> void:
 	race_preview.add_child(preview)
 	_text(race_preview, "Как играется", 24)
 	_text(race_preview, race.gameplay, 18)
-	_text(race_preview, "ЛКМ и рамка — выбор. Удерживайте ПКМ: круг растёт. Отпустите: движение или атака. Esc — отмена.", 16)
 	_text(race_details, race.name, 26)
 	_text(race_details, race.description, 18)
 	_text(race_details, "Сильные стороны", 22)
@@ -552,6 +551,7 @@ func _start_mission() -> void:
 
 func _pause() -> void:
 	mission.cancel_selection()
+	mission.cancel_order_preview()
 	get_tree().paused = true
 	_show(Screen.PAUSE)
 
@@ -583,6 +583,7 @@ func _dispose_mission() -> void:
 func _on_mission_finished(outcome: String, summary: Dictionary) -> void:
 	if outcome != "victory" or screen not in [Screen.GAMEPLAY, Screen.PAUSE, Screen.CONFIRM_LEAVE]: return
 	mission.cancel_selection()
+	mission.cancel_order_preview()
 	mission.process_mode = Node.PROCESS_MODE_DISABLED
 	get_tree().paused = false
 	result_text.text = "Победа — %s\nЖителей: %d\nЗаражено: %d\nУбито: %d" % [

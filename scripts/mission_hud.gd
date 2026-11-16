@@ -4,7 +4,10 @@ var mission: Node2D
 var objective_label: Label
 var alert_label: Label
 var monster_button: Button
+var monster_count: Label
 var building_button: Button
+var global_cancel_button: Button
+var assault_status: Label
 var infection_button: Button
 var infection_segments: Array[ColorRect] = []
 var _refresh_elapsed := 0.0
@@ -74,17 +77,21 @@ func _build() -> void:
 	var army_box := VBoxContainer.new()
 	army.add_child(army_box)
 	_label(army_box, "Монстры", 18)
-	monster_button = Button.new()
-	monster_button.text = "Зомби × 0"
-	monster_button.tooltip_text = "Выбрать всех доступных зомби"
-	monster_button.pressed.connect(_select_all_zombies)
-	army_box.add_child(monster_button)
+	if mission.horde_commands != null:
+		monster_count = _label(army_box, "Зомби × 0")
+	else:
+		monster_button = Button.new()
+		monster_button.text = "Зомби × 0"
+		monster_button.tooltip_text = "Выбрать всех доступных зомби"
+		monster_button.pressed.connect(_select_all_zombies)
+		army_box.add_child(monster_button)
 
 	if mission.zombie_infection != null:
 		_build_infection()
 	var abilities := _panel(0.32, 0.90, 0.73, 1.0)
 	_label(abilities, "Способности", 16)
-	var commands := _panel(0.80, 0.88, 1.0, 1.0)
+	var command_top := 0.77 if mission.horde_commands != null else 0.88
+	var commands := _panel(0.80, command_top, 1.0, 1.0)
 	var orders := VBoxContainer.new()
 	commands.add_child(orders)
 	_label(orders, "Команды монстрам", 16)
@@ -93,6 +100,15 @@ func _build() -> void:
 	building_button.tooltip_text = "Выберите зомби, затем укажите здание на карте"
 	building_button.pressed.connect(mission.toggle_building_order)
 	orders.add_child(building_button)
+	if mission.horde_commands != null:
+		building_button.toggle_mode = true
+		building_button.tooltip_text = "Удерживайте ПКМ на здании и отпустите для штурма. ЛКМ при удержании отменяет подготовку, в остальное время — режим."
+		global_cancel_button = Button.new()
+		global_cancel_button.text = "Отменить приказ орде"
+		global_cancel_button.tooltip_text = "Отменить общий приказ и убрать сообщение о штурме"
+		global_cancel_button.pressed.connect(mission.cancel_global_order)
+		orders.add_child(global_cancel_button)
+		assault_status = _label(orders, "", 14)
 
 
 func _build_infection() -> void:
@@ -232,7 +248,13 @@ func _refresh() -> void:
 
 
 func refresh_units() -> void:
-	if not is_instance_valid(mission) or not is_instance_valid(monster_button): return
+	if not is_instance_valid(mission):
+		return
+	if mission.horde_commands != null:
+		if mission.horde_commands.assault_quantity == 0:
+			monster_count.text = "Зомби × %d" % mission._owned_zombie_count()
+		refresh_commands()
+		return
 	var units := _available_zombies()
 	monster_button.text = "Зомби × %d" % units.size()
 	monster_button.disabled = units.is_empty()
@@ -241,12 +263,27 @@ func refresh_units() -> void:
 	building_button.disabled = mission.buildings.is_empty() or mission._command_units().is_empty()
 
 
+func refresh_commands() -> void:
+	if mission.horde_commands == null:
+		return
+	var horde = mission.horde_commands
+	var active: bool = mission.mission_state == mission.MissionState.ACTIVE
+	building_button.disabled = not active or mission.buildings.is_empty()
+	building_button.set_pressed_no_signal(mission.choosing_building)
+	global_cancel_button.disabled = not active or (
+		horde.order == horde.Order.NONE and horde.assault_feedback.is_empty())
+	if horde.assault_quantity > 0:
+		assault_status.text = "Подготовка: %d зомби" % horde.assault_quantity
+	elif not horde.assault_feedback.is_empty():
+		assault_status.text = horde.assault_feedback
+	elif mission.choosing_building:
+		assault_status.text = "Удерживайте ПКМ на здании"
+	else:
+		assault_status.text = ""
+
+
 func _available_zombies() -> Array[Node]:
-	var units: Array[Node] = []
-	for unit in get_tree().get_nodes_in_group("player_units"):
-		if mission.is_ancestor_of(unit) and unit.can_receive_player_orders():
-			units.append(unit)
-	return units
+	return mission._available_command_units()
 
 
 func _select_all_zombies() -> void:

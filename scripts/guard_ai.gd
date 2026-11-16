@@ -379,10 +379,13 @@ func offer_alarm(report: Dictionary) -> void:
 	var task = memory.offer(State.RAISE_ALARM, report, now())
 	if not task.is_empty(): task.point = actor.defense.alarm_point(actor)
 
+func has_confirmed_death_alarm() -> bool:
+	return memory.tasks.any(func(pending):
+		return pending.kind == State.RAISE_ALARM and pending.report.get("confirmed_death", false))
+
 func raise_alarm_for_confirmed_death(report: Dictionary) -> bool:
 	if not actor.autonomous_movement_enabled: return false
-	for pending in memory.tasks:
-		if pending.kind == State.RAISE_ALARM and pending.report.get("confirmed_death", false): return true
+	if has_confirmed_death_alarm(): return true
 	var point: Vector2 = actor.defense.alarm_point(actor)
 	if not point.is_finite(): return false
 	var alarm_report := report.duplicate(true)
@@ -880,6 +883,8 @@ func update_ai(delta: float) -> bool:
 
 func receive_corpse(message: Dictionary, sender: Node2D) -> bool:
 	if not enabled or not actor.is_available_for_infection() or not is_instance_valid(sender) or sender == actor:
+		return false
+	if not investigation.can_receive(sender):
 		return false
 	if not actor.local_warning.communication_enabled or not sender.local_warning.communication_enabled:
 		return false
