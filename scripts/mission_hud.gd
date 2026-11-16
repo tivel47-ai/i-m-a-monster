@@ -1,5 +1,8 @@
 extends Control
 
+const INFECTION_ORB = preload("res://scripts/infection_orb.gdshader")
+const INFECTION_ORB_SIZE := 92.0
+
 var mission: Node2D
 var objective_label: Label
 var alert_label: Label
@@ -9,7 +12,8 @@ var building_button: Button
 var global_cancel_button: Button
 var assault_status: Label
 var infection_button: Button
-var infection_segments: Array[ColorRect] = []
+var infection_orb_material: ShaderMaterial
+var infection_charges: Label
 var _refresh_elapsed := 0.0
 var _blocks: Array[Control] = []
 var developer_button: Button
@@ -112,50 +116,63 @@ func _build() -> void:
 
 
 func _build_infection() -> void:
-	var panel := _panel(0.18, 0.89, 0.32, 1.0)
-	var box := VBoxContainer.new()
-	panel.add_child(box)
 	infection_button = Button.new()
+	infection_button.name = "InfectionButton"
 	infection_button.toggle_mode = true
-	infection_button.add_theme_font_size_override("font_size", 13)
-	infection_button.tooltip_text = "ЛКМ по жителю или зданию · ПКМ отменяет наведение"
-	infection_button.icon = _infection_icon()
+	infection_button.anchor_left = 0.25
+	infection_button.anchor_right = 0.25
+	infection_button.anchor_top = 1.0
+	infection_button.anchor_bottom = 1.0
+	infection_button.offset_left = -INFECTION_ORB_SIZE * 0.5
+	infection_button.offset_right = INFECTION_ORB_SIZE * 0.5
+	infection_button.offset_top = -122
+	infection_button.offset_bottom = -8
+	infection_button.tooltip_text = "Инфицирование\nЛКМ по жителю или зданию · ПКМ отменяет наведение"
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		infection_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	add_child(infection_button)
+	_blocks.append(infection_button)
+
+	var orb := ColorRect.new()
+	orb.size = Vector2.ONE * INFECTION_ORB_SIZE
+	orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	infection_orb_material = ShaderMaterial.new()
+	infection_orb_material.shader = INFECTION_ORB
+	orb.material = infection_orb_material
+	infection_button.add_child(orb)
+
+	infection_charges = _label(infection_button, "", 16)
+	infection_charges.position.y = INFECTION_ORB_SIZE - 1
+	infection_charges.size.x = INFECTION_ORB_SIZE
+	infection_charges.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	infection_charges.add_theme_color_override("font_color", Color("e3efcd"))
+	infection_charges.add_theme_color_override("font_outline_color", Color("142417"))
+	infection_charges.add_theme_constant_override("outline_size", 6)
+
 	infection_button.pressed.connect(mission.toggle_infection_targeting)
-	box.add_child(infection_button)
-	var progress := HBoxContainer.new()
-	progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(progress)
-	for i in range(mission.ZOMBIE_INFECTION.KILLS_PER_CHARGE):
-		var segment := ColorRect.new()
-		segment.custom_minimum_size.y = 4
-		segment.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		progress.add_child(segment)
-		infection_segments.append(segment)
+	infection_button.mouse_entered.connect(_refresh_infection_highlight)
+	infection_button.mouse_exited.connect(_refresh_infection_highlight)
+	infection_button.focus_entered.connect(_refresh_infection_highlight)
+	infection_button.focus_exited.connect(_refresh_infection_highlight)
 	refresh_infection()
 
 
-func _infection_icon() -> ImageTexture:
-	var icon := Image.create_empty(13, 13, false, Image.FORMAT_RGBA8)
-	for y in range(13):
-		for x in range(13):
-			var distance := absi(x - 6) + absi(y - 6)
-			if distance <= 6:
-				icon.set_pixel(x, y, Color("b8dc79") if distance <= 4 else Color("566943"))
-	icon.fill_rect(Rect2i(5, 3, 3, 7), Color("26382a"))
-	icon.fill_rect(Rect2i(3, 5, 7, 3), Color("26382a"))
-	return ImageTexture.create_from_image(icon)
+func _refresh_infection_highlight() -> void:
+	infection_orb_material.set_shader_parameter("highlighted",
+		infection_button.has_focus() or infection_button.is_hovered())
 
 
 func refresh_infection() -> void:
 	if infection_button == null:
 		return
 	var ability = mission.zombie_infection
-	infection_button.text = "Инфицирование ×%d" % ability.charges
+	infection_charges.text = str(ability.charges)
 	infection_button.disabled = ability.charges == 0
 	infection_button.set_pressed_no_signal(ability.targeting)
-	for i in infection_segments.size():
-		infection_segments[i].color = Color("b8dc79") if i < ability.recovery_progress else Color("435049")
+	infection_orb_material.set_shader_parameter("fill_level",
+		float(ability.recovery_progress) / mission.ZOMBIE_INFECTION.KILLS_PER_CHARGE)
+	infection_orb_material.set_shader_parameter("available", not infection_button.disabled)
+	infection_orb_material.set_shader_parameter("targeting", ability.targeting)
 
 
 func _build_developer_tools() -> void:

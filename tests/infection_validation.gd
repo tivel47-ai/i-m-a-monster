@@ -135,11 +135,14 @@ func outdoors_and_recovery() -> void:
 		func(actor): return actor.position.distance_to(initial[actor]) > 2.0
 	), 240),
 		"Village routines run before the outbreak")
-	check(ability.charges == 3 and "×3" in hud.infection_button.text and hud.infection_button.icon != null
-		and hud.infection_segments.size() == 5 and hud.infection_button.get_global_rect().end.x < 1280 * 0.32,
-		"Dedicated HUD button, icon, three charges and five segments outside the hotbar")
+	check(ability.charges == 3 and hud.infection_charges.text == "3"
+		and hud.infection_orb_material.get_shader_parameter("fill_level") == 0.0
+		and hud.infection_charges.position.y > 0
+		and hud.infection_button.get_global_rect().end.x < 1280 * 0.32,
+		"Dedicated orb starts empty with three charges beneath it outside the hotbar")
 	choose_infection()
-	check(ability.targeting, "Clicking the dedicated button enters targeting")
+	check(ability.targeting and hud.infection_orb_material.get_shader_parameter("targeting"),
+		"Clicking the dedicated button enters targeting and lights the orb")
 	tap_world(priest.global_position)
 	tap_world(guard.global_position)
 	tap_world(Vector2(1500, 920))
@@ -199,17 +202,17 @@ func outdoors_and_recovery() -> void:
 		and not ability.infect(combat_conversion), "Existing successful combat infection excludes a duplicate player application")
 	check(await until(func(): return mission.infected_residents == 3, 135) and ability.recovery_progress == 0,
 		"Ordinary combat conversion retains its own timer and earns no charge progress")
-	var starting_segments: Color = hud.infection_segments[0].color
 	lethal_attack(guard, zombie)
 	lethal_attack(priest, zombie)
 	mission._on_resident_died(priest)
 	check(ability.recovery_progress == 2 and ability.charges == 1
-		and hud.infection_segments[0].color != starting_segments and hud.infection_segments[1].color == hud.infection_segments[0].color
-		and hud.infection_segments[2].color == starting_segments, "Guard and priest kills count once and fill two HUD segments")
+		and is_equal_approx(hud.infection_orb_material.get_shader_parameter("fill_level"), 0.4),
+		"Guard and priest kills count once and fill 40 percent of the orb's height")
 	for i in 18:
 		lethal_attack(residents("peasant")[0], zombie)
-	check(ability.charges == 5 and ability.recovery_progress == 0 and "×5" in hud.infection_button.text,
-		"Twenty qualifying kills restore four charges and zero the segments with no three-charge cap")
+	check(ability.charges == 5 and ability.recovery_progress == 0 and hud.infection_charges.text == "5"
+		and hud.infection_orb_material.get_shader_parameter("fill_level") == 0.0,
+		"Twenty qualifying kills restore four charges and empty the orb with no three-charge cap")
 
 
 func shelter(building: InteractiveBuilding, actor: Node2D) -> bool:
