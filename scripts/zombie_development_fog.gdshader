@@ -7,11 +7,11 @@ uniform vec2 content_origin = vec2(0.0);
 uniform bool preview = false;
 uniform int branch_segment_count = 0;
 // Branch segments store two endpoints. The style stores radius and opacity.
-uniform vec4 branch_segments[26];
-uniform vec2 branch_styles[26];
+uniform vec4 branch_segments[64];
+uniform vec2 branch_styles[64];
 // Each node stores its position, silhouette strength, and activation light.
-uniform vec4 node_spots[3];
-uniform vec4 pulses[4];
+uniform vec4 node_spots[10];
+uniform vec4 pulses[11];
 
 float grain(vec2 cell) {
 	uvec2 coords = uvec2(ivec2(cell));
@@ -39,7 +39,7 @@ void fragment() {
 	float texture_edge = smoothstep(-0.02, 0.055, inside);
 	vec3 art = texture(TEXTURE, sample_uv).rgb;
 	float pulse = 0.0;
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 11; i++) {
 		vec4 glow = pulses[i];
 		float rim = length(point - glow.xy);
 		pulse += glow.z * (1.0 - smoothstep(0.0, glow.w, rim));
@@ -73,7 +73,7 @@ void fragment() {
 	float trace = clamp(buried - ground, -0.23, 0.10);
 	vec3 shroud = mist + texture_edge * trace * (0.28 - 0.14 * vapor);
 	vec3 result = mix(shroud, art, texture_edge * opening * haze);
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 10; i++) {
 		vec4 node = node_spots[i];
 		float distance_to_node = length(contour - node.xy);
 		if (distance_to_node < 0.108) {

@@ -6,7 +6,10 @@ const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const INFECTION = preload("res://scripts/zombie_infection.gd")
 const ART = preload("res://assets/ui/zombie_development_grave_roots.png")
 const FOG = preload("res://scripts/zombie_development_fog.gdshader")
-const NODE_IDS := [PROGRESSION.FLESH, PROGRESSION.BRUTE, PROGRESSION.HUNGER]
+const SOCKET = preload("res://scripts/zombie_perk_socket.gdshader")
+const NODE_IDS := [PROGRESSION.FLESH, PROGRESSION.BRUTE, PROGRESSION.HUNGER,
+	PROGRESSION.TENDONS, PROGRESSION.SALIVA, PROGRESSION.GROWTHS,
+	PROGRESSION.HOUND, PROGRESSION.CARRIER, PROGRESSION.FORTITUDE, PROGRESSION.SPASM]
 const ASPECT := 1672.0 / 941.0
 const ART_SCALE := Vector2(ASPECT, 1.0)
 const CORE := Vector2(0.50, 0.474)
@@ -14,6 +17,13 @@ const NODE_POSITIONS := {
 	PROGRESSION.FLESH: Vector2(0.289, 0.274),
 	PROGRESSION.BRUTE: Vector2(0.163, 0.122),
 	PROGRESSION.HUNGER: Vector2(0.726, 0.716),
+	PROGRESSION.TENDONS: Vector2(0.86, 0.55),
+	PROGRESSION.SALIVA: Vector2(0.45, 0.18),
+	PROGRESSION.GROWTHS: Vector2(0.10, 0.72),
+	PROGRESSION.HOUND: Vector2(0.94, 0.70),
+	PROGRESSION.CARRIER: Vector2(0.65, 0.16),
+	PROGRESSION.FORTITUDE: Vector2(0.30, 0.70),
+	PROGRESSION.SPASM: Vector2(0.85, 0.81),
 }
 # Coordinates follow the painted tendrils. Points after a node lead into the fog.
 const ROUTES := [
@@ -25,14 +35,19 @@ const ROUTES := [
 	[CORE, Vector2(0.603, 0.555), Vector2(0.636, 0.556), Vector2(0.647, 0.596),
 		Vector2(0.639, 0.649), Vector2(0.675, 0.673), Vector2(0.685, 0.699), NODE_POSITIONS[PROGRESSION.HUNGER],
 		Vector2(0.768, 0.770), Vector2(0.789, 0.817), Vector2(0.756, 0.886)],
+	[NODE_POSITIONS[PROGRESSION.HUNGER], Vector2(0.81, 0.67), Vector2(0.80, 0.59), NODE_POSITIONS[PROGRESSION.TENDONS]],
+	[NODE_POSITIONS[PROGRESSION.FLESH], Vector2(0.36, 0.26), Vector2(0.39, 0.19), NODE_POSITIONS[PROGRESSION.SALIVA]],
+	[NODE_POSITIONS[PROGRESSION.BRUTE], Vector2(0.05, 0.28), Vector2(0.06, 0.58), NODE_POSITIONS[PROGRESSION.GROWTHS]],
+	[NODE_POSITIONS[PROGRESSION.TENDONS], Vector2(0.93, 0.56), Vector2(0.91, 0.65), NODE_POSITIONS[PROGRESSION.HOUND]],
+	[NODE_POSITIONS[PROGRESSION.SALIVA], Vector2(0.52, 0.12), Vector2(0.59, 0.19), NODE_POSITIONS[PROGRESSION.CARRIER]],
+	[NODE_POSITIONS[PROGRESSION.FLESH], Vector2(0.24, 0.40), Vector2(0.25, 0.58), NODE_POSITIONS[PROGRESSION.FORTITUDE]],
+	[NODE_POSITIONS[PROGRESSION.HUNGER], Vector2(0.78, 0.79), Vector2(0.79, 0.87), NODE_POSITIONS[PROGRESSION.SPASM]],
 ]
-const NODE_POINT_INDICES := [6, 6, 7]
-const REVEAL_START := Vector3(0.0, 0.55, 0.08)
-const REVEAL_END := Vector3(0.60, 1.0, 0.83)
-const PULSE_PERIODS := Vector3(7.4, 11.3, 8.7)
-const PULSE_DELAYS := Vector3(1.3, 5.2, 3.1)
+const NODE_POINT_INDICES := [6, 6, 7, 3, 3, 3, 3, 3, 3, 3]
+const REVEAL_START := [0.0, 0.55, 0.08]
+const REVEAL_END := [0.60, 1.0, 0.83]
 const PULSE_DURATION := 1.7
-const MAX_BRANCH_SEGMENTS := 26
+const MAX_BRANCH_SEGMENTS := 64
 const GROWTH_DURATION := 0.85
 const VIEW_PADDING := Vector2(112.0, 112.0)
 const ZOOM_DEFAULT := 1.0
@@ -44,13 +59,14 @@ var camera_speed := 500.0
 var navigation_enabled := true
 var zoom := ZOOM_DEFAULT
 var reveal_front := 0.0
-var spread := Vector3.ZERO
-var branch_growth := Vector3.ZERO
+var spread := PackedFloat32Array()
+var branch_growth := PackedFloat32Array()
 var _view_center := Vector2(0.5, 0.5)
 var _target_reveal := 0.0
-var _target_spread := Vector3.ZERO
-var _target_growth := Vector3.ZERO
-var _outline_strength := Vector3.ZERO
+var _target_spread := PackedFloat32Array()
+var _target_growth := PackedFloat32Array()
+var _outline_strength := PackedFloat32Array()
+var _revealed: Dictionary = {}
 var _preview := false
 var _elapsed := 0.0
 var _overlay: Control
@@ -58,6 +74,7 @@ var _core_hover: Control
 var _core_title: Label
 var _material: ShaderMaterial
 var _buttons: Dictionary[String, Button] = {}
+var _sockets: Dictionary[String, TextureRect] = {}
 var _paths: Array[Curve2D] = []
 var _node_distances := PackedFloat32Array()
 
@@ -65,6 +82,11 @@ var _node_distances := PackedFloat32Array()
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	clip_contents = true
+	spread.resize(NODE_IDS.size())
+	branch_growth.resize(NODE_IDS.size())
+	_target_spread.resize(NODE_IDS.size())
+	_target_growth.resize(NODE_IDS.size())
+	_outline_strength.resize(NODE_IDS.size())
 	for index in ROUTES.size():
 		var points: Array = ROUTES[index]
 		var path := Curve2D.new()
@@ -94,6 +116,7 @@ func _ready() -> void:
 	_overlay = Control.new()
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_overlay)
+	_overlay.draw.connect(_draw_extensions)
 
 	_core_hover = Control.new()
 	_core_hover.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -128,6 +151,22 @@ func _ready() -> void:
 
 func add_upgrade(id: String, button: Button) -> void:
 	_buttons[id] = button
+	if NODE_IDS.find(id) >= 3:
+		var socket := TextureRect.new()
+		socket.texture = ART
+		socket.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		socket.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		socket.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var material := ShaderMaterial.new()
+		material.shader = SOCKET
+		material.set_shader_parameter("turn", float(NODE_IDS.find(id)) * 0.7)
+		socket.material = material
+		_overlay.add_child(socket)
+		_sockets[id] = socket
+		button.icon = PROGRESSION.NODES[id].icon
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.add_theme_constant_override("icon_max_width", 48)
 	button.flat = true
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var empty := StyleBoxEmpty.new()
@@ -148,8 +187,8 @@ func begin(build: Dictionary, preview: bool, animate_reveal: bool) -> void:
 	_target_reveal = 1.0 if build.initial_unlocked else 0.0
 	reveal_front = 0.0 if animate_reveal else _target_reveal
 	sync_ranks(build)
-	spread = _target_spread
-	branch_growth = _target_growth
+	spread = _target_spread.duplicate()
+	branch_growth = _target_growth.duplicate()
 	zoom = ZOOM_DEFAULT
 	_view_center = Vector2(0.5, 0.5)
 	_update_view()
@@ -162,9 +201,15 @@ func sync_ranks(build: Dictionary) -> void:
 	for index in NODE_IDS.size():
 		var id: String = NODE_IDS[index]
 		var rank := PROGRESSION.level(build, id)
+		_revealed[id] = PROGRESSION.is_revealed(build, id)
 		_target_spread[index] = float(rank) / PROGRESSION.NODES[id].costs.size()
 		_target_growth[index] = 1.0 if rank > 0 else 0.0
 		_outline_strength[index] = 1.0 if PROGRESSION.Draft.requirements_met(build, id) else 0.20
+	_update_growth_visuals()
+
+
+func node_visible(id: String) -> bool:
+	return _preview or (upgrades_visible() and _revealed.get(id, false))
 
 
 func upgrades_visible() -> bool:
@@ -182,18 +227,21 @@ func _layout() -> void:
 	_core_title.add_theme_font_size_override("font_size", clampi(roundi(_overlay.size.x * 0.034), 19, 30))
 	_core_title.position = Vector2(0.23, 0.554) * _overlay.size
 	_core_title.size = Vector2(_overlay.size.x * 0.54, 0.0)
-	var hitbox_size := Vector2.ONE * maxf(36.0, height * 0.16)
 	for id in _buttons:
 		var button := _buttons[id]
+		var hitbox_size := Vector2.ONE * maxf(36.0, height * (0.115 if NODE_IDS.find(id) >= 3 else 0.16))
 		var center: Vector2 = NODE_POSITIONS[id] * _overlay.size
 		button.position = center - hitbox_size * 0.5
 		button.size = hitbox_size
+		if _sockets.has(id):
+			_sockets[id].size = hitbox_size * 1.7
+			_sockets[id].position = center - _sockets[id].size * 0.5
 
 
 func _update_view() -> void:
 	if size.x <= 0.0 or size.y <= 0.0 or _overlay.size.x <= 0.0 or _overlay.size.y <= 0.0:
 		return
-	var region := _overlay.size.max(size) + VIEW_PADDING
+	var region := _overlay.size.max(size) + VIEW_PADDING * 2.0
 	var travel := (region - size / zoom).max(Vector2.ZERO) * 0.5 / _overlay.size
 	var middle := Vector2(0.5, 0.5)
 	_view_center = _view_center.clamp(middle - travel, middle + travel)
@@ -230,14 +278,16 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	var was_visible := upgrades_visible()
 	var next_front := move_toward(reveal_front, _target_reveal, delta / 1.3)
-	var spread_target := _target_spread
-	var next_growth := branch_growth
+	var spread_target := _target_spread.duplicate()
+	var next_growth := branch_growth.duplicate()
+	var next_spread := spread.duplicate()
 	for index in NODE_IDS.size():
 		if _target_growth[index] == 0.0 and branch_growth[index] > 0.0 and _has_visible_child_branch(index):
 			spread_target[index] = spread[index]
 			continue
 		next_growth[index] = move_toward(branch_growth[index], _target_growth[index], delta / GROWTH_DURATION)
-	var next_spread := spread.move_toward(spread_target, delta * 1.25)
+	for index in NODE_IDS.size():
+		next_spread[index] = move_toward(spread[index], spread_target[index], delta * 1.25)
 	if next_front != reveal_front or next_spread != spread or next_growth != branch_growth:
 		reveal_front = next_front
 		spread = next_spread
@@ -262,7 +312,7 @@ func _update_growth_visuals() -> void:
 	var segment_styles := PackedVector2Array()
 	for index in NODE_IDS.size():
 		var node: Vector2 = NODE_POSITIONS[NODE_IDS[index]] * ART_SCALE
-		var reveal := 1.0 if _preview else smoothstep(REVEAL_START[index], REVEAL_END[index], reveal_front)
+		var reveal := 1.0 if _preview else (smoothstep(REVEAL_START[index], REVEAL_END[index], reveal_front) if index < 3 else float(_revealed.get(NODE_IDS[index], false)))
 		var growth := branch_growth[index] * reveal
 		var node_light := smoothstep(0.68, 1.0, growth)
 		node_spots.append(Vector4(node.x, node.y, reveal * _outline_strength[index], node_light))
@@ -290,6 +340,41 @@ func _update_growth_visuals() -> void:
 	segment_styles.resize(MAX_BRANCH_SEGMENTS)
 	_material.set_shader_parameter("branch_segments", segments)
 	_material.set_shader_parameter("branch_styles", segment_styles)
+	if is_instance_valid(_overlay):
+		_overlay.queue_redraw()
+	for index in range(3, NODE_IDS.size()):
+		var id: String = NODE_IDS[index]
+		if _buttons.has(id):
+			_buttons[id].modulate = Color.WHITE if branch_growth[index] >= 0.95 else Color(0.12, 0.14, 0.10, 0.85 if _outline_strength[index] == 1.0 else 0.45)
+			_sockets[id].visible = node_visible(id)
+			_sockets[id].modulate = Color.WHITE if branch_growth[index] >= 0.95 else Color(0.35, 0.38, 0.31, 0.75)
+
+
+func _draw_extensions() -> void:
+	# The original three emblems remain in the painting. New organic branches and
+	# node sockets are drawn in the same moving canvas; icons come from NODES.
+	for index in range(3, NODE_IDS.size()):
+		var points := PackedVector2Array()
+		var length := _node_distances[index]
+		var growth := branch_growth[index]
+		var shown := node_visible(NODE_IDS[index])
+		for step in 101:
+			var distance := length * float(step) / 100.0
+			if distance > length * growth and growth > 0.0:
+				break
+			var point := _paths[index].sample_baked(distance) / ART_SCALE
+			point += Vector2(sin(step * 0.41 + index) * 0.0015, sin(step * 0.63 + index) * 0.002)
+			points.append(point * _overlay.size)
+		if points.size() > 1:
+			var strength := 1.0 if growth > 0.0 else (0.22 if shown else 0.07)
+			_overlay.draw_polyline(points, Color(0.045, 0.049, 0.038, strength), 8.0, true)
+			_overlay.draw_polyline(points, Color(0.20, 0.21, 0.15, strength * 0.8), 5.0, true)
+			_overlay.draw_polyline(points, Color(0.36, 0.35, 0.25, strength * 0.7), 1.2 + spread[index], true)
+			for step in range(4, points.size() - 2, 5):
+				var direction := (points[step + 1] - points[step - 1]).normalized()
+				var side := direction.orthogonal() * (1.0 if step % 2 else -1.0)
+				var tip := points[step] + side * (5.0 + sin(step) * 4.0) - direction * 6.0
+				_overlay.draw_polyline(PackedVector2Array([points[step], tip, tip - direction * 5.0 + side * 3.0]), Color(0.27, 0.28, 0.20, strength * 0.65), 1.0, true)
 
 
 func _update_pulses() -> void:
@@ -298,7 +383,7 @@ func _update_pulses() -> void:
 	var core_phase := clampf((fposmod(_elapsed + 0.6, 5.9) - 0.3) / 1.9, 0.0, 1.0)
 	pulses.append(Vector4(core.x, core.y, 0.22 * sin(core_phase * PI), 0.205))
 	for index in _paths.size():
-		var phase := clampf(fposmod(_elapsed - PULSE_DELAYS[index], PULSE_PERIODS[index]) / PULSE_DURATION, 0.0, 1.0)
+		var phase := clampf(fposmod(_elapsed - 1.3 - index * 1.8, 7.4 + index * 0.7) / PULSE_DURATION, 0.0, 1.0)
 		var distance := minf(1.0, phase / 0.72) * _node_distances[index]
 		var energy := (0.21 + 0.12 * spread[index]) * sin(phase * PI) if upgrades_visible() and branch_growth[index] >= 1.0 else 0.0
 		var radius := lerpf(0.060, 0.115, smoothstep(0.56, 0.82, phase))

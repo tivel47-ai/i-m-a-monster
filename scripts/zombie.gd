@@ -45,6 +45,11 @@ var is_selected: bool = false
 var current_health: float
 var is_dead: bool = false
 var is_brute := false
+var zombie_form := ""
+var entrance_damage_bonus := 0.0
+var damage_reduction := 0.0
+var attack_frequency_bonus := 0.0
+var racial_timers: Dictionary[String, Timer] = {}
 var speed_modifiers: Dictionary[String, float] = {}
 var hunger_timer: Timer
 var _base_avoidance_speed: float
@@ -80,6 +85,7 @@ func _ready() -> void:
 		melee_route = LOCAL_MELEE_ROUTE.new()
 	current_health = maxf(max_health, 0.0)
 	_base_avoidance_speed = navigation_agent.max_speed
+	navigation_agent.max_speed = maxf(_base_avoidance_speed, movement_speed())
 	crowd_default_navigation_radius = navigation_agent.radius
 	crowd_default_target_desired_distance = navigation_agent.target_desired_distance
 	var attack_timer := Timer.new()
@@ -116,6 +122,54 @@ func _expire_hunger() -> void:
 	navigation_agent.max_speed = maxf(_base_avoidance_speed, movement_speed())
 
 
+func effective_attack_interval() -> float:
+	return maxf(attack_interval / (1.0 + attack_frequency_bonus), 0.01)
+
+
+func entrance_damage() -> float:
+	return attack_damage * (1.0 + entrance_damage_bonus)
+
+
+func apply_racial_effect(id: String, effect: Dictionary) -> void:
+	if is_dead:
+		return
+	if id == PROGRESSION.HUNGER:
+		apply_hunger(effect.speed, effect.duration)
+		return
+	if not racial_timers.has(id):
+		var timer := Timer.new()
+		timer.one_shot = true
+		timer.timeout.connect(_expire_racial_effect.bind(id))
+		add_child(timer)
+		racial_timers[id] = timer
+	if id == PROGRESSION.FORTITUDE:
+		damage_reduction = effect.reduction
+	elif id == PROGRESSION.SPASM:
+		attack_frequency_bonus = effect.frequency
+		speed_modifiers[id] = effect.speed
+		_update_attack_frequency()
+	racial_timers[id].start(effect.duration)
+	navigation_agent.max_speed = maxf(_base_avoidance_speed, movement_speed())
+	queue_redraw()
+
+
+func _expire_racial_effect(id: String) -> void:
+	if id == PROGRESSION.FORTITUDE:
+		damage_reduction = 0.0
+	elif id == PROGRESSION.SPASM:
+		attack_frequency_bonus = 0.0
+		speed_modifiers.erase(id)
+		_update_attack_frequency()
+	navigation_agent.max_speed = maxf(_base_avoidance_speed, movement_speed())
+	queue_redraw()
+
+
+func _update_attack_frequency() -> void:
+	# Preserve the current swing; subsequent cycles use the new interval.
+	var timer := get_node("EncounterAttackTimer") as Timer
+	timer.wait_time = effective_attack_interval()
+
+
 func set_selected(value: bool) -> void:
 	if is_dead:
 		return
@@ -131,6 +185,15 @@ func _draw() -> void:
 	if is_brute:
 		# Temporary shoulders identify the form without changing inherited infection color.
 		draw_rect(Rect2(-6.5, -5.5, 13.0, 4.0), Color("db9d55"))
+	elif zombie_form == PROGRESSION.HOUND:
+		draw_polyline(PackedVector2Array([Vector2(-6, 5), Vector2(-2, -7), Vector2(3, -4), Vector2(6, 6)]), Color("c3bc91"), 2.0)
+	elif zombie_form == PROGRESSION.CARRIER:
+		draw_circle(Vector2(0, 1), 6.0, Color("718c3e"))
+		draw_circle(Vector2(3, -2), 2.0, Color("c1b36e"))
+	if damage_reduction > 0.0:
+		draw_arc(Vector2.ZERO, 10.0, 0.0, TAU, 24, Color("b4c4a3"), 1.0)
+	if attack_frequency_bonus > 0.0:
+		draw_arc(Vector2.ZERO, 8.5, 0.0, PI, 12, Color("b96e54"), 1.5)
 	var health_rect := Rect2(-5.85, -16.25, 11.7, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
@@ -173,7 +236,7 @@ func take_damage(amount: float) -> void:
 	if is_dead or amount <= 0.0:
 		return
 
-	current_health = maxf(current_health - amount, 0.0)
+	current_health = maxf(current_health - amount * (1.0 - damage_reduction), 0.0)
 	queue_redraw()
 	if current_health == 0.0:
 		_die()
@@ -516,7 +579,7 @@ func _start_encounter_attack_timer() -> void:
 		navigation_agent.target_position = detour_resume
 	detour_remaining = 0.0
 	var attack_timer := get_node("EncounterAttackTimer") as Timer
-	attack_timer.wait_time = maxf(attack_interval, 0.01)
+	attack_timer.wait_time = effective_attack_interval()
 	# Repeated contact is not a new attack cycle.
 	if attack_timer.is_stopped(): attack_timer.start()
 

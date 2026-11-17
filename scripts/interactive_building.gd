@@ -365,8 +365,8 @@ func _advance_crossing(delta: float) -> void:
 			return
 		if zombie and _crossing_out and _blocked():
 			if _elapsed >= _next_exit_hit:
-				_next_exit_hit = _elapsed + maxf(actor.attack_interval, 0.01)
-				_damage_entrance(actor.attack_damage)
+				_next_exit_hit = _elapsed + actor.effective_attack_interval()
+				_damage_entrance(actor.entrance_damage())
 			if _blocked():
 				return
 		_crossing_started = true
@@ -478,8 +478,8 @@ func _update_attackers(delta: float) -> void:
 			if staged or _walk(zombie, shelter_approach(side), zombie.movement_speed(), delta, false, 2.0):
 				_step(zombie, point, zombie.movement_speed(), delta, true)
 			if _elapsed >= float(order.next_hit) and zombie.global_position.distance_to(point) <= 6.0:
-				order.next_hit = _elapsed + maxf(zombie.attack_interval, 0.01)
-				_damage_entrance(zombie.attack_damage)
+				order.next_hit = _elapsed + zombie.effective_attack_interval()
+				_damage_entrance(zombie.entrance_damage())
 				if not _blocked():
 					return
 		else:

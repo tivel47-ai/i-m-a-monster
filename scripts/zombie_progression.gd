@@ -5,6 +5,14 @@ const SLOT_COUNT := 10
 const FLESH := "tough_flesh"
 const BRUTE := "brute"
 const HUNGER := "call_of_hunger"
+const TENDONS := "grasping_tendons"
+const SALIVA := "infectious_saliva"
+const GROWTHS := "bone_growths"
+const HOUND := "hound"
+const CARRIER := "carrier"
+const FORTITUDE := "dead_fortitude"
+const SPASM := "hungry_spasm"
+const FORMS := [BRUTE, HOUND, CARRIER]
 const NODES := {
 	FLESH: {
 		"title": "Крепкая плоть", "costs": [8, 16, 28, 45, 65], "requires": {},
@@ -26,6 +34,50 @@ const NODES := {
 			{"speed": 0.29, "duration": 12.0, "radius": 3.6, "uses": 3},
 			{"speed": 0.31, "duration": 13.0, "radius": 3.9, "uses": 4},
 			{"speed": 0.33, "duration": 14.0, "radius": 4.2, "uses": 5},
+		],
+	},
+	TENDONS: {
+		"title": "Цепкие сухожилия", "costs": [8, 16, 28, 45, 65], "requires": {HUNGER: 1},
+		"speed_per_level": 0.02, "icon": preload("res://assets/ui/grasping_tendons.svg"),
+	},
+	SALIVA: {
+		"title": "Заразная слюна", "costs": [10, 20, 35, 55, 80], "requires": {FLESH: 1},
+		"infection_per_level": 0.01, "icon": preload("res://assets/ui/infectious_saliva.svg"),
+	},
+	GROWTHS: {
+		"title": "Костяные наросты", "costs": [8, 16, 28, 45, 65], "requires": {BRUTE: 1},
+		"entrance_per_level": 0.05, "icon": preload("res://assets/ui/bone_growths.svg"),
+	},
+	HOUND: {
+		"title": "Гончий", "costs": [30], "requires": {TENDONS: 2},
+		"chance": 0.08, "health": 0.70, "speed": 1.25, "damage": 0.70,
+		"interval": 1.0, "infection": 0.15, "icon": preload("res://assets/ui/hound.svg"),
+	},
+	CARRIER: {
+		"title": "Носитель", "costs": [40], "requires": {SALIVA: 2},
+		"chance": 0.06, "health": 1.25, "speed": 0.80, "damage": 0.50,
+		"interval": 1.0, "infection": 0.25, "icon": preload("res://assets/ui/carrier.svg"),
+	},
+	FORTITUDE: {
+		"title": "Мёртвая стойкость", "costs": [10, 20, 35, 55, 80], "requires": {FLESH: 3},
+		"optional": true, "icon": preload("res://assets/ui/dead_fortitude.svg"),
+		"effects": [
+			{"reduction": 0.15, "duration": 8.0, "radius": 3.0, "uses": 1},
+			{"reduction": 0.17, "duration": 9.0, "radius": 3.3, "uses": 2},
+			{"reduction": 0.19, "duration": 10.0, "radius": 3.6, "uses": 3},
+			{"reduction": 0.21, "duration": 11.0, "radius": 3.9, "uses": 4},
+			{"reduction": 0.23, "duration": 12.0, "radius": 4.2, "uses": 5},
+		],
+	},
+	SPASM: {
+		"title": "Голодная судорога", "costs": [10, 20, 35, 55, 80], "requires": {HUNGER: 3},
+		"optional": true, "icon": preload("res://assets/ui/hungry_spasm.svg"),
+		"effects": [
+			{"frequency": 0.15, "speed": -0.15, "duration": 6.0, "radius": 3.0, "uses": 1},
+			{"frequency": 0.17, "speed": -0.15, "duration": 7.0, "radius": 3.3, "uses": 2},
+			{"frequency": 0.19, "speed": -0.15, "duration": 8.0, "radius": 3.6, "uses": 3},
+			{"frequency": 0.21, "speed": -0.15, "duration": 9.0, "radius": 3.9, "uses": 4},
+			{"frequency": 0.23, "speed": -0.15, "duration": 10.0, "radius": 4.2, "uses": 5},
 		],
 	},
 }
@@ -50,9 +102,14 @@ func _init(save_path := SAVE_PATH) -> void:
 		var virus: Variant = loaded.get("virus")
 		loaded.initial_unlocked = loaded.get("first_victory", false) == true or (virus is int and virus > 0)
 		loaded.erase("first_victory")
-	if version in [1, 2] and _valid(loaded):
+	if version in [1, 2] and loaded is Dictionary and loaded.get("paid") is Dictionary and loaded.paid.values().all(func(costs): return costs is Array):
+		loaded.revealed = PackedStringArray()
+		for id in NODES:
+			if not NODES[id].has("unlock") and Draft.requirements_met(loaded, id):
+				loaded.revealed.append(id)
+	if version in [1, 2, 3] and _valid(loaded):
 		state = loaded
-		_dirty = version == 1
+		_dirty = version != 3
 	else:
 		_read_only = true
 		_record_error(ERR_FILE_CORRUPT if error == OK else error)
@@ -66,7 +123,7 @@ static func empty_slots() -> PackedStringArray:
 
 static func _fresh_state() -> Dictionary:
 	return {"virus": 0, "paid": {}, "slots": empty_slots(),
-		"initial_unlocked": false, "reveal_seen": false}
+		"initial_unlocked": false, "reveal_seen": false, "revealed": PackedStringArray()}
 
 
 static func level(build: Dictionary, id: String) -> int:
@@ -77,10 +134,35 @@ static func effect_text(id: String, rank: int) -> String:
 	match id:
 		FLESH: return "+%d%% к максимуму HP всех форм" % roundi(NODES[id].hp_per_level * rank * 100)
 		BRUTE: return "10% шанс появления при обращении. Удар по площади и отталкивание цели."
+		HOUND: return "8% при обращении · HP 70% · скорость 125% · урон 70% · заражение 15% до пассивов."
+		CARRIER: return "6% при обращении · HP 125% · скорость 80% · урон 50% · заражение 25% до пассивов."
+		TENDONS: return "+%d%% скорости всех форм от базовой скорости формы" % (rank * 2)
+		SALIVA: return "+%d п.п. заражения обычных зомби, Гончих и Носителей. Громила сохраняет 2%%." % rank
+		GROWTHS: return "+%d%% урона дверям и баррикадам всех форм" % (rank * 5)
+		FORTITUDE:
+			var data: Dictionary = NODES[id].effects[rank - 1]
+			return "−%d%% входящего урона · %s с · %sW · %d прим. Без лечения." % [roundi(data.reduction * 100), data.duration, data.radius, data.uses]
+		SPASM:
+			var data: Dictionary = NODES[id].effects[rank - 1]
+			return "+%d%% частоты атак · −15%% скорости · %s с · %sW · %d прим." % [roundi(data.frequency * 100), data.duration, data.radius, data.uses]
 		HUNGER:
 			var data: Dictionary = NODES[id].effects[rank - 1]
 			return "+%d%% скорости · %s с · %sW · %d прим." % [
 				roundi(data.speed * 100), data.duration, data.radius, data.uses]
+	return ""
+
+
+static func is_revealed(build: Dictionary, id: String) -> bool:
+	return Draft.is_revealed(build, id)
+
+
+static func choose_form(build: Dictionary, roll: float) -> String:
+	# Fixed disjoint intervals: an unowned form's share belongs to ordinary zombies.
+	var edge := 0.0
+	for id in FORMS:
+		edge += NODES[id].chance
+		if roll < edge:
+			return id if level(build, id) > 0 else ""
 	return ""
 
 
@@ -142,7 +224,7 @@ func _write(profile: Dictionary, replace_unreadable := false) -> Error:
 	if _read_only and not replace_unreadable:
 		return save_error
 	var config := ConfigFile.new()
-	config.set_value("zombies", "version", 2)
+	config.set_value("zombies", "version", 3)
 	config.set_value("zombies", "profile", profile)
 	var temporary := path + ".tmp"
 	var error := config.save(temporary)
@@ -167,6 +249,13 @@ func _valid(profile: Variant) -> bool:
 		return false
 	if not profile.get("slots") is PackedStringArray or profile.slots.size() != SLOT_COUNT:
 		return false
+	if not profile.get("revealed") is PackedStringArray:
+		return false
+	var seen := {}
+	for id in profile.revealed:
+		if not NODES.has(id) or NODES[id].has("unlock") or seen.has(id) or not profile.initial_unlocked:
+			return false
+		seen[id] = true
 	for id in profile.paid:
 		var costs: Variant = profile.paid[id]
 		if not NODES.has(id) or not costs is Array or costs.size() > NODES[id].costs.size():
@@ -174,7 +263,7 @@ func _valid(profile: Variant) -> bool:
 		for cost in costs:
 			if not cost is int or cost <= 0:
 				return false
-		if not costs.is_empty() and not profile.get(NODES[id].unlock, false):
+		if not costs.is_empty() and not is_revealed(profile, id):
 			return false
 	for id in profile.paid:
 		if level(profile, id) > 0 and not Draft.requirements_met(profile, id):
@@ -197,6 +286,9 @@ class Draft:
 	static func level(profile: Dictionary, id: String) -> int:
 		return profile.paid.get(id, []).size()
 
+	static func is_revealed(profile: Dictionary, id: String) -> bool:
+		return profile.get("initial_unlocked", false) if NODES[id].has("unlock") else id in profile.get("revealed", [])
+
 	static func requirements_met(profile: Dictionary, id: String) -> bool:
 		for parent in NODES[id].requires:
 			if level(profile, parent) < NODES[id].requires[parent]:
@@ -214,8 +306,8 @@ class Draft:
 	func purchase_block(id: String, preview := false) -> String:
 		var node: Dictionary = NODES[id]
 		var rank := level(build, id)
-		if not preview and not build.get(node.unlock, false):
-			return "Откроется после первого начисления Вируса"
+		if not preview and not is_revealed(build, id):
+			return "Откроется при развитии предыдущего узла" if not node.has("unlock") else "Откроется после первого начисления Вируса"
 		for parent in node.requires:
 			if level(build, parent) < node.requires[parent]:
 				return "Требуется «%s», ур. %d" % [NODES[parent].title, node.requires[parent]]
@@ -233,6 +325,9 @@ class Draft:
 			build.paid[id] = []
 		build.paid[id].append(cost)
 		build.virus -= cost
+		for next_id in NODES:
+			if not NODES[next_id].has("unlock") and requirements_met(build, next_id) and next_id not in build.revealed:
+				build.revealed.append(next_id)
 
 	func refund(id: String) -> void:
 		_refund_levels(id, false)

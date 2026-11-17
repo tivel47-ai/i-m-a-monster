@@ -318,14 +318,19 @@ func _infect_at(world_position: Vector2) -> void:
 
 
 func toggle_hunger_targeting() -> void:
-	if menu_paused or mission_state != MissionState.ACTIVE or mission_build == null or mission_build.available_uses == 0:
+	toggle_racial_targeting(ZOMBIE_PROGRESSION.HUNGER)
+
+
+func toggle_racial_targeting(id: String) -> void:
+	if menu_paused or mission_state != MissionState.ACTIVE or mission_build == null or mission_build.uses_for(id) == 0:
 		return
-	var activate := not mission_build.targeting
+	var activate := not mission_build.targeting or mission_build.active_ability != id
 	cancel_infection_targeting()
 	cancel_selection()
 	cancel_order_preview()
 	developer_spawn = ""
 	mission_hud.refresh_developer_tool()
+	mission_build.active_ability = id
 	mission_build.targeting = activate
 	mission_hud.refresh_metaprogression()
 	command_overlay.queue_redraw()
@@ -367,10 +372,13 @@ func _update_pause_state() -> void:
 func _handle_hunger_input(event: InputEvent) -> bool:
 	if mission_build == null or menu_paused or mission_state != MissionState.ACTIVE:
 		return false
-	if mission_build.hunger_slot >= 0:
-		var action := "ability_slot_%d" % (mission_build.hunger_slot + 1)
+	for index in mission_build.build.slots.size():
+		var id: String = mission_build.build.slots[index]
+		if id.is_empty():
+			continue
+		var action := "ability_slot_%d" % (index + 1)
 		if InputMap.has_action(action) and event.is_action_pressed(action, false, true):
-			toggle_hunger_targeting()
+			toggle_racial_targeting(id)
 			return true
 	if not mission_build.targeting:
 		return false
@@ -874,10 +882,11 @@ func _update_command_preview(delta: float) -> void:
 
 func _draw_command_overlay() -> void:
 	if mission_build != null:
-		for point in mission_build.queued_points:
-			command_overlay.draw_circle(command_overlay.to_local(point), mission_build.hunger_radius, Color("d2a76350"))
+		for index in mission_build.queued_points.size():
+			var point: Vector2 = mission_build.queued_points[index]
+			command_overlay.draw_circle(command_overlay.to_local(point), mission_build.radius_for(mission_build.queued_abilities[index]), Color("d2a76350"))
 		if mission_build.targeting and not menu_paused:
-			command_overlay.draw_circle(command_overlay.get_local_mouse_position(), mission_build.hunger_radius, Color("d2a76340"))
+			command_overlay.draw_circle(command_overlay.get_local_mouse_position(), mission_build.radius_for(mission_build.active_ability), Color("d2a76340"))
 	if choosing_building:
 		var building := horde_commands.assault_building if horde_commands != null else null
 		if not is_instance_valid(building):

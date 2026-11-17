@@ -20,6 +20,8 @@ var virus_label: Label
 var ability_slots: Array[Button] = []
 var hunger_slot_key: Label
 var hunger_slot_uses: Label
+var ability_keys: Dictionary[int, Label] = {}
+var ability_uses: Dictionary[int, Label] = {}
 var _refresh_elapsed := 0.0
 var _blocks: Array[Control] = []
 var developer_button: Button
@@ -144,24 +146,30 @@ func _build_metaprogression() -> void:
 		slot.focus_mode = Control.FOCUS_NONE
 		ability_slots.append(slot)
 		bar.add_child(slot)
-		if index == mission.mission_build.hunger_slot:
-			slot.icon = PROGRESSION.NODES[PROGRESSION.HUNGER].icon
+		var id: String = mission.mission_build.build.slots[index]
+		if not id.is_empty():
+			slot.icon = PROGRESSION.NODES[id].icon
 			slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			slot.expand_icon = true
 			slot.add_theme_constant_override("icon_max_width", 28)
-			slot.pressed.connect(mission.toggle_hunger_targeting)
+			slot.pressed.connect(mission.toggle_racial_targeting.bind(id))
 			slot.toggle_mode = true
-			hunger_slot_key = _label(slot, "", 11)
-			hunger_slot_key.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			hunger_slot_key.offset_left = 4
-			hunger_slot_key.offset_right = -4
-			hunger_slot_key.autowrap_mode = TextServer.AUTOWRAP_OFF
-			hunger_slot_key.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			hunger_slot_uses = _label(slot, "", 13)
-			hunger_slot_uses.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			hunger_slot_uses.offset_right = -4
-			hunger_slot_uses.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			hunger_slot_uses.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+			var key_label := _label(slot, "", 11)
+			key_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			key_label.offset_left = 4
+			key_label.offset_right = -4
+			key_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+			key_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			var uses_label := _label(slot, "", 13)
+			uses_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			uses_label.offset_right = -4
+			uses_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			uses_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+			ability_keys[index] = key_label
+			ability_uses[index] = uses_label
+			if id == PROGRESSION.HUNGER:
+				hunger_slot_key = key_label
+				hunger_slot_uses = uses_label
 	refresh_metaprogression()
 
 
@@ -180,17 +188,17 @@ func refresh_metaprogression() -> void:
 			var events := InputMap.action_get_events(action)
 			if not events.is_empty() and events[0] is InputEventKey:
 				key = OS.get_keycode_string(events[0].physical_keycode)
-		if index != runtime.hunger_slot:
+		var ability: String = runtime.build.slots[index]
+		if ability.is_empty():
 			slot.text = key
 			slot.disabled = true
 			continue
-		hunger_slot_key.text = key
-		hunger_slot_uses.text = str(runtime.available_uses)
-		slot.disabled = runtime.available_uses == 0
-		var ability := PROGRESSION.HUNGER
+		ability_keys[index].text = key
+		ability_uses[index].text = str(runtime.uses_for(ability))
+		slot.disabled = runtime.uses_for(ability) == 0
 		slot.tooltip_text = "%s · %s\n%s" % [PROGRESSION.NODES[ability].title, key,
 			PROGRESSION.effect_text(ability, PROGRESSION.level(runtime.build, ability))]
-		slot.set_pressed_no_signal(runtime.targeting)
+		slot.set_pressed_no_signal(runtime.targeting and runtime.active_ability == ability)
 
 
 func _build_infection() -> void:

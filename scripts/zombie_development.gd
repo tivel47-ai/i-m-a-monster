@@ -327,9 +327,8 @@ func _refresh() -> void:
 
 func _refresh_nodes() -> void:
 	for id in nodes:
-		var spec: Dictionary = PROGRESSION.NODES[id]
 		var rank := PROGRESSION.level(draft.build, id)
-		var unlocked: bool = tree.upgrades_visible() and (developer_preview or draft.build.get(spec.unlock, false))
+		var unlocked: bool = tree.node_visible(id)
 		var button := nodes[id]
 		button.visible = unlocked
 		button.tooltip_text = _node_tooltip(id, rank) if unlocked else ""

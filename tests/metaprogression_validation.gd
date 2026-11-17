@@ -29,6 +29,10 @@ func check(condition: bool, description: String) -> void:
 		push_error(description)
 
 
+func initial_branches(values: PackedFloat32Array) -> Vector3:
+	return Vector3(values[0], values[1], values[2])
+
+
 func _open_app() -> void:
 	app = MAIN.instantiate()
 	app.set_meta("progression_path", save_path)
@@ -78,9 +82,10 @@ func run() -> void:
 	app.selected_race = "zombie"
 	app._show(app.Screen.RACES)
 	app._update_preview()
-	check(not app.development_button.disabled, "Fresh profile can inspect the core ability")
+	check(app.development_button.disabled, "Fresh profile keeps development locked until the first Virus")
 	app._open_development()
-	check(app.screen == app.Screen.DEVELOPMENT and not app.development.tree.upgrades_visible()
+	app.development.open(app.progression, app.settings.keys, false, app.settings.camera_speed)
+	check(app.screen == app.Screen.RACES and not app.development.tree.upgrades_visible()
 		and app.development.nodes.values().all(func(node): return not node.visible and node.tooltip_text.is_empty())
 		and not app.progression.state.reveal_seen, "Before Virus, fog hides every purchasable node and its input")
 	app.development.request_exit()
@@ -173,10 +178,10 @@ func _edit_build() -> void:
 	app.progression.state.virus = 100
 	app._open_development()
 	var editor = app.development
-	check(editor.nodes.size() == 3 and not editor.tree.upgrades_visible() and app.progression.state.reveal_seen,
+	check(editor.nodes.size() == 10 and not editor.tree.upgrades_visible() and app.progression.state.reveal_seen,
 		"First visit after Virus starts the one-time fog animation")
 	await create_timer(1.4).timeout
-	check(editor.tree.upgrades_visible() and editor.nodes.values().all(func(node): return node.visible),
+	check(editor.tree.upgrades_visible() and editor.nodes.values().filter(func(node): return node.visible).size() == 3,
 		"Fog retreat exposes the three purchasable nodes")
 	await _tree_camera_and_growth()
 	check(not editor.draft.purchase_block(BRUTE).is_empty(), "Missing Flesh II is reported")
@@ -206,7 +211,7 @@ func _edit_build() -> void:
 	check(app.screen == app.Screen.RACES and app.progression.state.virus == 100,
 		"Exit without saving discards the provisional changes")
 	app._open_development()
-	check(editor.tree.upgrades_visible() and editor.tree.spread == Vector3.ZERO,
+	check(editor.tree.upgrades_visible() and initial_branches(editor.tree.spread) == Vector3.ZERO,
 		"A second visit skips the first reveal and discards unapplied fog growth")
 	for id in [FLESH, FLESH, BRUTE, HUNGER, HUNGER, HUNGER]:
 		if id == HUNGER and PROGRESSION.level(editor.draft.build, HUNGER) == 2:
@@ -215,7 +220,7 @@ func _edit_build() -> void:
 		editor._purchase(id)
 	await process_frame
 	await process_frame
-	check(editor.tree.spread.x > 0.0 and editor.tree.spread.y > 0.0 and editor.tree.spread.z > 0.0,
+	check(editor.tree.spread[0] > 0.0 and editor.tree.spread[1] > 0.0 and editor.tree.spread[2] > 0.0,
 		"Purchases advance the fog front along the upgraded branches")
 	var learned: Button = editor.learned.get_child(0)
 	var slot: Button = editor.slots[2]
@@ -280,7 +285,7 @@ func _tree_camera_and_growth() -> void:
 	var center_before: Vector2 = tree._view_center
 	var sidebar_before: Rect2 = editor.upgrades.get_global_rect()
 	var hotspot := flesh.get_global_rect().get_center()
-	check(editor.nodes.values().all(func(node): return node.text.is_empty() and not node.tooltip_text.is_empty())
+	check(editor.nodes.values().filter(func(node): return node.visible).all(func(node): return node.text.is_empty() and not node.tooltip_text.is_empty())
 		and "8 Вируса" in flesh.tooltip_text and "Требуется" in editor.nodes[BRUTE].tooltip_text,
 		"Node names, prices and prerequisites are available in tooltips only")
 	var tooltip_style := editor.theme.get_stylebox("panel", "TooltipPanel") as StyleBoxFlat
@@ -291,7 +296,7 @@ func _tree_camera_and_growth() -> void:
 	var spots: PackedVector4Array = tree._material.get_shader_parameter("node_spots")
 	check(spots[0].z > spots[1].z and spots[1].z > 0.0 and spots[0].w == 0.0 and spots[1].w == 0.0,
 		"Available and prerequisite-locked perks have distinct silhouettes without lit emblems")
-	check(tree.branch_growth == Vector3.ZERO and tree._material.get_shader_parameter("branch_segment_count") == 0,
+	check(initial_branches(tree.branch_growth) == Vector3.ZERO and tree._material.get_shader_parameter("branch_segment_count") == 0,
 		"Revealed perks start with no grown branches")
 	_mouse_motion(hotspot, Vector2.ZERO, false)
 	_mouse_button(hotspot, true, MOUSE_BUTTON_WHEEL_UP)
@@ -312,14 +317,14 @@ func _tree_camera_and_growth() -> void:
 		"The transformed perk remains clickable after pan and zoom")
 	await create_timer(0.26).timeout
 	var segments: int = tree._material.get_shader_parameter("branch_segment_count")
-	check(tree.branch_growth.x > 0.0 and tree.branch_growth.x < 1.0 and segments > 0
-		and tree.branch_growth.y == 0.0 and tree.branch_growth.z == 0.0,
+	check(tree.branch_growth[0] > 0.0 and tree.branch_growth[0] < 1.0 and segments > 0
+		and tree.branch_growth[1] == 0.0 and tree.branch_growth[2] == 0.0,
 		"Only the purchased branch grows from its starting point")
 	await create_timer(0.68).timeout
-	check(tree.branch_growth == Vector3(1.0, 0.0, 0.0), "The branch reaches its perk")
+	check(initial_branches(tree.branch_growth) == Vector3(1.0, 0.0, 0.0), "The branch reaches its perk")
 	_click_control(flesh, MOUSE_BUTTON_RIGHT)
 	await create_timer(0.92).timeout
-	check(tree.branch_growth == Vector3.ZERO and editor.draft.build.virus == 100
+	check(initial_branches(tree.branch_growth) == Vector3.ZERO and editor.draft.build.virus == 100
 		and tree._material.get_shader_parameter("branch_segment_count") == 0,
 		"Right click after zoom refunds the level and retracts its whole branch")
 	var canvas_center: Vector2 = tree.get_global_rect().get_center()
@@ -570,7 +575,7 @@ func _check_reopen_and_refunds() -> void:
 	await process_frame
 	var editor = app.development
 	var draft = editor.draft
-	check(editor.tree.branch_growth == Vector3.ONE and is_equal_approx(editor.tree.zoom, 1.0),
+	check(initial_branches(editor.tree.branch_growth) == Vector3.ONE and is_equal_approx(editor.tree.zoom, 1.0),
 		"Reopening restores purchased branches at the full-tree zoom")
 	check(editor.reset_button.text == "Сбросить развитие" and not editor.tree.is_ancestor_of(editor.reset_button),
 		"The development screen has a single reset outside the moving tree")
@@ -581,7 +586,7 @@ func _check_reopen_and_refunds() -> void:
 	editor.leave_dialog.get_ok_button().pressed.emit()
 	app._open_development()
 	draft = editor.draft
-	var spread_before_reset: Vector3 = editor.tree.spread
+	var spread_before_reset := initial_branches(editor.tree.spread)
 	_click_control(editor.reset_button)
 	check(not draft.changed(), "A short click leaves the development build intact")
 	editor.reset_button.grab_focus()
@@ -626,16 +631,16 @@ func _check_reopen_and_refunds() -> void:
 	check(draft.build.virus == stored + 114 and draft.build.initial_unlocked and draft.build.slots[2].is_empty(),
 		"A full hold returns original costs once, clears assignments and preserves reveal")
 	await create_timer(0.25).timeout
-	var growth: Vector3 = editor.tree.branch_growth
+	var growth := initial_branches(editor.tree.branch_growth)
 	check(growth.y > 0.0 and growth.y < 1.0 and growth.x == 1.0 and growth.z < 1.0
-		and editor.tree.spread.x == spread_before_reset.x,
+		and editor.tree.spread[0] == spread_before_reset.x,
 		"Brute and the independent Hunger branch retract while the route to Flesh holds")
 	await create_timer(0.75).timeout
-	growth = editor.tree.branch_growth
+	growth = initial_branches(editor.tree.branch_growth)
 	check(growth.y == 0.0 and growth.x > 0.0 and growth.x < 1.0 and growth.z == 0.0,
 		"The route from Flesh to the core retracts after its Brute branch is gone")
 	await create_timer(0.85).timeout
-	check(editor.tree.branch_growth == Vector3.ZERO and editor.tree.spread == Vector3.ZERO
+	check(initial_branches(editor.tree.branch_growth) == Vector3.ZERO and initial_branches(editor.tree.spread) == Vector3.ZERO
 		and editor.tree._material.get_shader_parameter("branch_segment_count") == 0,
 		"Once the ordered retreat ends all grown branches are gone")
 	check(profile.apply(draft) == OK and PROGRESSION.new(save_path).state == profile.state,
