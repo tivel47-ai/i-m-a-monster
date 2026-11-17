@@ -206,16 +206,6 @@ func _style_main_button(button: Button) -> void:
 	button.custom_minimum_size = Vector2(294, 56)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.add_theme_font_size_override("font_size", 26)
-	var marker := Label.new()
-	marker.text = "◆"
-	marker.position = Vector2(22, 15)
-	marker.add_theme_color_override("font_color", DARK_THEME.ACCENT)
-	marker.add_theme_font_size_override("font_size", 18)
-	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	marker.hide()
-	button.add_child(marker)
-	button.focus_entered.connect(marker.show)
-	button.focus_exited.connect(marker.hide)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()

@@ -3,6 +3,7 @@ extends Control
 signal initial_reveal_finished
 
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const INFECTION = preload("res://scripts/zombie_infection.gd")
 const ART = preload("res://assets/ui/zombie_development_grave_roots.png")
 const FOG = preload("res://scripts/zombie_development_fog.gdshader")
 const NODE_IDS := [PROGRESSION.FLESH, PROGRESSION.BRUTE, PROGRESSION.HUNGER]
@@ -52,6 +53,7 @@ var _outline_strength := Vector3.ZERO
 var _preview := false
 var _elapsed := 0.0
 var _overlay: Control
+var _core_hover: Control
 var _core_title: Label
 var _material: ShaderMaterial
 var _buttons: Dictionary[String, Button] = {}
@@ -91,6 +93,21 @@ func _ready() -> void:
 	_overlay = Control.new()
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_overlay)
+
+	_core_hover = Control.new()
+	_core_hover.mouse_filter = Control.MOUSE_FILTER_PASS
+	var description := [
+		"Инфицирование · Основная способность зомби",
+		"Скрытно заражает крестьянина или ремесленника.",
+		"В здании заражает одного подходящего жителя.",
+		"Обращает цель в зомби через %d сек." % INFECTION.DURATION,
+		"При смертельном уроне обращает сразу.",
+		"На старте %d заряда. Применение тратит 1 заряд." % INFECTION.INITIAL_CHARGES,
+		"+1 заряд за %d жителей, убитых вашими зомби" % INFECTION.KILLS_PER_CHARGE,
+		"без обращения.",
+	]
+	_core_hover.tooltip_text = "\n".join(description)
+	_overlay.add_child(_core_hover)
 
 	_core_title = Label.new()
 	_core_title.text = "Инфицирование"
@@ -159,6 +176,8 @@ func _layout() -> void:
 	var height := minf(size.y, size.x / ASPECT)
 	_overlay.size = Vector2(height * ASPECT, height)
 	_update_view()
+	_core_hover.position = Vector2(0.36, 0.34) * _overlay.size
+	_core_hover.size = Vector2(0.28, 0.29) * _overlay.size
 	_core_title.add_theme_font_size_override("font_size", clampi(roundi(_overlay.size.x * 0.034), 19, 30))
 	_core_title.position = Vector2(0.23, 0.554) * _overlay.size
 	_core_title.size = Vector2(_overlay.size.x * 0.54, 0.0)
