@@ -90,6 +90,7 @@ func _ready() -> void:
 		draft = profile.begin_edit()
 		exit_requested.emit())
 	leave_dialog.visibility_changed.connect(func():
+		tree.navigation_enabled = not leave_dialog.visible
 		if leave_dialog.visible:
 			leave_dialog.get_cancel_button().grab_focus())
 	add_child(leave_dialog)
@@ -135,7 +136,7 @@ func _style_ability_button(button: Button, icon_size: int) -> void:
 	button.add_theme_font_size_override("font_size", 15)
 
 
-func open(saved: PROGRESSION, bindings: Dictionary, developer_mode: bool) -> void:
+func open(saved: PROGRESSION, bindings: Dictionary, developer_mode: bool, camera_speed: float) -> void:
 	profile = saved
 	keys = bindings
 	developer_preview = developer_mode
@@ -144,6 +145,7 @@ func open(saved: PROGRESSION, bindings: Dictionary, developer_mode: bool) -> voi
 	if animate_reveal:
 		profile.mark_reveal_seen()
 		draft = profile.begin_edit()
+	tree.camera_speed = camera_speed
 	tree.begin(draft.build, developer_preview, animate_reveal)
 	_refresh()
 
@@ -230,7 +232,10 @@ func _refresh_nodes() -> void:
 		if unlocked and rank < spec.costs.size():
 			button.text += "  ·  %d Вируса" % spec.costs[rank]
 		button.tooltip_text = _node_tooltip(id, rank) if unlocked else ""
-		button.modulate = Color("f4c889") if rank != PROGRESSION.level(draft.original, id) else Color.WHITE
+		if rank == 0:
+			button.modulate = Color("b9c0b4")
+		else:
+			button.modulate = Color("f4c889") if rank != PROGRESSION.level(draft.original, id) else Color.WHITE
 
 
 func _refresh_upgrades() -> void:

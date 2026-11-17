@@ -31,13 +31,23 @@ const REVEAL_END := Vector3(0.60, 1.0, 0.83)
 const PULSE_PERIODS := Vector3(7.4, 11.3, 8.7)
 const PULSE_DELAYS := Vector3(1.3, 5.2, 3.1)
 const PULSE_DURATION := 1.7
-const CLEARING_LIMIT := 40
-const CLEARING_STEP := 0.075
+const MAX_BRANCH_SEGMENTS := 26
+const GROWTH_DURATION := 0.85
+const VIEW_PADDING := Vector2(112.0, 112.0)
+const ZOOM_MIN := 1.0
+const ZOOM_MAX := 2.5
+const ZOOM_STEP := 0.15
 
+var camera_speed := 500.0
+var navigation_enabled := true
+var zoom := ZOOM_MIN
 var reveal_front := 0.0
 var spread := Vector3.ZERO
+var branch_growth := Vector3.ZERO
+var _view_center := Vector2(0.5, 0.5)
 var _target_reveal := 0.0
 var _target_spread := Vector3.ZERO
+var _target_growth := Vector3.ZERO
 var _preview := false
 var _elapsed := 0.0
 var _overlay: Control
@@ -92,7 +102,7 @@ func _ready() -> void:
 	resized.connect(_layout)
 	visibility_changed.connect(_update_processing)
 	_layout()
-	_update_fog()
+	_update_growth_visuals()
 	_update_pulses()
 	_update_processing()
 
@@ -122,15 +132,21 @@ func begin(build: Dictionary, preview: bool, animate_reveal: bool) -> void:
 	reveal_front = 0.0 if animate_reveal else _target_reveal
 	sync_ranks(build)
 	spread = _target_spread
+	branch_growth = _target_growth
+	zoom = ZOOM_MIN
+	_view_center = Vector2(0.5, 0.5)
+	_update_view()
 	_material.set_shader_parameter("preview", _preview)
-	_update_fog()
+	_update_growth_visuals()
 	_update_pulses()
 
 
 func sync_ranks(build: Dictionary) -> void:
 	for index in NODE_IDS.size():
 		var id: String = NODE_IDS[index]
-		_target_spread[index] = float(PROGRESSION.level(build, id)) / PROGRESSION.NODES[id].costs.size()
+		var rank := PROGRESSION.level(build, id)
+		_target_spread[index] = float(rank) / PROGRESSION.NODES[id].costs.size()
+		_target_growth[index] = 1.0 if rank > 0 else 0.0
 
 
 func upgrades_visible() -> bool:
@@ -142,8 +158,7 @@ func _layout() -> void:
 		return
 	var height := minf(size.y, size.x / ASPECT)
 	_overlay.size = Vector2(height * ASPECT, height)
-	_overlay.position = (size - _overlay.size) * 0.5
-	_material.set_shader_parameter("content_scale", _overlay.size / size)
+	_update_view()
 	_core_title.add_theme_font_size_override("font_size", clampi(roundi(_overlay.size.x * 0.034), 19, 30))
 	_core_title.position = Vector2(0.23, 0.554) * _overlay.size
 	_core_title.size = Vector2(_overlay.size.x * 0.54, 0.0)
@@ -164,48 +179,94 @@ func _layout() -> void:
 		button.size = Vector2(width, button_height)
 
 
+func _update_view() -> void:
+	if size.x <= 0.0 or size.y <= 0.0 or _overlay.size.x <= 0.0 or _overlay.size.y <= 0.0:
+		return
+	var region := _overlay.size.max(size) + VIEW_PADDING
+	var travel := (region - size / zoom) * 0.5 / _overlay.size
+	var middle := Vector2(0.5, 0.5)
+	_view_center = _view_center.clamp(middle - travel, middle + travel)
+	var scaled_size := _overlay.size * zoom
+	_overlay.scale = Vector2.ONE * zoom
+	_overlay.position = (size * 0.5 - _view_center * scaled_size).round()
+	_material.set_shader_parameter("content_scale", scaled_size / size)
+	_material.set_shader_parameter("content_origin", _overlay.position / size)
+
+
+func _gui_input(event: InputEvent) -> void:
+	if not navigation_enabled or not event is InputEventMouseButton or not event.pressed:
+		return
+	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		zoom = minf(ZOOM_MAX, zoom + ZOOM_STEP)
+	elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		zoom = maxf(ZOOM_MIN, zoom - ZOOM_STEP)
+	else:
+		return
+	_update_view()
+	accept_event()
+
+
 func _update_processing() -> void:
 	set_process(is_visible_in_tree())
 
 
 func _process(delta: float) -> void:
+	if navigation_enabled and _overlay.size.x > 0.0 and _overlay.size.y > 0.0:
+		var direction := Input.get_vector("camera_left", "camera_right", "camera_up", "camera_down")
+		if direction != Vector2.ZERO:
+			_view_center += direction * camera_speed * delta / _overlay.size
+			_update_view()
 	_elapsed += delta
 	var was_visible := upgrades_visible()
 	var next_front := move_toward(reveal_front, _target_reveal, delta / 1.3)
 	var next_spread := spread.move_toward(_target_spread, delta * 1.25)
-	if next_front != reveal_front or next_spread != spread:
+	var next_growth := branch_growth
+	for index in NODE_IDS.size():
+		next_growth[index] = move_toward(branch_growth[index], _target_growth[index], delta / GROWTH_DURATION)
+	if next_front != reveal_front or next_spread != spread or next_growth != branch_growth:
 		reveal_front = next_front
 		spread = next_spread
-		_update_fog()
+		branch_growth = next_growth
+		_update_growth_visuals()
 		if not was_visible and upgrades_visible():
 			initial_reveal_finished.emit()
 	_update_pulses()
 
 
-func _update_fog() -> void:
-	if _preview:
-		return
-	var clearings := PackedVector4Array()
-	var core := CORE * ART_SCALE
-	clearings.append(Vector4(core.x, core.y, 0.266, 1.0))
-	for index in _paths.size():
-		var phase := smoothstep(REVEAL_START[index], REVEAL_END[index], reveal_front)
-		if phase <= 0.0:
+func _update_growth_visuals() -> void:
+	var node_spots := PackedVector4Array()
+	var segments := PackedVector4Array()
+	var segment_styles := PackedVector2Array()
+	for index in NODE_IDS.size():
+		var node: Vector2 = NODE_POSITIONS[NODE_IDS[index]] * ART_SCALE
+		var reveal := 1.0 if _preview else smoothstep(REVEAL_START[index], REVEAL_END[index], reveal_front)
+		var growth := branch_growth[index] * reveal
+		var node_light := smoothstep(0.68, 1.0, growth)
+		node_spots.append(Vector4(node.x, node.y, reveal, node_light))
+		if growth <= 0.0:
 			continue
-		var path := _paths[index]
 		var to_node := _node_distances[index]
-		var clearing_radius := lerpf(0.081, 0.145, spread[index])
-		var front := lerpf(to_node, path.get_baked_length(), spread[index]) * phase
-		var count := ceili(front / CLEARING_STEP)
-		for step in range(1, count + 1):
-			var point := path.sample_baked(front * step / count)
-			clearings.append(Vector4(point.x, point.y, clearing_radius, 1.0))
-		var node := path.sample_baked(to_node)
-		var node_opening := smoothstep(0.65, 1.0, phase)
-		clearings.append(Vector4(node.x, node.y, 0.14 + spread[index] * 0.045, node_opening))
-	_material.set_shader_parameter("clearing_count", mini(clearings.size(), CLEARING_LIMIT))
-	clearings.resize(CLEARING_LIMIT)
-	_material.set_shader_parameter("clearings", clearings)
+		var extension := (_paths[index].get_baked_length() - to_node) * spread[index]
+		var remaining := to_node * growth + extension * node_light
+		var points: Array = ROUTES[index]
+		for step in range(points.size() - 1):
+			if remaining <= 0.0:
+				break
+			var from: Vector2 = points[step] * ART_SCALE
+			var to: Vector2 = points[step + 1] * ART_SCALE
+			var length := from.distance_to(to)
+			var tip := from.lerp(to, minf(1.0, remaining / length))
+			segments.append(Vector4(from.x, from.y, tip.x, tip.y))
+			var outer: bool = step >= NODE_POINT_INDICES[index]
+			var radius := lerpf(0.041, 0.062, spread[index])
+			segment_styles.append(Vector2(radius, 0.65 if outer else 1.0))
+			remaining -= length
+	_material.set_shader_parameter("node_spots", node_spots)
+	_material.set_shader_parameter("branch_segment_count", segments.size())
+	segments.resize(MAX_BRANCH_SEGMENTS)
+	segment_styles.resize(MAX_BRANCH_SEGMENTS)
+	_material.set_shader_parameter("branch_segments", segments)
+	_material.set_shader_parameter("branch_styles", segment_styles)
 
 
 func _update_pulses() -> void:
@@ -216,8 +277,12 @@ func _update_pulses() -> void:
 	for index in _paths.size():
 		var phase := clampf(fposmod(_elapsed - PULSE_DELAYS[index], PULSE_PERIODS[index]) / PULSE_DURATION, 0.0, 1.0)
 		var distance := minf(1.0, phase / 0.72) * _node_distances[index]
-		var point := _paths[index].sample_baked(distance)
-		var energy := (0.21 + 0.12 * spread[index]) * sin(phase * PI) if upgrades_visible() else 0.0
+		var energy := (0.21 + 0.12 * spread[index]) * sin(phase * PI) if upgrades_visible() and branch_growth[index] >= 1.0 else 0.0
 		var radius := lerpf(0.060, 0.115, smoothstep(0.56, 0.82, phase))
+		if branch_growth[index] < 1.0 and _target_growth[index] > 0.0 and upgrades_visible():
+			distance = _node_distances[index] * branch_growth[index]
+			energy = 0.34 * sin(branch_growth[index] * PI)
+			radius = 0.07
+		var point := _paths[index].sample_baked(distance)
 		pulses.append(Vector4(point.x, point.y, energy, radius))
 	_material.set_shader_parameter("pulses", pulses)

@@ -175,6 +175,7 @@ func _edit_build() -> void:
 	await create_timer(1.4).timeout
 	check(editor.tree.upgrades_visible() and editor.nodes.values().all(func(node): return node.visible),
 		"Fog retreat exposes the three purchasable nodes")
+	await _tree_camera_and_growth()
 	check(not editor.draft.purchase_block(BRUTE).is_empty(), "Missing Flesh II is reported")
 	editor._purchase(BRUTE)
 	editor._purchase(FLESH)
@@ -238,6 +239,55 @@ func _edit_build() -> void:
 	var saved = PROGRESSION.new(save_path)
 	check(app.screen == app.Screen.RACES and saved.state.virus == 36 and saved.state.slots[2] == HUNGER
 		and PROGRESSION.level(saved.state, BRUTE) == 1, "Apply persists balance, form, levels and assignments together")
+
+
+func _tree_camera_and_growth() -> void:
+	var editor = app.development
+	var tree = editor.tree
+	var flesh: Button = editor.nodes[FLESH]
+	var center_before: Vector2 = tree._view_center
+	var sidebar_before: Rect2 = editor.upgrades.get_global_rect()
+	var hotspot := flesh.get_global_rect().get_center()
+	check(tree.branch_growth == Vector3.ZERO and tree._material.get_shader_parameter("branch_segment_count") == 0,
+		"Revealed perks start with no connecting branches")
+	_mouse_motion(hotspot, Vector2.ZERO, false)
+	_mouse_button(hotspot, true, MOUSE_BUTTON_WHEEL_UP)
+	_mouse_button(hotspot, false, MOUSE_BUTTON_WHEEL_UP)
+	check(is_equal_approx(tree.zoom, 1.15) and tree._view_center == center_before,
+		"Wheel over a perk zooms around the center of the tree")
+	_mouse_button(sidebar_before.get_center(), true, MOUSE_BUTTON_WHEEL_UP)
+	_mouse_button(sidebar_before.get_center(), false, MOUSE_BUTTON_WHEEL_UP)
+	check(is_equal_approx(tree.zoom, 1.15), "Wheel over a sidebar leaves the tree zoom alone")
+	_key_event(KEY_A, true)
+	await create_timer(0.08).timeout
+	_key_event(KEY_A, false)
+	check(tree._view_center.x < center_before.x and tree._view_center.y == center_before.y
+		and editor.upgrades.get_global_rect() == sidebar_before,
+		"Physical A pans the tree without moving the sidebar")
+	_click_control(flesh)
+	check(PROGRESSION.level(editor.draft.build, FLESH) == 1,
+		"The transformed perk remains clickable after pan and zoom")
+	await create_timer(0.26).timeout
+	var segments: int = tree._material.get_shader_parameter("branch_segment_count")
+	check(tree.branch_growth.x > 0.0 and tree.branch_growth.x < 1.0 and segments > 0
+		and tree.branch_growth.y == 0.0 and tree.branch_growth.z == 0.0,
+		"Only the purchased branch grows from its starting point")
+	await create_timer(0.68).timeout
+	check(tree.branch_growth == Vector3(1.0, 0.0, 0.0), "The branch reaches its perk")
+	_click_control(flesh, MOUSE_BUTTON_RIGHT)
+	await create_timer(0.92).timeout
+	check(tree.branch_growth == Vector3.ZERO and editor.draft.build.virus == 100
+		and tree._material.get_shader_parameter("branch_segment_count") == 0,
+		"Right click after zoom refunds the level and retracts its whole branch")
+	var canvas_center: Vector2 = tree.get_global_rect().get_center()
+	for i in 15:
+		_mouse_button(canvas_center, true, MOUSE_BUTTON_WHEEL_UP)
+		_mouse_button(canvas_center, false, MOUSE_BUTTON_WHEEL_UP)
+	check(is_equal_approx(tree.zoom, 2.5), "Wheel up stops at the maximum tree zoom")
+	for i in 15:
+		_mouse_button(canvas_center, true, MOUSE_BUTTON_WHEEL_DOWN)
+		_mouse_button(canvas_center, false, MOUSE_BUTTON_WHEEL_DOWN)
+	check(is_equal_approx(tree.zoom, 1.0), "Wheel down stops at the full-tree view")
 
 
 func _exercise_mission_build() -> void:
@@ -472,6 +522,8 @@ func _check_reopen_and_refunds() -> void:
 	await process_frame
 	var editor = app.development
 	var draft = editor.draft
+	check(editor.tree.branch_growth == Vector3.ONE and is_equal_approx(editor.tree.zoom, 1.0),
+		"Reopening restores purchased branches at the full-tree zoom")
 	check(editor.reset_button.text == "Сбросить развитие" and not editor.tree.is_ancestor_of(editor.reset_button),
 		"The tree has a single reset button in the footer")
 	_click_control(editor.nodes[FLESH], MOUSE_BUTTON_RIGHT)

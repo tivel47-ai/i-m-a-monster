@@ -698,7 +698,7 @@ func _open_development() -> void:
 	if screen != Screen.RACES or development_button.disabled:
 		return
 	_show(Screen.DEVELOPMENT)
-	development.open(progression, settings.keys, developer_mode)
+	development.open(progression, settings.keys, developer_mode, settings.camera_speed)
 
 
 func _update_developer_button() -> void:
