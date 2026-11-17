@@ -1,0 +1,223 @@
+extends Control
+
+signal initial_reveal_finished
+
+const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const ART = preload("res://assets/ui/zombie_development_grave_roots.png")
+const FOG = preload("res://scripts/zombie_development_fog.gdshader")
+const NODE_IDS := [PROGRESSION.FLESH, PROGRESSION.BRUTE, PROGRESSION.HUNGER]
+const ASPECT := 1672.0 / 941.0
+const ART_SCALE := Vector2(ASPECT, 1.0)
+const CORE := Vector2(0.50, 0.474)
+const NODE_POSITIONS := {
+	PROGRESSION.FLESH: Vector2(0.289, 0.274),
+	PROGRESSION.BRUTE: Vector2(0.163, 0.122),
+	PROGRESSION.HUNGER: Vector2(0.726, 0.716),
+}
+# Coordinates follow the painted tendrils. Points after a node lead into the fog.
+const ROUTES := [
+	[CORE, Vector2(0.395, 0.493), Vector2(0.360, 0.468), Vector2(0.322, 0.457),
+		Vector2(0.306, 0.417), Vector2(0.322, 0.347), NODE_POSITIONS[PROGRESSION.FLESH],
+		Vector2(0.389, 0.219), Vector2(0.44, 0.193), Vector2(0.462, 0.137), Vector2(0.462, 0.084)],
+	[NODE_POSITIONS[PROGRESSION.FLESH], Vector2(0.246, 0.278), Vector2(0.225, 0.253),
+		Vector2(0.23, 0.211), Vector2(0.217, 0.187), Vector2(0.193, 0.175), NODE_POSITIONS[PROGRESSION.BRUTE]],
+	[CORE, Vector2(0.603, 0.555), Vector2(0.636, 0.556), Vector2(0.647, 0.596),
+		Vector2(0.639, 0.649), Vector2(0.675, 0.673), Vector2(0.685, 0.699), NODE_POSITIONS[PROGRESSION.HUNGER],
+		Vector2(0.768, 0.770), Vector2(0.789, 0.817), Vector2(0.756, 0.886)],
+]
+const NODE_POINT_INDICES := [6, 6, 7]
+const REVEAL_START := Vector3(0.0, 0.55, 0.08)
+const REVEAL_END := Vector3(0.60, 1.0, 0.83)
+const PULSE_PERIODS := Vector3(7.4, 11.3, 8.7)
+const PULSE_DELAYS := Vector3(1.3, 5.2, 3.1)
+const PULSE_DURATION := 1.7
+const CLEARING_LIMIT := 40
+const CLEARING_STEP := 0.075
+
+var reveal_front := 0.0
+var spread := Vector3.ZERO
+var _target_reveal := 0.0
+var _target_spread := Vector3.ZERO
+var _preview := false
+var _elapsed := 0.0
+var _overlay: Control
+var _core_title: Label
+var _material: ShaderMaterial
+var _buttons: Dictionary[String, Button] = {}
+var _paths: Array[Curve2D] = []
+var _node_distances := PackedFloat32Array()
+
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_PASS
+	clip_contents = true
+	for index in ROUTES.size():
+		var points: Array = ROUTES[index]
+		var path := Curve2D.new()
+		path.bake_interval = 0.02
+		var distance := 0.0
+		for point_index in points.size():
+			var point: Vector2 = points[point_index] * ART_SCALE
+			path.add_point(point)
+			if point_index > 0:
+				var previous: Vector2 = points[point_index - 1] * ART_SCALE
+				distance += previous.distance_to(point)
+			if point_index == NODE_POINT_INDICES[index]:
+				_node_distances.append(distance)
+		_paths.append(path)
+
+	var art := TextureRect.new()
+	art.texture = ART
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_material = ShaderMaterial.new()
+	_material.shader = FOG
+	_material.set_shader_parameter("aspect", ASPECT)
+	art.material = _material
+	add_child(art)
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_overlay = Control.new()
+	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_overlay)
+
+	_core_title = Label.new()
+	_core_title.text = "Инфицирование"
+	_core_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_core_title.add_theme_color_override("font_color", Color("ede2c8"))
+	_core_title.add_theme_color_override("font_outline_color", Color("141511"))
+	_core_title.add_theme_constant_override("outline_size", 8)
+	_core_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay.add_child(_core_title)
+	resized.connect(_layout)
+	visibility_changed.connect(_update_processing)
+	_layout()
+	_update_fog()
+	_update_pulses()
+	_update_processing()
+
+
+func add_upgrade(id: String, button: Button) -> void:
+	_buttons[id] = button
+	button.flat = true
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.add_theme_color_override("font_color", Color("ede2c8"))
+	button.add_theme_color_override("font_outline_color", Color("10130f"))
+	button.add_theme_constant_override("outline_size", 8)
+	var focus := StyleBoxFlat.new()
+	focus.bg_color = Color(0.22, 0.26, 0.14, 0.23)
+	focus.border_color = Color("8a905f")
+	focus.set_border_width_all(1)
+	focus.set_corner_radius_all(5)
+	button.add_theme_stylebox_override("focus", focus)
+	_overlay.add_child(button)
+	_layout()
+
+
+func begin(build: Dictionary, preview: bool, animate_reveal: bool) -> void:
+	_preview = preview
+	_target_reveal = 1.0 if build.initial_unlocked else 0.0
+	reveal_front = 0.0 if animate_reveal else _target_reveal
+	sync_ranks(build)
+	spread = _target_spread
+	_material.set_shader_parameter("preview", _preview)
+	_update_fog()
+	_update_pulses()
+
+
+func sync_ranks(build: Dictionary) -> void:
+	for index in NODE_IDS.size():
+		var id: String = NODE_IDS[index]
+		_target_spread[index] = float(PROGRESSION.level(build, id)) / PROGRESSION.NODES[id].costs.size()
+
+
+func upgrades_visible() -> bool:
+	return _preview or reveal_front >= 1.0
+
+
+func _layout() -> void:
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+	var height := minf(size.y, size.x / ASPECT)
+	_overlay.size = Vector2(height * ASPECT, height)
+	_overlay.position = (size - _overlay.size) * 0.5
+	_material.set_shader_parameter("content_scale", _overlay.size / size)
+	_core_title.add_theme_font_size_override("font_size", clampi(roundi(_overlay.size.x * 0.034), 19, 30))
+	_core_title.position = Vector2(0.23, 0.554) * _overlay.size
+	_core_title.size = Vector2(_overlay.size.x * 0.54, 0.0)
+	for id in _buttons:
+		var button := _buttons[id]
+		var center: Vector2 = NODE_POSITIONS[id] * _overlay.size
+		var icon_half := maxf(18.0, _overlay.size.x * 0.045)
+		var button_height := maxf(47.0, icon_half * 1.75)
+		var font_size := clampi(roundi(_overlay.size.x * 0.023), 14, 19)
+		var width := minf(_overlay.size.x - center.x + icon_half - 4.0, 2.0 * icon_half + font_size * 9.2)
+		var margins := StyleBoxEmpty.new()
+		margins.content_margin_left = 1.95 * icon_half
+		margins.content_margin_right = 1.0
+		for state in [&"normal", &"hover", &"pressed", &"hover_pressed"]:
+			button.add_theme_stylebox_override(state, margins)
+		button.add_theme_font_size_override("font_size", font_size)
+		button.position = center - Vector2(icon_half, button_height * 0.5)
+		button.size = Vector2(width, button_height)
+
+
+func _update_processing() -> void:
+	set_process(is_visible_in_tree())
+
+
+func _process(delta: float) -> void:
+	_elapsed += delta
+	var was_visible := upgrades_visible()
+	var next_front := move_toward(reveal_front, _target_reveal, delta / 1.3)
+	var next_spread := spread.move_toward(_target_spread, delta * 1.25)
+	if next_front != reveal_front or next_spread != spread:
+		reveal_front = next_front
+		spread = next_spread
+		_update_fog()
+		if not was_visible and upgrades_visible():
+			initial_reveal_finished.emit()
+	_update_pulses()
+
+
+func _update_fog() -> void:
+	if _preview:
+		return
+	var clearings := PackedVector4Array()
+	var core := CORE * ART_SCALE
+	clearings.append(Vector4(core.x, core.y, 0.266, 1.0))
+	for index in _paths.size():
+		var phase := smoothstep(REVEAL_START[index], REVEAL_END[index], reveal_front)
+		if phase <= 0.0:
+			continue
+		var path := _paths[index]
+		var to_node := _node_distances[index]
+		var clearing_radius := lerpf(0.081, 0.145, spread[index])
+		var front := lerpf(to_node, path.get_baked_length(), spread[index]) * phase
+		var count := ceili(front / CLEARING_STEP)
+		for step in range(1, count + 1):
+			var point := path.sample_baked(front * step / count)
+			clearings.append(Vector4(point.x, point.y, clearing_radius, 1.0))
+		var node := path.sample_baked(to_node)
+		var node_opening := smoothstep(0.65, 1.0, phase)
+		clearings.append(Vector4(node.x, node.y, 0.14 + spread[index] * 0.045, node_opening))
+	_material.set_shader_parameter("clearing_count", mini(clearings.size(), CLEARING_LIMIT))
+	clearings.resize(CLEARING_LIMIT)
+	_material.set_shader_parameter("clearings", clearings)
+
+
+func _update_pulses() -> void:
+	var pulses := PackedVector4Array()
+	var core := CORE * ART_SCALE
+	var core_phase := clampf((fposmod(_elapsed + 0.6, 5.9) - 0.3) / 1.9, 0.0, 1.0)
+	pulses.append(Vector4(core.x, core.y, 0.22 * sin(core_phase * PI), 0.205))
+	for index in _paths.size():
+		var phase := clampf(fposmod(_elapsed - PULSE_DELAYS[index], PULSE_PERIODS[index]) / PULSE_DURATION, 0.0, 1.0)
+		var distance := minf(1.0, phase / 0.72) * _node_distances[index]
+		var point := _paths[index].sample_baked(distance)
+		var energy := (0.21 + 0.12 * spread[index]) * sin(phase * PI) if upgrades_visible() else 0.0
+		var radius := lerpf(0.060, 0.115, smoothstep(0.56, 0.82, phase))
+		pulses.append(Vector4(point.x, point.y, energy, radius))
+	_material.set_shader_parameter("pulses", pulses)

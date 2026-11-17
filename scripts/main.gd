@@ -652,9 +652,7 @@ func _update_preview() -> void:
 	_text(race_preview, "Внешний вид", 24)
 	start_button.disabled = not CATALOG.RACES.has(selected_race)
 	var has_progression: bool = CATALOG.MISSIONS[selected_mission].get("zombie_progression", false)
-	var tree_available: bool = progression.state.initial_unlocked or developer_mode
-	development_button.disabled = start_button.disabled or not has_progression or not tree_available
-	development_button.tooltip_text = "Откроется после первого начисления Вируса в Миссии №1" if has_progression and not tree_available else ""
+	development_button.disabled = start_button.disabled or not has_progression
 	if start_button.disabled:
 		_text(race_preview, "Выберите расу в списке слева.", 18)
 		_text(race_details, "Описание", 24)

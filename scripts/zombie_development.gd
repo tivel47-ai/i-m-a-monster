@@ -4,18 +4,13 @@ signal exit_requested
 
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
-const POSITIONS := {
-	PROGRESSION.FLESH: Vector2(0.27, 0.28),
-	PROGRESSION.BRUTE: Vector2(0.27, 0.72),
-	PROGRESSION.HUNGER: Vector2(0.73, 0.50),
-}
+const TREE = preload("res://scripts/zombie_development_tree.gd")
 
 var profile: PROGRESSION
 var developer_preview := false
 var draft: PROGRESSION.Draft
 var keys: Dictionary
-var tree: Control
-var fog: ColorRect
+var tree: TREE
 var nodes: Dictionary[String, Button] = {}
 var balance: Label
 var developer_controls: HBoxContainer
@@ -49,38 +44,18 @@ func _ready() -> void:
 	columns.add_theme_constant_override("separation", 12)
 	add_child(columns)
 	upgrades = _sidebar(columns, "Действующие улучшения", 216.0)
-	tree = Control.new()
+	tree = TREE.new()
 	tree.custom_minimum_size.y = 250
 	tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tree.mouse_filter = Control.MOUSE_FILTER_PASS
-	tree.draw.connect(_draw_tree)
-	tree.resized.connect(tree.queue_redraw)
+	tree.initial_reveal_finished.connect(_refresh_nodes)
 	columns.add_child(tree)
 	learned = _sidebar(columns, "Активные способности", 184.0)
 	for id in PROGRESSION.NODES:
-		var button := _button(tree, "", _purchase.bind(id))
-		button.anchor_left = POSITIONS[id].x - 0.19
-		button.anchor_right = POSITIONS[id].x + 0.19
-		button.anchor_top = POSITIONS[id].y
-		button.anchor_bottom = POSITIONS[id].y
-		button.offset_top = -32
-		button.offset_bottom = 32
-		button.grow_vertical = Control.GROW_DIRECTION_BOTH
-		button.add_theme_font_size_override("font_size", 18)
-		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		var button := Button.new()
+		button.pressed.connect(_purchase.bind(id))
 		button.gui_input.connect(_refund_input.bind(id))
+		tree.add_upgrade(id, button)
 		nodes[id] = button
-	fog = ColorRect.new()
-	fog.color = Color("251d27d9")
-	fog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	tree.add_child(fog)
-	var lock_text := _label(fog, "Развитие откроется после первого начисления Вируса в Миссии №1", 18)
-	lock_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lock_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lock_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lock_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	lock_text.offset_left = 16
-	lock_text.offset_right = -16
 
 	var hotbar_center := CenterContainer.new()
 	add_child(hotbar_center)
@@ -165,18 +140,12 @@ func open(saved: PROGRESSION, bindings: Dictionary, developer_mode: bool) -> voi
 	keys = bindings
 	developer_preview = developer_mode
 	draft = profile.begin_edit()
-	_refresh()
-	var revealed: bool = draft.build.initial_unlocked
-	fog.visible = not developer_preview and (not revealed or not draft.build.reveal_seen)
-	fog.mouse_filter = Control.MOUSE_FILTER_STOP if not revealed else Control.MOUSE_FILTER_IGNORE
-	fog.modulate.a = 1.0
-	fog.get_child(0).visible = not revealed
-	if not developer_preview and revealed and not draft.build.reveal_seen:
+	var animate_reveal: bool = not developer_preview and draft.build.initial_unlocked and not draft.build.reveal_seen
+	if animate_reveal:
 		profile.mark_reveal_seen()
 		draft = profile.begin_edit()
-		var tween := create_tween()
-		tween.tween_property(fog, "modulate:a", 0.0, 0.75)
-		tween.tween_callback(fog.hide)
+	tree.begin(draft.build, developer_preview, animate_reveal)
+	_refresh()
 
 
 func request_exit() -> void:
@@ -194,14 +163,6 @@ func _button(parent: Node, title: String, callback: Callable) -> Button:
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	return button
-
-
-func _draw_tree() -> void:
-	tree.draw_rect(Rect2(Vector2.ZERO, tree.size), DARK_THEME.INK)
-	tree.draw_rect(Rect2(Vector2.ONE, tree.size - 2.0 * Vector2.ONE), DARK_THEME.EDGE, false)
-	var from: Vector2 = POSITIONS[PROGRESSION.FLESH] * tree.size
-	var to: Vector2 = POSITIONS[PROGRESSION.BRUTE] * tree.size
-	tree.draw_line(from, to, DARK_THEME.ACCENT, 2.0, true)
 
 
 func _purchase(id: String) -> void:
@@ -248,12 +209,21 @@ func _refresh() -> void:
 		status.text = "Хранилище развития недоступно"
 	elif draft.changed():
 		status.text = "Есть неприменённые изменения"
+	elif not draft.build.initial_unlocked and not developer_preview:
+		status.text = "Первое начисление Вируса откроет улучшения"
 	apply_button.disabled = not draft.changed()
 	reset_button.disabled = draft.build.paid.is_empty()
+	tree.sync_ranks(draft.build)
+	_refresh_nodes()
+	_refresh_upgrades()
+	_refresh_abilities()
+
+
+func _refresh_nodes() -> void:
 	for id in nodes:
 		var spec: Dictionary = PROGRESSION.NODES[id]
 		var rank := PROGRESSION.level(draft.build, id)
-		var unlocked: bool = developer_preview or draft.build.get(spec.unlock, false)
+		var unlocked: bool = tree.upgrades_visible() and (developer_preview or draft.build.get(spec.unlock, false))
 		var button := nodes[id]
 		button.visible = unlocked
 		button.text = "%s\n%d/%d" % [spec.title, rank, spec.costs.size()] if unlocked else ""
@@ -261,8 +231,6 @@ func _refresh() -> void:
 			button.text += "  ·  %d Вируса" % spec.costs[rank]
 		button.tooltip_text = _node_tooltip(id, rank) if unlocked else ""
 		button.modulate = Color("f4c889") if rank != PROGRESSION.level(draft.original, id) else Color.WHITE
-	_refresh_upgrades()
-	_refresh_abilities()
 
 
 func _refresh_upgrades() -> void:

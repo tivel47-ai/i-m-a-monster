@@ -78,11 +78,16 @@ func run() -> void:
 	app.selected_race = "zombie"
 	app._show(app.Screen.RACES)
 	app._update_preview()
-	check(app.development_button.disabled, "Fresh profile cannot open development")
+	check(not app.development_button.disabled, "Fresh profile can inspect the core ability")
+	app._open_development()
+	check(app.screen == app.Screen.DEVELOPMENT and not app.development.tree.upgrades_visible()
+		and app.development.nodes.values().all(func(node): return not node.visible and node.tooltip_text.is_empty())
+		and not app.progression.state.reveal_seen, "Before Virus, fog hides every purchasable node and its input")
+	app.development.request_exit()
 	app.developer_mode = true
 	app._update_preview()
 	app._open_development()
-	check(app.screen == app.Screen.DEVELOPMENT and not app.development.fog.visible
+	check(app.screen == app.Screen.DEVELOPMENT and app.development.tree.upgrades_visible()
 		and app.development.nodes.values().all(func(node): return node.visible and not node.tooltip_text.is_empty())
 		and not app.progression.state.initial_unlocked and not app.progression.state.reveal_seen,
 		"Developer mode reveals every node without changing persistent unlocks")
@@ -116,7 +121,7 @@ func run() -> void:
 func _first_run() -> void:
 	_enter_mission()
 	check(app.progression.state.virus == 0 and not app.progression.state.initial_unlocked,
-		"Fresh profile remains locked on mission launch")
+		"Purchasable development remains locked on mission launch with a fresh profile")
 	check(mission.zombie_infection.charges == 3 and mission.mission_hud.ability_slots.size() == 10
 		and mission.mission_build.available_uses == 0, "Only the dedicated core ability starts usable")
 	var hidden = app.progression.begin_edit()
@@ -142,7 +147,7 @@ func _first_run() -> void:
 	_leave()
 	check(app.screen == app.Screen.ATTEMPT_SUMMARY and "за попытку: 1" in app.attempt_text.text
 		and "Открыты улучшения" in app.attempt_text.text and app.progression.state.initial_unlocked,
-		"First Virus opens development before victory and voluntary exit reports it")
+		"First Virus reveals the upgrades before victory and voluntary exit reports it")
 	check(PROGRESSION.new(save_path).state.virus == 1, "Conversion credit is already on disk")
 	await process_frame
 	_enter_mission()
@@ -165,8 +170,11 @@ func _edit_build() -> void:
 	app.progression.state.virus = 100
 	app._open_development()
 	var editor = app.development
-	check(editor.nodes.size() == 3 and editor.fog.visible and app.progression.state.reveal_seen,
-		"First visit reveals three nodes and records the one-time fog animation")
+	check(editor.nodes.size() == 3 and not editor.tree.upgrades_visible() and app.progression.state.reveal_seen,
+		"First visit after Virus starts the one-time fog animation")
+	await create_timer(1.4).timeout
+	check(editor.tree.upgrades_visible() and editor.nodes.values().all(func(node): return node.visible),
+		"Fog retreat exposes the three purchasable nodes")
 	check(not editor.draft.purchase_block(BRUTE).is_empty(), "Missing Flesh II is reported")
 	editor._purchase(BRUTE)
 	editor._purchase(FLESH)
@@ -194,7 +202,8 @@ func _edit_build() -> void:
 	check(app.screen == app.Screen.RACES and app.progression.state.virus == 100,
 		"Exit without saving discards the provisional changes")
 	app._open_development()
-	check(not editor.fog.visible, "Fog does not replay on a second visit")
+	check(editor.tree.upgrades_visible() and editor.tree.spread == Vector3.ZERO,
+		"A second visit skips the first reveal and discards unapplied fog growth")
 	for id in [FLESH, FLESH, BRUTE, HUNGER, HUNGER, HUNGER]:
 		if id == HUNGER and PROGRESSION.level(editor.draft.build, HUNGER) == 2:
 			# Fixture funds for a third tactical use.
@@ -202,6 +211,8 @@ func _edit_build() -> void:
 		editor._purchase(id)
 	await process_frame
 	await process_frame
+	check(editor.tree.spread.x > 0.0 and editor.tree.spread.y > 0.0 and editor.tree.spread.z > 0.0,
+		"Purchases advance the fog front along the upgraded branches")
 	var learned: Button = editor.learned.get_child(0)
 	var slot: Button = editor.slots[2]
 	var tree_rect: Rect2 = editor.tree.get_global_rect()
@@ -461,7 +472,7 @@ func _check_reopen_and_refunds() -> void:
 	await process_frame
 	var editor = app.development
 	var draft = editor.draft
-	check(editor.reset_button.text == "Сбросить развитие" and editor.tree.get_child_count() == editor.nodes.size() + 1,
+	check(editor.reset_button.text == "Сбросить развитие" and not editor.tree.is_ancestor_of(editor.reset_button),
 		"The tree has a single reset button in the footer")
 	_click_control(editor.nodes[FLESH], MOUSE_BUTTON_RIGHT)
 	check(PROGRESSION.level(draft.build, FLESH) == 1 and PROGRESSION.level(draft.build, BRUTE) == 0
