@@ -18,6 +18,8 @@ var tree: Control
 var fog: ColorRect
 var nodes: Dictionary[String, Button] = {}
 var balance: Label
+var developer_controls: HBoxContainer
+var subtract_virus_button: Button
 var status: Label
 var apply_button: Button
 var reset_button: Button
@@ -36,6 +38,11 @@ func _ready() -> void:
 	balance = _label(header, "", 20, Color("efc694"))
 	balance.autowrap_mode = TextServer.AUTOWRAP_OFF
 	balance.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	developer_controls = HBoxContainer.new()
+	header.add_child(developer_controls)
+	subtract_virus_button = _button(developer_controls, "−10", _adjust_virus.bind(-10))
+	subtract_virus_button.tooltip_text = "Убавить Вирус на 10"
+	_button(developer_controls, "+10", _adjust_virus.bind(10)).tooltip_text = "Начислить 10 Вируса"
 
 	var columns := HBoxContainer.new()
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -97,18 +104,19 @@ func _ready() -> void:
 	footer.add_spacer(false)
 	reset_button = _button(footer, "Сбросить развитие", _reset)
 	footer.add_spacer(false)
-	apply_button = _button(footer, "Применить", _apply.bind(false))
+	apply_button = _button(footer, "Применить", _apply)
 	apply_button.custom_minimum_size = back_button.custom_minimum_size
 	leave_dialog = ConfirmationDialog.new()
 	leave_dialog.title = "Неприменённые изменения"
-	leave_dialog.dialog_text = "Сохранить покупки и назначения перед выходом?"
-	leave_dialog.ok_button_text = "Применить и выйти"
-	leave_dialog.cancel_button_text = "Вернуться"
-	leave_dialog.add_button("Выйти без сохранения", false, "discard")
-	leave_dialog.confirmed.connect(_apply.bind(true))
-	leave_dialog.custom_action.connect(func(_action: StringName):
-		leave_dialog.hide()
+	leave_dialog.dialog_text = "При выходе неприменённые изменения будут потеряны."
+	leave_dialog.ok_button_text = "Выйти"
+	leave_dialog.cancel_button_text = "Остаться"
+	leave_dialog.confirmed.connect(func():
+		draft = profile.begin_edit()
 		exit_requested.emit())
+	leave_dialog.visibility_changed.connect(func():
+		if leave_dialog.visible:
+			leave_dialog.get_cancel_button().grab_focus())
 	add_child(leave_dialog)
 
 
@@ -213,18 +221,28 @@ func _reset() -> void:
 	_refresh()
 
 
-func _apply(exit_after: bool) -> void:
+func _adjust_virus(delta: int) -> void:
+	if not developer_preview:
+		return
+	var virus: int = draft.build.virus
+	draft.build.virus = maxi(0, virus + mini(delta, 9223372036854775807 - virus))
+	if delta > 0:
+		draft.build.initial_unlocked = true
+	_refresh()
+
+
+func _apply() -> void:
 	if profile.apply(draft) != OK:
 		status.text = "Не удалось сохранить развитие"
 		return
 	draft = profile.begin_edit()
 	_refresh()
-	if exit_after:
-		exit_requested.emit()
 
 
 func _refresh() -> void:
 	balance.text = "Вирус: %d" % draft.build.virus
+	developer_controls.visible = developer_preview
+	subtract_virus_button.disabled = draft.build.virus == 0
 	status.text = ""
 	if profile.save_error != OK:
 		status.text = "Хранилище развития недоступно"

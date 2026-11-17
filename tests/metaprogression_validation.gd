@@ -86,13 +86,26 @@ func run() -> void:
 		and app.development.nodes.values().all(func(node): return node.visible and not node.tooltip_text.is_empty())
 		and not app.progression.state.initial_unlocked and not app.progression.state.reveal_seen,
 		"Developer mode reveals every node without changing persistent unlocks")
-	app.development.request_exit()
+	var editor = app.development
+	check(editor.developer_controls.visible and editor.subtract_virus_button.disabled,
+		"Developer balance controls are visible and cannot subtract from zero")
+	editor.developer_controls.get_child(1).pressed.emit()
+	editor._purchase(FLESH)
+	editor.subtract_virus_button.pressed.emit()
+	check(editor.draft.build.virus == 0 and PROGRESSION.level(editor.draft.build, FLESH) == 1
+		and editor.draft.build.initial_unlocked and not app.progression.state.initial_unlocked,
+		"Developer credit enables purchases in the draft and debit clamps to zero")
+	editor.request_exit()
+	editor.leave_dialog.get_ok_button().pressed.emit()
+	check(app.screen == app.Screen.RACES and app.progression.state.virus == 0
+		and not app.progression.state.initial_unlocked, "Exiting discards developer credits and purchases")
 	app.developer_mode = false
 	await _first_run()
 	await _edit_build()
 	await _exercise_mission_build()
 	await _check_reopen_and_refunds()
 	_check_legacy_profile()
+	_check_progress_reset()
 	app.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(save_path)
@@ -170,8 +183,14 @@ func _edit_build() -> void:
 	check(editor.draft.build.slots[1].is_empty() and editor.draft.build.slots[2] == HUNGER,
 		"Hotbar move creates one assignment and preserves other slots")
 	editor.request_exit()
-	check(editor.leave_dialog.visible, "Leaving a dirty editor opens the three-choice dialog")
-	editor.leave_dialog.custom_action.emit("discard")
+	check(editor.leave_dialog.visible and editor.leave_dialog.ok_button_text == "Выйти"
+		and editor.leave_dialog.cancel_button_text == "Остаться" and not editor.developer_controls.visible,
+		"Normal editing shows the two exit choices without developer controls")
+	editor.leave_dialog.get_cancel_button().pressed.emit()
+	check(app.screen == app.Screen.DEVELOPMENT and editor.draft.build.virus == 21,
+		"Staying leaves the current draft intact")
+	editor.request_exit()
+	editor.leave_dialog.get_ok_button().pressed.emit()
 	check(app.screen == app.Screen.RACES and app.progression.state.virus == 100,
 		"Exit without saving discards the provisional changes")
 	app._open_development()
@@ -203,7 +222,8 @@ func _edit_build() -> void:
 	await process_frame
 	learned = editor.learned.get_child(0)
 	_drag(learned.get_global_rect().get_center(), slot.get_global_rect().get_center())
-	editor._apply(true)
+	editor._apply()
+	editor.request_exit()
 	var saved = PROGRESSION.new(save_path)
 	check(app.screen == app.Screen.RACES and saved.state.virus == 36 and saved.state.slots[2] == HUNGER
 		and PROGRESSION.level(saved.state, BRUTE) == 1, "Apply persists balance, form, levels and assignments together")
@@ -459,6 +479,47 @@ func _check_reopen_and_refunds() -> void:
 			draft.purchase(id)
 	check(draft.build.virus == 1000000000 - 162 - 200 and profile.apply(draft) == OK,
 		"All prices sum correctly and high Virus balances persist without a gameplay cap")
+
+
+func _check_progress_reset() -> void:
+	app._show(app.Screen.MAIN)
+	app.developer_mode = true
+	app.attempt_text.text = "previous attempt"
+	app.result_text.text = "previous result"
+	var settings = app.settings
+	var earlier = app.progression.begin_edit()
+	app._open_progress_reset()
+	var dialog: AcceptDialog = app.progress_reset_dialog
+	var confirm: Button = app.progress_reset_confirm
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = true
+	confirm.gui_input.emit(event)
+	app._process(1.9)
+	check(dialog.visible and app.progress_reset_fill.value > 0.0
+		and app.progression.state == earlier.original, "The fill advances without resetting before two seconds")
+	event.pressed = false
+	confirm.gui_input.emit(event)
+	app._process(2.0)
+	check(dialog.visible and app.progress_reset_fill.value == 0.0 and app.progression.state == earlier.original,
+		"Releasing early cancels the hold")
+	event.pressed = true
+	confirm.gui_input.emit(event)
+	confirm.mouse_exited.emit()
+	app._process(2.0)
+	check(dialog.visible and app.progression.state == earlier.original, "Leaving the button cancels the hold")
+	dialog.get_ok_button().pressed.emit()
+	check(not dialog.visible and app.progression.state == earlier.original, "Cancel leaves the profile intact")
+	app._open_progress_reset()
+	confirm.gui_input.emit(event)
+	app._process(2.0)
+	var fresh := PROGRESSION.new(save_path).state
+	check(not dialog.visible and fresh == app.progression.state and fresh.virus == 0 and fresh.paid.is_empty()
+		and fresh.slots == PROGRESSION.empty_slots() and not fresh.initial_unlocked and not fresh.reveal_seen
+		and app.progression.apply(earlier) == ERR_BUSY, "A full hold persists a fresh profile and invalidates old drafts")
+	check(app.selected_mission.is_empty() and app.selected_race.is_empty() and not app.developer_mode
+		and app.attempt_text.text.is_empty() and app.result_text.text.is_empty() and app.settings == settings,
+		"A full reset clears session progress and preserves separate game settings")
 
 
 func _check_legacy_profile() -> void:

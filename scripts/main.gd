@@ -8,6 +8,8 @@ const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const DEVELOPMENT = preload("res://scripts/zombie_development.gd")
 const MENU_BACKGROUND = preload("res://assets/ui/undead_menu_background.png")
 const WORDMARK = preload("res://assets/ui/monster_wordmark.png")
+const RESET_HOLD_SECONDS := 2.0
+const RESET_WARNING := "Будут сброшены результаты миссий, статистика, развитие, назначения способностей и ресурсы. Это действие необратимо.\n\nУдерживайте «Подтвердить» левой кнопкой мыши 2 секунды."
 enum Screen { MAIN, SETTINGS, MISSIONS, RACES, GAMEPLAY, PAUSE, CONFIRM_LEAVE, RESULTS, DEVELOPMENT, ATTEMPT_SUMMARY }
 var screen: Screen = Screen.MAIN
 var selected_mission := ""
@@ -50,6 +52,10 @@ var mission_preview: Control
 var choose_race_button: Button
 var developer_mode := false
 var developer_button: Button
+var progress_reset_dialog: AcceptDialog
+var progress_reset_confirm: Button
+var progress_reset_fill: ProgressBar
+var progress_reset_elapsed := -1.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -74,6 +80,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		if event.is_echo():
 			return
+		if progress_reset_dialog.visible:
+			progress_reset_dialog.hide()
+			return
 		if screen == Screen.GAMEPLAY and is_instance_valid(mission):
 			if mission.cancel_hunger_targeting() or mission.cancel_order_preview():
 				return
@@ -93,6 +102,17 @@ func _input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	if screen == Screen.GAMEPLAY and is_instance_valid(mission) and mission.tactical_pause:
 		mission._process(delta)
+	if progress_reset_elapsed < 0.0:
+		return
+	progress_reset_elapsed += delta
+	progress_reset_fill.value = progress_reset_elapsed
+	if progress_reset_elapsed >= RESET_HOLD_SECONDS:
+		_cancel_progress_reset_hold()
+		_confirm_progress_reset()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(progress_reset_fill):
+		_cancel_progress_reset_hold()
 
 func _show(next: Screen) -> void:
 	if screen == Screen.SETTINGS and next != Screen.SETTINGS:
@@ -226,6 +246,8 @@ func _build_ui() -> void:
 		if screen == Screen.MAIN: _show(Screen.MISSIONS)))
 	_style_main_button(_button(main, "Настройки", func():
 		if screen == Screen.MAIN: _open_settings(Screen.MAIN)))
+	_style_main_button(_button(main, "Сбросить прогресс", _open_progress_reset))
+	_build_progress_reset_dialog()
 	developer_button = Button.new()
 	developer_button.text = "🔧"
 	developer_button.tooltip_text = "Включить режим разработки"
@@ -519,6 +541,72 @@ func _open_settings(origin: Screen) -> void:
 	_select_settings_section(0)
 	_show(Screen.SETTINGS)
 
+
+func _build_progress_reset_dialog() -> void:
+	progress_reset_dialog = AcceptDialog.new()
+	progress_reset_dialog.title = "Сбросить прогресс?"
+	progress_reset_dialog.theme = ui.theme
+	progress_reset_dialog.ok_button_text = "Отмена"
+	progress_reset_dialog.get_label().autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	progress_reset_dialog.visibility_changed.connect(_cancel_progress_reset_hold)
+	progress_reset_dialog.focus_exited.connect(_cancel_progress_reset_hold)
+	ui.add_child(progress_reset_dialog)
+	progress_reset_confirm = progress_reset_dialog.add_button("Подтвердить", false, "hold")
+	progress_reset_confirm.focus_mode = Control.FOCUS_NONE
+	progress_reset_confirm.custom_minimum_size = Vector2(210, 44)
+	progress_reset_confirm.gui_input.connect(_progress_reset_input)
+	progress_reset_confirm.mouse_exited.connect(_cancel_progress_reset_hold)
+	progress_reset_confirm.button_up.connect(_cancel_progress_reset_hold)
+	progress_reset_fill = ProgressBar.new()
+	progress_reset_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	progress_reset_fill.show_percentage = false
+	progress_reset_fill.max_value = RESET_HOLD_SECONDS
+	progress_reset_fill.step = 0.0
+	progress_reset_fill.add_theme_stylebox_override("background", StyleBoxEmpty.new())
+	progress_reset_fill.add_theme_stylebox_override("fill", DARK_THEME.surface(Color("a53c4a80"), Color.TRANSPARENT, 0))
+	progress_reset_confirm.add_child(progress_reset_fill)
+	progress_reset_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+func _open_progress_reset() -> void:
+	if screen != Screen.MAIN:
+		return
+	progress_reset_dialog.dialog_text = RESET_WARNING
+	progress_reset_dialog.popup_centered(Vector2i(610, 0))
+
+func _progress_reset_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and progress_reset_dialog.visible:
+			progress_reset_elapsed = 0.0
+		else:
+			_cancel_progress_reset_hold()
+
+func _cancel_progress_reset_hold() -> void:
+	progress_reset_elapsed = -1.0
+	if is_instance_valid(progress_reset_fill):
+		progress_reset_fill.value = 0.0
+
+func _confirm_progress_reset() -> void:
+	if screen != Screen.MAIN or not progress_reset_dialog.visible:
+		return
+	if progression.reset_progress() != OK:
+		progress_reset_dialog.dialog_text = "Не удалось сбросить прогресс. Попробуйте ещё раз.\n\n" + RESET_WARNING
+		return
+	progress_reset_dialog.hide()
+	selected_mission = ""
+	selected_race = ""
+	developer_mode = false
+	_update_developer_button()
+	for button in mission_buttons.values():
+		button.set_pressed_no_signal(false)
+	choose_race_button.disabled = true
+	mission_title.text = "Выберите миссию"
+	mission_description.text = "Справа появятся схема, описание и цели выбранной миссии."
+	mission_objectives.text = ""
+	mission_preview.hide()
+	result_text.text = ""
+	attempt_text.text = ""
+	development.draft = null
+	_focus_page(Screen.MAIN, null)
 
 func _clear_children(parent: Node) -> void:
 	for child in parent.get_children():

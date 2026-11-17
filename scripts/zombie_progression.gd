@@ -30,10 +30,7 @@ const NODES := {
 	},
 }
 
-var state := {
-	"virus": 0, "paid": {}, "slots": empty_slots(),
-	"initial_unlocked": false, "reveal_seen": false,
-}
+var state := _fresh_state()
 var path: String
 var save_error: Error = OK
 var _read_only := false
@@ -65,6 +62,11 @@ static func empty_slots() -> PackedStringArray:
 	var slots := PackedStringArray()
 	slots.resize(SLOT_COUNT)
 	return slots
+
+
+static func _fresh_state() -> Dictionary:
+	return {"virus": 0, "paid": {}, "slots": empty_slots(),
+		"initial_unlocked": false, "reveal_seen": false}
 
 
 static func level(build: Dictionary, id: String) -> int:
@@ -119,14 +121,25 @@ func flush() -> void:
 		_dirty = false
 
 
+func reset_progress() -> Error:
+	var fresh := _fresh_state()
+	var error := _write(fresh, true)
+	if error == OK:
+		state = fresh
+		_read_only = false
+		_dirty = false
+		_revision += 1
+	return error
+
+
 func _changed() -> void:
 	_revision += 1
 	_dirty = true
 	flush()
 
 
-func _write(profile: Dictionary) -> Error:
-	if _read_only:
+func _write(profile: Dictionary, replace_unreadable := false) -> Error:
+	if _read_only and not replace_unreadable:
 		return save_error
 	var config := ConfigFile.new()
 	config.set_value("zombies", "version", 2)
