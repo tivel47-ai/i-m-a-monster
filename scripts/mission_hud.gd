@@ -2,6 +2,7 @@ extends Control
 
 const INFECTION_ORB = preload("res://scripts/infection_orb.gdshader")
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
+const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const INFECTION_ORB_SIZE := 92.0
 
 var mission: Node2D
@@ -15,6 +16,10 @@ var assault_status: Label
 var infection_button: Button
 var infection_orb_material: ShaderMaterial
 var infection_charges: Label
+var virus_label: Label
+var ability_slots: Array[Button] = []
+var hunger_slot_key: Label
+var hunger_slot_uses: Label
 var _refresh_elapsed := 0.0
 var _blocks: Array[Control] = []
 var developer_button: Button
@@ -83,6 +88,8 @@ func _build() -> void:
 	pause_button.tooltip_text = "Открыть меню паузы"
 	pause_button.pressed.connect(func(): mission.pause_requested.emit())
 	gear.add_child(pause_button)
+	if mission.mission_build != null:
+		_build_metaprogression()
 
 	var army := _panel(0.0, 0.86, 0.18, 1.0)
 	var army_box := VBoxContainer.new()
@@ -99,8 +106,9 @@ func _build() -> void:
 
 	if mission.zombie_infection != null:
 		_build_infection()
-	var abilities := _panel(0.32, 0.90, 0.73, 1.0)
-	_label(abilities, "Способности", 16)
+	if mission.mission_build == null:
+		var abilities := _panel(0.32, 0.90, 0.73, 1.0)
+		_label(abilities, "Способности", 16)
 	var command_top := 0.77 if mission.horde_commands != null else 0.88
 	var commands := _panel(0.80, command_top, 1.0, 1.0)
 	var orders := VBoxContainer.new()
@@ -122,8 +130,72 @@ func _build() -> void:
 		assault_status = _label(orders, "", 14)
 
 
+func _build_metaprogression() -> void:
+	var virus := _panel(0.74, 0.0, 0.91, 0.075)
+	virus_label = _label(virus, "", 16)
+	var abilities := _panel(0.32, 0.90, 0.79, 1.0)
+	var bar := HBoxContainer.new()
+	abilities.add_child(bar)
+	for index in PROGRESSION.SLOT_COUNT:
+		var slot := Button.new()
+		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slot.custom_minimum_size.y = 36
+		slot.add_theme_font_size_override("font_size", 14)
+		slot.focus_mode = Control.FOCUS_NONE
+		ability_slots.append(slot)
+		bar.add_child(slot)
+		if index == mission.mission_build.hunger_slot:
+			slot.icon = PROGRESSION.NODES[PROGRESSION.HUNGER].icon
+			slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			slot.expand_icon = true
+			slot.add_theme_constant_override("icon_max_width", 28)
+			slot.pressed.connect(mission.toggle_hunger_targeting)
+			slot.toggle_mode = true
+			hunger_slot_key = _label(slot, "", 11)
+			hunger_slot_key.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			hunger_slot_key.offset_left = 4
+			hunger_slot_key.offset_right = -4
+			hunger_slot_key.autowrap_mode = TextServer.AUTOWRAP_OFF
+			hunger_slot_key.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			hunger_slot_uses = _label(slot, "", 13)
+			hunger_slot_uses.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			hunger_slot_uses.offset_right = -4
+			hunger_slot_uses.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			hunger_slot_uses.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	refresh_metaprogression()
+
+
+func refresh_metaprogression() -> void:
+	if not is_instance_valid(virus_label):
+		return
+	var runtime = mission.mission_build
+	virus_label.text = "Вирус: %d" % mission.progression.state.virus
+	virus_label.tooltip_text = "Ошибка сохранения профиля" if mission.progression.save_error != OK else ""
+	virus_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	for index in ability_slots.size():
+		var slot := ability_slots[index]
+		var action := "ability_slot_%d" % (index + 1)
+		var key := str((index + 1) % 10)
+		if InputMap.has_action(action):
+			var events := InputMap.action_get_events(action)
+			if not events.is_empty() and events[0] is InputEventKey:
+				key = OS.get_keycode_string(events[0].physical_keycode)
+		if index != runtime.hunger_slot:
+			slot.text = key
+			slot.disabled = true
+			continue
+		hunger_slot_key.text = key
+		hunger_slot_uses.text = str(runtime.available_uses)
+		slot.disabled = runtime.available_uses == 0
+		var ability := PROGRESSION.HUNGER
+		slot.tooltip_text = "%s · %s\n%s" % [PROGRESSION.NODES[ability].title, key,
+			PROGRESSION.effect_text(ability, PROGRESSION.level(runtime.build, ability))]
+		slot.set_pressed_no_signal(runtime.targeting)
+
+
 func _build_infection() -> void:
 	infection_button = Button.new()
+	infection_button.focus_mode = Control.FOCUS_NONE
 	infection_button.name = "InfectionButton"
 	infection_button.toggle_mode = true
 	infection_button.anchor_left = 0.25
@@ -240,6 +312,7 @@ func _choose_developer_tool(kind: String) -> void:
 	if not kind.is_empty():
 		mission.cancel_order_preview()
 		mission.cancel_infection_targeting()
+		mission.cancel_hunger_targeting()
 	mission.developer_spawn = kind
 	refresh_developer_tool()
 

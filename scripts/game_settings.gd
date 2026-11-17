@@ -31,7 +31,7 @@ func load_settings() -> void:
 
 static func can_bind(key: int) -> bool:
 	return key > 0 and key not in [
-		KEY_ESCAPE, KEY_TAB, KEY_ENTER, KEY_KP_ENTER, KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META,
+		KEY_ESCAPE, KEY_SPACE, KEY_TAB, KEY_ENTER, KEY_KP_ENTER, KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META,
 	] and not OS.get_keycode_string(key).is_empty()
 
 func _distinct_count(bindings: Dictionary) -> int:

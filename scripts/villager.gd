@@ -83,6 +83,8 @@ var stalled_seconds: float = 0.0
 
 var infection_state: InfectionState = InfectionState.AVAILABLE
 var infection_source := InfectionSource.NONE
+var infected_by_player_zombie := false
+var immediate_combat_conversion := false
 var player_infection_timer: Timer
 var killed_by_player_monster := false
 var current_health: float
@@ -577,39 +579,47 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 		return
 
 	if infection_state == InfectionState.TRANSFORMING:
-		_end_encounter()
+		if immediate_combat_conversion:
+			_complete_conversion()
+		else:
+			_end_encounter()
 	else:
 		_die(attacker)
 
 
-func receive_zombie_attack(amount: float, chance: float, zombie: Node2D) -> void:
+func receive_knockback(motion: Vector2) -> void:
+	move_and_collide(motion)
+
+
+func receive_zombie_attack(amount: float, chance: float, zombie: Node2D, splash := false) -> void:
 	if (
 		not is_alive()
 		or current_health <= 0.0
-		or not encounter_participants.has(zombie)
+		or (not splash and not encounter_participants.has(zombie))
 		or amount <= 0.0
 	):
 		return
 
-	if (
-		infection_state == InfectionState.IN_COLLISION
-		and not has_player_infection()
-		and randf() < clampf(chance, 0.0, 1.0)
-	):
+	var can_be_infected := infection_state == InfectionState.IN_COLLISION or (
+		splash and infection_state == InfectionState.AVAILABLE)
+	if can_be_infected and infection_source == InfectionSource.NONE and randf() < clampf(chance, 0.0, 1.0):
 		var zombie_visual := zombie.get_node_or_null("Polygon2D") as Polygon2D
 		if zombie_visual != null:
 			converted_color = zombie_visual.color
-		_start_transformation()
+		_start_transformation(zombie, splash)
 
 	take_damage(amount, zombie)
 
 
-func _start_transformation() -> void:
-	if infection_state != InfectionState.IN_COLLISION or has_player_infection():
+func _start_transformation(zombie: Node2D = null, splash := false) -> void:
+	if infection_source != InfectionSource.NONE:
+		return
+	if infection_state != InfectionState.IN_COLLISION and not (splash and infection_state == InfectionState.AVAILABLE):
 		return
 
 	infection_state = InfectionState.TRANSFORMING
 	infection_source = InfectionSource.ZOMBIE_COMBAT
+	infected_by_player_zombie = is_instance_valid(zombie) and zombie.is_in_group("player_units")
 	local_warning.clear_report()
 	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()

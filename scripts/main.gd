@@ -4,9 +4,11 @@ const CATALOG = preload("res://scripts/mission_catalog.gd")
 const SETTINGS = preload("res://scripts/game_settings.gd")
 const MISSION_PREVIEW = preload("res://scripts/mission_preview.gd")
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
+const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const DEVELOPMENT = preload("res://scripts/zombie_development.gd")
 const MENU_BACKGROUND = preload("res://assets/ui/undead_menu_background.png")
 const WORDMARK = preload("res://assets/ui/monster_wordmark.png")
-enum Screen { MAIN, SETTINGS, MISSIONS, RACES, GAMEPLAY, PAUSE, CONFIRM_LEAVE, RESULTS, DEVELOPMENT }
+enum Screen { MAIN, SETTINGS, MISSIONS, RACES, GAMEPLAY, PAUSE, CONFIRM_LEAVE, RESULTS, DEVELOPMENT, ATTEMPT_SUMMARY }
 var screen: Screen = Screen.MAIN
 var selected_mission := ""
 var selected_race := ""
@@ -23,15 +25,11 @@ var race_mission_label: Label
 var race_back_button: Button
 var start_button: Button
 var development_button: Button
-var development_title: Label
-var development_tree: Control
-var development_items: Dictionary[String, Button] = {}
-var development_branches: Array = []
-var applied_development: Dictionary[String, PackedStringArray] = {}
-var development_status: Label
-var reset_development_button: Button
-var apply_development_button: Button
+var progression: PROGRESSION
+var development: DEVELOPMENT
 var result_text: Label
+var attempt_text: Label
+var leave_text: Label
 var settings_status: Label
 var settings_draft: RefCounted
 var settings_panels: Array[Control] = []
@@ -56,6 +54,7 @@ var developer_button: Button
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	settings.load_settings()
+	progression = PROGRESSION.new(get_meta("progression_path", PROGRESSION.SAVE_PATH))
 	_build_ui()
 	_show(Screen.MAIN)
 
@@ -65,20 +64,35 @@ func _input(event: InputEvent) -> void:
 		if event.pressed and not event.echo:
 			_capture_settings_key(event)
 		return
+	if screen == Screen.GAMEPLAY and is_instance_valid(mission) and event is InputEventKey:
+		if event.physical_keycode == KEY_SPACE or event.keycode == KEY_SPACE:
+			get_viewport().set_input_as_handled()
+			if event.pressed and not event.echo:
+				mission.toggle_tactical_pause()
+			return
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		if event.is_echo():
 			return
-		if screen == Screen.GAMEPLAY and is_instance_valid(mission) and mission.cancel_order_preview():
-			return
+		if screen == Screen.GAMEPLAY and is_instance_valid(mission):
+			if mission.cancel_hunger_targeting() or mission.cancel_order_preview():
+				return
 		match screen:
 			Screen.SETTINGS: _show(settings_return_screen)
 			Screen.MISSIONS: _show(Screen.MAIN)
 			Screen.RACES: _show(Screen.MISSIONS)
-			Screen.DEVELOPMENT: _show(Screen.RACES)
+			Screen.DEVELOPMENT: development.request_exit()
 			Screen.GAMEPLAY: _pause()
 			Screen.PAUSE: _resume()
 			Screen.CONFIRM_LEAVE: _show(Screen.PAUSE)
+			Screen.ATTEMPT_SUMMARY: _show(Screen.MAIN)
+		return
+	if screen == Screen.GAMEPLAY and is_instance_valid(mission) and mission.tactical_pause:
+		mission._input(event)
+
+func _process(delta: float) -> void:
+	if screen == Screen.GAMEPLAY and is_instance_valid(mission) and mission.tactical_pause:
+		mission._process(delta)
 
 func _show(next: Screen) -> void:
 	if screen == Screen.SETTINGS and next != Screen.SETTINGS:
@@ -102,8 +116,10 @@ func _focus_page(page: Screen, preferred_button: Button) -> void:
 			preferred_button.grab_focus()
 		else:
 			var buttons: Array[Node] = pages[page].find_children("*", "Button", true, false)
-			if not buttons.is_empty():
-				buttons[0].grab_focus()
+			for button in buttons:
+				if button.is_visible_in_tree() and not button.disabled:
+					button.grab_focus()
+					break
 		await get_tree().process_frame
 	if screen == page:
 		pages[page].scroll_vertical = 0
@@ -334,7 +350,7 @@ func _build_ui() -> void:
 	_button(pause, "В главное меню", func():
 		if screen == Screen.PAUSE: _show(Screen.CONFIRM_LEAVE))
 	var confirm := _page(Screen.CONFIRM_LEAVE, "Покинуть миссию?", true)
-	_text(confirm, "Текущая попытка будет потеряна. Результат миссии не будет записан.")
+	leave_text = _text(confirm, "")
 	_button(confirm, "Остаться", func():
 		if screen == Screen.CONFIRM_LEAVE: _show(Screen.PAUSE))
 	_button(confirm, "Выйти", _leave_mission)
@@ -344,6 +360,9 @@ func _build_ui() -> void:
 		if screen == Screen.RESULTS:
 			_dispose_mission()
 			_show(Screen.MISSIONS))
+	var attempt := _page(Screen.ATTEMPT_SUMMARY, "Попытка завершена", true)
+	attempt_text = _text(attempt, "")
+	_button(attempt, "В главное меню", func(): _show(Screen.MAIN))
 
 func _build_settings_page() -> void:
 	var options := _page(Screen.SETTINGS, "Настройки")
@@ -457,6 +476,9 @@ func _capture_settings_key(event: InputEventKey) -> void:
 		_end_settings_capture()
 		return
 	var key := event.physical_keycode
+	if key == KEY_SPACE:
+		settings_status.text = "Пробел зарезервирован для тактической паузы."
+		return
 	if not SETTINGS.can_bind(key) or event.alt_pressed or event.ctrl_pressed or event.shift_pressed or event.meta_pressed:
 		settings_status.text = "Выберите одиночную клавишу. Esc отменяет назначение."
 		return
@@ -541,7 +563,10 @@ func _update_preview() -> void:
 		race_buttons[race_id].set_pressed_no_signal(race_id == selected_race)
 	_text(race_preview, "Внешний вид", 24)
 	start_button.disabled = not CATALOG.RACES.has(selected_race)
-	development_button.disabled = start_button.disabled
+	var has_progression: bool = CATALOG.MISSIONS[selected_mission].get("zombie_progression", false)
+	var tree_available: bool = progression.state.initial_unlocked or developer_mode
+	development_button.disabled = start_button.disabled or not has_progression or not tree_available
+	development_button.tooltip_text = "Откроется после первого начисления Вируса в Миссии №1" if has_progression and not tree_available else ""
 	if start_button.disabled:
 		_text(race_preview, "Выберите расу в списке слева.", 18)
 		_text(race_details, "Описание", 24)
@@ -577,120 +602,18 @@ func _update_preview() -> void:
 
 func _build_development_page() -> void:
 	var page := _page(Screen.DEVELOPMENT, "Развитие")
-	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	development_title = _text(page, "", 24)
-	_text(page, "Демонстрационные ветки. Выбор действует до закрытия игры и не влияет на миссию.", 18)
-	development_tree = Control.new()
-	development_tree.custom_minimum_size = Vector2(520, 340)
-	development_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	development_tree.draw.connect(_draw_development_branches)
-	development_tree.resized.connect(development_tree.queue_redraw)
-	page.add_child(development_tree)
-	development_status = _text(page, "", 18)
-	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 24)
-	page.add_child(footer)
-	_button(footer, "Назад", func(): _show(Screen.RACES)).custom_minimum_size.x = 240
-	var left_spacer := Control.new()
-	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(left_spacer)
-	reset_development_button = _button(footer, "↶", _reset_development)
-	reset_development_button.tooltip_text = "Сбросить выбор"
-	reset_development_button.custom_minimum_size.x = 64
-	var right_spacer := Control.new()
-	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(right_spacer)
-	apply_development_button = _button(footer, "Применить", _apply_development)
-	apply_development_button.custom_minimum_size.x = 240
+	development = DEVELOPMENT.new()
+	development.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	development.exit_requested.connect(func(): _show(Screen.RACES))
+	page.add_child(development)
+
 
 func _open_development() -> void:
-	if screen != Screen.RACES or development_button.disabled: return
-	var race: Dictionary = CATALOG.RACES[selected_race]
-	development_title.text = race.name
-	development_items.clear()
-	_clear_children(development_tree)
-	development_branches = race.development
-	var base := PanelContainer.new()
-	base.add_theme_stylebox_override("panel",
-		DARK_THEME.surface(Color("2a171e"), DARK_THEME.ACCENT, 8))
-	_place_development_node(base, Vector2(0.5, 0.85))
-	var base_label := _text(base, "Базовая форма", 18)
-	base_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var applied: PackedStringArray = applied_development.get(selected_race, PackedStringArray())
-	for node in development_branches:
-		var item := Button.new()
-		item.text = node.name
-		item.toggle_mode = true
-		item.set_pressed_no_signal(node.id in applied)
-		item.toggled.connect(func(_pressed: bool): _refresh_development_selection())
-		item.add_theme_font_size_override("font_size", 18)
-		_place_development_node(item, node.position)
-		development_items[node.id] = item
-	_refresh_development_selection()
+	if screen != Screen.RACES or development_button.disabled:
+		return
 	_show(Screen.DEVELOPMENT)
+	development.open(progression, settings.keys, developer_mode)
 
-func _place_development_node(control: Control, position_ratio: Vector2) -> void:
-	development_tree.add_child(control)
-	control.anchor_left = position_ratio.x
-	control.anchor_right = position_ratio.x
-	control.anchor_top = position_ratio.y
-	control.anchor_bottom = position_ratio.y
-	control.offset_left = -96
-	control.offset_right = 96
-	control.offset_top = -24
-	control.offset_bottom = 24
-
-func _draw_development_branches() -> void:
-	var area := Rect2(Vector2.ZERO, development_tree.size)
-	development_tree.draw_rect(area, DARK_THEME.INK)
-	development_tree.draw_rect(area.grow(-0.5), DARK_THEME.EDGE, false, 1.0)
-	var centers := {"": Vector2(0.5, 0.85) * area.size}
-	for node in development_branches:
-		var start: Vector2 = centers[node.get("parent", "")]
-		var end: Vector2 = node.position * area.size
-		centers[node.id] = end
-		var bend := Vector2(start.x, lerpf(start.y, end.y, 0.76))
-		var points := PackedVector2Array()
-		for step in range(17):
-			var weight := step / 16.0
-			points.append(start.lerp(bend, weight).lerp(bend.lerp(end, weight), weight))
-		development_tree.draw_polyline(points, Color("20171b"), 8, true)
-		var active := development_items[node.id].button_pressed
-		development_tree.draw_polyline(points, Color("ce6373") if active else DARK_THEME.EDGE, 3, true)
-
-func _refresh_development_selection() -> void:
-	var selection := PackedStringArray()
-	for node in development_branches:
-		var item := development_items[node.id]
-		var parent: Button = development_items.get(node.get("parent", ""))
-		item.disabled = parent != null and not parent.button_pressed
-		if item.disabled:
-			item.set_pressed_no_signal(false)
-		item.tooltip_text = "Сначала выберите «%s»" % parent.text if item.disabled else ""
-		if item.button_pressed:
-			selection.append(node.id)
-	development_tree.queue_redraw()
-	var applied: PackedStringArray = applied_development.get(selected_race, PackedStringArray())
-	reset_development_button.disabled = selection.is_empty()
-	apply_development_button.disabled = selection == applied
-	development_status.text = "Выбрано узлов: %d" % selection.size()
-	if not apply_development_button.disabled:
-		development_status.text += " · Есть неприменённые изменения"
-
-func _reset_development() -> void:
-	for item in development_items.values():
-		item.set_pressed_no_signal(false)
-	_refresh_development_selection()
-
-func _apply_development() -> void:
-	if screen != Screen.DEVELOPMENT or apply_development_button.disabled: return
-	var selection := PackedStringArray()
-	for id in development_items:
-		if development_items[id].button_pressed:
-			selection.append(id)
-	applied_development[selected_race] = selection
-	_refresh_development_selection()
-	development_status.text += " · Изменения применены"
 
 func _update_developer_button() -> void:
 	developer_button.tooltip_text = "Выключить режим разработки" if developer_mode else "Включить режим разработки"
@@ -712,6 +635,8 @@ func _start_mission() -> void:
 	mission.set_meta("developer_mode", developer_mode)
 	mission.process_mode = Node.PROCESS_MODE_PAUSABLE
 	mission.set_meta("race_id", selected_race)
+	if CATALOG.MISSIONS[selected_mission].get("zombie_progression", false):
+		mission.configure_progression(progression)
 	mission.mission_finished.connect(_on_mission_finished)
 	mission.pause_requested.connect(_pause)
 	add_child(mission)
@@ -720,15 +645,20 @@ func _start_mission() -> void:
 	_show(Screen.GAMEPLAY)
 
 func _pause() -> void:
+	if screen != Screen.GAMEPLAY or not is_instance_valid(mission):
+		return
 	mission.cancel_selection()
 	mission.cancel_order_preview()
-	get_tree().paused = true
+	mission.set_menu_paused(true)
+	leave_text.text = "Текущая попытка будет потеряна. Результат миссии не будет записан."
+	if mission.mission_build != null:
+		leave_text.text = "Текущая попытка завершится. Заработанный Вирус сохранится."
 	_show(Screen.PAUSE)
 
 func _resume() -> void:
 	if is_instance_valid(mission):
 		mission.get_node("Camera2D").move_speed = settings.camera_speed
-	get_tree().paused = false
+		mission.set_menu_paused(false)
 	_show(Screen.GAMEPLAY)
 
 func _restart_mission() -> void:
@@ -739,10 +669,25 @@ func _restart_mission() -> void:
 
 func _leave_mission() -> void:
 	if screen != Screen.CONFIRM_LEAVE: return
+	var show_summary: bool = mission.mission_build != null
+	if show_summary:
+		attempt_text.text = _virus_summary()
 	_dispose_mission()
-	_show(Screen.MAIN)
+	_show(Screen.ATTEMPT_SUMMARY if show_summary else Screen.MAIN)
+
+
+func _virus_summary() -> String:
+	progression.flush()
+	var summary := "Вирус за попытку: %d\nВсего Вируса: %d" % [
+		mission.mission_build.virus_earned, progression.state.virus]
+	if progression.save_error != OK:
+		summary += "\nНе удалось записать профиль развития"
+	if mission.mission_build.revealed_development:
+		summary += "\nОткрыты улучшения зомби на экране «Развитие»"
+	return summary
 
 func _dispose_mission() -> void:
+	progression.flush()
 	if is_instance_valid(mission):
 		mission.process_mode = Node.PROCESS_MODE_DISABLED
 		remove_child(mission)
@@ -754,11 +699,17 @@ func _on_mission_finished(outcome: String, summary: Dictionary) -> void:
 	if outcome != "victory" or screen not in [Screen.GAMEPLAY, Screen.PAUSE, Screen.CONFIRM_LEAVE]: return
 	mission.cancel_selection()
 	mission.cancel_order_preview()
+	mission.cancel_hunger_targeting()
+	mission.set_menu_paused(true)
 	mission.process_mode = Node.PROCESS_MODE_DISABLED
 	get_tree().paused = false
 	result_text.text = "Победа — %s\nЖителей: %d\nЗаражено: %d\nУбито: %d" % [
 		CATALOG.MISSIONS[selected_mission].name, summary.total, summary.infected, summary.killed]
+	if mission.mission_build != null:
+		result_text.text += "\n" + _virus_summary()
 	_show(Screen.RESULTS)
 
 func _exit_tree() -> void:
+	if progression != null:
+		progression.flush()
 	get_tree().paused = false

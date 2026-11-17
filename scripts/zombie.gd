@@ -8,6 +8,7 @@ const AGGRO_REACQUIRE_DELAY_SECONDS := 0.3
 const CROWD_PUSH_CLEARANCE := 48.0
 const MOVEMENT_STALL_TIMEOUT := 3.0
 const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
+const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 
 @export var move_speed: float = 100.0
 @export var max_health: float = 120.0
@@ -43,6 +44,10 @@ var nearby_allies: Array[Node2D] = []
 var is_selected: bool = false
 var current_health: float
 var is_dead: bool = false
+var is_brute := false
+var speed_modifiers: Dictionary[String, float] = {}
+var hunger_timer: Timer
+var _base_avoidance_speed: float
 var building_task: Node
 var interior_building: Node
 var target_position: Vector2
@@ -74,6 +79,7 @@ func _ready() -> void:
 	if LOCAL_MELEE_ROUTE.enabled_for(self):
 		melee_route = LOCAL_MELEE_ROUTE.new()
 	current_health = maxf(max_health, 0.0)
+	_base_avoidance_speed = navigation_agent.max_speed
 	crowd_default_navigation_radius = navigation_agent.radius
 	crowd_default_target_desired_distance = navigation_agent.target_desired_distance
 	var attack_timer := Timer.new()
@@ -83,6 +89,31 @@ func _ready() -> void:
 	add_child(attack_timer)
 	if current_health == 0.0:
 		_die()
+
+
+func movement_speed() -> float:
+	var bonus := 0.0
+	for modifier in speed_modifiers.values():
+		bonus += modifier
+	return maxf(0.0, move_speed * (1.0 + bonus))
+
+
+func apply_hunger(bonus: float, duration: float) -> void:
+	if is_dead:
+		return
+	if hunger_timer == null:
+		hunger_timer = Timer.new()
+		hunger_timer.one_shot = true
+		hunger_timer.timeout.connect(_expire_hunger)
+		add_child(hunger_timer)
+	speed_modifiers[PROGRESSION.HUNGER] = bonus
+	navigation_agent.max_speed = maxf(_base_avoidance_speed, movement_speed())
+	hunger_timer.start(duration)
+
+
+func _expire_hunger() -> void:
+	speed_modifiers.erase(PROGRESSION.HUNGER)
+	navigation_agent.max_speed = maxf(_base_avoidance_speed, movement_speed())
 
 
 func set_selected(value: bool) -> void:
@@ -97,6 +128,9 @@ func _draw() -> void:
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
+	if is_brute:
+		# Temporary shoulders identify the form without changing inherited infection color.
+		draw_rect(Rect2(-6.5, -5.5, 13.0, 4.0), Color("db9d55"))
 	var health_rect := Rect2(-5.85, -16.25, 11.7, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
@@ -328,14 +362,36 @@ func _on_encounter_attack_timer_timeout() -> void:
 		return
 	if not aggro_target.call("is_encounter_owner", self):
 		return
-	if is_instance_valid(interior_building) and (global_position.distance_to(aggro_target.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(aggro_target)):
+	if (is_brute or is_instance_valid(interior_building)) and (global_position.distance_to(aggro_target.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(aggro_target)):
 		aggro_target.leave_encounter(self)
 		return
 
 	var villager := aggro_target
 	if not villager.has_method("receive_zombie_attack"):
 		return
-	villager.call("receive_zombie_attack", attack_damage, infection_chance, self)
+	if is_brute:
+		_brute_hit(villager)
+	else:
+		villager.receive_zombie_attack(attack_damage, infection_chance, self)
+
+
+func _brute_hit(primary: Node2D) -> void:
+	if not primary.is_alive() or primary.current_health <= 0.0:
+		return
+	var stats: Dictionary = PROGRESSION.NODES[PROGRESSION.BRUTE]
+	var width: float = $CollisionShape2D.shape.size.x
+	var center := primary.global_position
+	var radius_squared := pow(width * float(stats.radius), 2)
+	var splash_targets: Array[Node2D] = []
+	for resident in get_parent().villagers:
+		if not is_instance_valid(resident) or resident == primary or not resident.is_alive():
+			continue
+		if center.distance_squared_to(resident.global_position) <= radius_squared and _has_line_of_sight(resident):
+			splash_targets.append(resident)
+	primary.receive_knockback(global_position.direction_to(center) * width * stats.knockback)
+	primary.receive_zombie_attack(attack_damage, infection_chance, self)
+	for resident in splash_targets:
+		resident.receive_zombie_attack(attack_damage * stats.splash, infection_chance, self, true)
 
 
 func _on_aggro_area_body_entered(body: Node2D) -> void:
@@ -505,7 +561,7 @@ func _pursue_moving_resident(delta: float) -> bool:
 	):
 		return false
 
-	var motion := offset.limit_length(move_speed * delta)
+	var motion := offset.limit_length(movement_speed() * delta)
 	var collision := KinematicCollision2D.new()
 	if test_move(global_transform, motion, collision):
 		var ally := collision.get_collider() as Node2D
@@ -616,7 +672,7 @@ func _physics_process(delta: float) -> void:
 			if aggro_target.is_encounter_owner(self):
 				navigation_agent.velocity = Vector2.ZERO
 				return
-		melee_route.move(self, navigation_agent, move_speed, delta)
+		melee_route.move(self, navigation_agent, movement_speed(), delta)
 		return
 	if melee_route != null and melee_route.target != null:
 		melee_route.cancel()
@@ -659,10 +715,10 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 
-	var desired_speed := move_speed
+	var desired_speed := movement_speed()
 	if crowd_is_displaced:
 		desired_speed = minf(
-			move_speed,
+			desired_speed,
 			crowd_return_speed if crowd_is_returning else crowd_push_speed
 		)
 	navigation_agent.velocity = desired_direction * desired_speed

@@ -120,7 +120,7 @@ func cancel_assault(zombie: CharacterBody2D) -> void:
 	_blocked_lane.erase(zombie)
 	_paths.erase(zombie)
 	if _crossing == zombie:
-		if zombie.is_alive() and not _displace_outside(zombie):
+		if zombie.is_alive() and _crossing_started and (get_tree().paused or not _displace_outside(zombie)):
 			_vacating[zombie] = true
 		_end_crossing()
 	if zombie.building_task == self:
@@ -340,7 +340,7 @@ func _advance_crossing(delta: float) -> void:
 		return
 	if zombie and not _crossing_out and _exterior_combat(actor):
 		return
-	var speed: float = actor.move_speed if zombie else actor.threat_reaction.fleeing_speed
+	var speed: float = actor.movement_speed() if zombie else actor.threat_reaction.fleeing_speed
 	if not _crossing_started:
 		if not zombie and (battle_active or _entrance_threatened()):
 			_end_crossing()
@@ -475,8 +475,8 @@ func _update_attackers(delta: float) -> void:
 			var clearance := layout.clearance(zombie) + 1.0
 			var point := layout.exterior(clearance, side)
 			var staged: bool = absf(_lateral(zombie.global_position) - side) < 5.0 and layout.depth(zombie) <= BuildingInterior.EXTERIOR_OFFSET + 2.0
-			if staged or _walk(zombie, shelter_approach(side), zombie.move_speed, delta, false, 2.0):
-				_step(zombie, point, zombie.move_speed, delta, true)
+			if staged or _walk(zombie, shelter_approach(side), zombie.movement_speed(), delta, false, 2.0):
+				_step(zombie, point, zombie.movement_speed(), delta, true)
 			if _elapsed >= float(order.next_hit) and zombie.global_position.distance_to(point) <= 6.0:
 				order.next_hit = _elapsed + maxf(zombie.attack_interval, 0.01)
 				_damage_entrance(zombie.attack_damage)
@@ -486,7 +486,7 @@ func _update_attackers(delta: float) -> void:
 			var point := _waiting_point(zombie, waiting)
 			if point.is_finite():
 				waiting.append(point)
-				_walk(zombie, point, zombie.move_speed, delta, false)
+				_walk(zombie, point, zombie.movement_speed(), delta, false)
 			else:
 				zombie.velocity = Vector2.ZERO
 
@@ -725,7 +725,7 @@ func _make_room_for_entry(zombie: CharacterBody2D, delta: float) -> bool:
 		return false
 	var previous: Vector2 = _foyer_positions.get(zombie, Vector2.INF)
 	if previous.is_finite() and not _stalled(zombie):
-		_walk(zombie, previous, zombie.move_speed, delta, true)
+		_walk(zombie, previous, zombie.movement_speed(), delta, true)
 		return true
 	_foyer_positions.erase(zombie)
 	if not _crossing_started or not is_instance_valid(_crossing) or layout.depth(zombie) < -27.0 or layout.depth(_crossing) > 8.0:
@@ -752,7 +752,7 @@ func _make_room_for_entry(zombie: CharacterBody2D, delta: float) -> bool:
 	if not best.is_finite():
 		return false
 	_foyer_positions[zombie] = best
-	_walk(zombie, best, zombie.move_speed, delta, true)
+	_walk(zombie, best, zombie.movement_speed(), delta, true)
 	return true
 
 
@@ -776,7 +776,7 @@ func _shift_melee_contact(zombie: CharacterBody2D, target: Node2D, delta: float)
 			best = point
 			clearance = candidate
 	if best != zombie.global_position:
-		_step(zombie, best, zombie.move_speed, delta)
+		_step(zombie, best, zombie.movement_speed(), delta)
 
 
 func _distance_from_blocked_allies(point: Vector2, allies: Array[Node2D]) -> float:
@@ -787,11 +787,13 @@ func _distance_from_blocked_allies(point: Vector2, allies: Array[Node2D]) -> flo
 
 
 func _advance_to_melee(actor: CharacterBody2D, target: Node2D, delta: float) -> bool:
-	var reach: float = actor.INFECTION_DISTANCE if actor.is_in_group("player_units") else target.INFECTION_DISTANCE
+	var zombie := actor.is_in_group("player_units")
+	var reach: float = actor.INFECTION_DISTANCE if zombie else target.INFECTION_DISTANCE
+	var speed: float = actor.movement_speed() if zombie else actor.move_speed
 	var previous: Vector2 = _melee_positions.get(actor, Vector2.INF)
 	var stalled := _stalled(actor)
 	if previous.is_finite() and _melee_position_clear(actor, target, previous, reach - 0.5) and not stalled:
-		_walk(actor, previous, actor.move_speed, delta, true, 1.0)
+		_walk(actor, previous, speed, delta, true, 1.0)
 		return true
 	_melee_positions.erase(actor)
 	if stalled:
@@ -819,7 +821,7 @@ func _advance_to_melee(actor: CharacterBody2D, target: Node2D, delta: float) -> 
 		actor.velocity = Vector2.ZERO
 		return false
 	_melee_positions[actor] = best
-	_walk(actor, best, actor.move_speed, delta, true, 1.0)
+	_walk(actor, best, speed, delta, true, 1.0)
 	return true
 
 

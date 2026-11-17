@@ -197,7 +197,8 @@ func outdoors_and_recovery() -> void:
 	uncredited.take_damage(1000.0)
 	check(ability.recovery_progress == 0, "Unattributed deaths earn no charge progress")
 	var combat_conversion: Node2D = residents("peasant")[0]
-	lethal_attack(combat_conversion, zombie, 1.0)
+	combat_conversion.begin_encounter(Color.GREEN, zombie)
+	combat_conversion.receive_zombie_attack(1.0, 1.0, zombie)
 	check(combat_conversion.infection_state == combat_conversion.InfectionState.TRANSFORMING
 		and not ability.infect(combat_conversion), "Existing successful combat infection excludes a duplicate player application")
 	check(await until(func(): return mission.infected_residents == 3, 135) and ability.recovery_progress == 0,
@@ -342,7 +343,8 @@ func lifecycle() -> void:
 	app._show(app.Screen.CONFIRM_LEAVE)
 	app._leave_mission()
 	await frame()
-	check(app.screen == app.Screen.MAIN and app.mission == null and not paused, "Voluntary exit from depleted attempt shows no result")
+	check(app.screen == app.Screen.ATTEMPT_SUMMARY and app.mission == null and not paused,
+		"Voluntary exit from depleted attempt shows a compact summary")
 	await launch()
 	settle_residents()
 	var pending: Node2D = residents("peasant")[0]

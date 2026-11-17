@@ -9,6 +9,8 @@ const PLAYER_SELECTION_LAYER := 4
 const GROUP_PLACEMENT = preload("res://scripts/group_placement.gd")
 const MISSION_HUD = preload("res://scripts/mission_hud.gd")
 const ZOMBIE_INFECTION = preload("res://scripts/zombie_infection.gd")
+const ZOMBIE_PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const ZOMBIE_MISSION_BUILD = preload("res://scripts/zombie_mission_build.gd")
 const ZOMBIE_HORDE_COMMANDS = preload("res://scripts/zombie_horde_commands.gd")
 var placement = GROUP_PLACEMENT.new()
 var mission_hud: Control
@@ -23,6 +25,10 @@ const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
 @export_range(0.01, 5.0, 0.01, "or_greater") var assault_increment_seconds := 0.35
 var horde_commands: ZOMBIE_HORDE_COMMANDS
 var zombie_infection: ZOMBIE_INFECTION
+var progression: ZOMBIE_PROGRESSION
+var mission_build: ZOMBIE_MISSION_BUILD
+var tactical_pause := false
+var menu_paused := false
 var developer_mode := false
 var developer_spawn := ""
 @export var building_rules := BuildingRules.new()
@@ -68,6 +74,17 @@ var command_screen_position := Vector2.ZERO
 @onready var selection_rect: Panel = $CanvasLayer/SelectionRect
 
 
+func configure_progression(profile: ZOMBIE_PROGRESSION) -> void:
+	progression = profile
+	var standard := ZOMBIE_SCENE.instantiate()
+	var width: float = standard.get_node("CollisionShape2D").shape.size.x
+	standard.free()
+	mission_build = ZOMBIE_MISSION_BUILD.new(profile.state, width)
+	for unit in find_children("*", "CharacterBody2D", true, false):
+		if unit.is_in_group("player_units"):
+			mission_build.prepare_zombie(unit, false)
+
+
 func _ready() -> void:
 	developer_mode = bool(get_meta("developer_mode", false))
 	var race_id: String = get_meta("race_id", standalone_race_id)
@@ -83,6 +100,7 @@ func _ready() -> void:
 		if not resident.has_method("is_converted"):
 			continue
 		villagers.append(resident)
+		resident.immediate_combat_conversion = zombie_infection_enabled
 		if not resident.has_signal("converted"):
 			push_error("Mission resident is missing the converted signal: %s" % resident.get_path())
 		else:
@@ -178,6 +196,7 @@ func toggle_building_order() -> void:
 		horde_commands != null or not _command_units().is_empty()
 	):
 		cancel_infection_targeting()
+		cancel_hunger_targeting()
 		cancel_selection()
 		command_active = false
 		developer_spawn = ""
@@ -260,13 +279,14 @@ func _building_at(world_position: Vector2) -> InteractiveBuilding:
 
 
 func toggle_infection_targeting() -> void:
-	if zombie_infection == null or zombie_infection.charges == 0 or mission_state != MissionState.ACTIVE:
+	if menu_paused or zombie_infection == null or zombie_infection.charges == 0 or mission_state != MissionState.ACTIVE:
 		return
 	if zombie_infection.targeting:
 		cancel_infection_targeting()
 		return
 	cancel_selection()
 	cancel_order_preview()
+	cancel_hunger_targeting()
 	developer_spawn = ""
 	zombie_infection.targeting = true
 	mission_hud.refresh_developer_tool()
@@ -296,6 +316,77 @@ func _infect_at(world_position: Vector2) -> void:
 	if building != null and zombie_infection.infect_occupant(building):
 		mission_hud.refresh_infection()
 
+
+func toggle_hunger_targeting() -> void:
+	if menu_paused or mission_state != MissionState.ACTIVE or mission_build == null or mission_build.available_uses == 0:
+		return
+	var activate := not mission_build.targeting
+	cancel_infection_targeting()
+	cancel_selection()
+	cancel_order_preview()
+	developer_spawn = ""
+	mission_hud.refresh_developer_tool()
+	mission_build.targeting = activate
+	mission_hud.refresh_metaprogression()
+	command_overlay.queue_redraw()
+
+
+func cancel_hunger_targeting() -> bool:
+	if mission_build == null or not mission_build.targeting:
+		return false
+	mission_build.targeting = false
+	mission_hud.refresh_metaprogression()
+	command_overlay.queue_redraw()
+	return true
+
+
+func toggle_tactical_pause() -> void:
+	if menu_paused or mission_build == null or mission_state != MissionState.ACTIVE:
+		return
+	tactical_pause = not tactical_pause
+	if not tactical_pause:
+		mission_build.execute_queue(self)
+	_update_pause_state()
+
+
+func set_menu_paused(active: bool) -> void:
+	menu_paused = active
+	_update_pause_state()
+
+
+func _update_pause_state() -> void:
+	# Keep the world pausable and let only the camera and HUD process on tactical pause.
+	var controls_mode := Node.PROCESS_MODE_ALWAYS if tactical_pause and not menu_paused else Node.PROCESS_MODE_INHERIT
+	$Camera2D.process_mode = controls_mode
+	mission_hud.process_mode = controls_mode
+	get_tree().paused = tactical_pause or menu_paused
+	mission_hud.refresh_metaprogression()
+	command_overlay.queue_redraw()
+
+
+func _handle_hunger_input(event: InputEvent) -> bool:
+	if mission_build == null or menu_paused or mission_state != MissionState.ACTIVE:
+		return false
+	if mission_build.hunger_slot >= 0:
+		var action := "ability_slot_%d" % (mission_build.hunger_slot + 1)
+		if InputMap.has_action(action) and event.is_action_pressed(action, false, true):
+			toggle_hunger_targeting()
+			return true
+	if not mission_build.targeting:
+		return false
+	if event is InputEventMouseMotion:
+		command_overlay.queue_redraw()
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			return cancel_hunger_targeting()
+		if event.button_index == MOUSE_BUTTON_LEFT and not mission_hud.is_pointer_over_ui(event.position):
+			mission_build.confirm(_screen_to_world(event.position), tactical_pause, self)
+			mission_hud.refresh_metaprogression()
+			command_overlay.queue_redraw()
+			return true
+	return false
+
+
 func set_developer_mode(enabled: bool) -> void:
 	developer_mode = enabled
 	if not enabled: developer_spawn = ""
@@ -312,6 +403,8 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 	if kind == "zombie":
 		var zombie := ZOMBIE_SCENE.instantiate()
 		zombie.position = to_local(position_on_map)
+		if mission_build != null:
+			mission_build.prepare_zombie(zombie, false)
 		add_child(zombie)
 		if horde_commands != null:
 			horde_commands.inherit(zombie)
@@ -330,6 +423,7 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 			patrol.post_center_path = NodePath("../../NavigationRegion2D/Buildings/Public/GuardPost")
 			resident.add_child(patrol)
 		resident.position = to_local(position_on_map)
+		resident.immediate_combat_conversion = zombie_infection_enabled
 		add_child(resident)
 		villagers.append(resident)
 		resident.converted.connect(_on_resident_converted)
@@ -342,6 +436,9 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _handle_hunger_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if zombie_infection != null and InputMap.has_action("race_ability") and event.is_action_pressed("race_ability", false, true):
 		toggle_infection_targeting()
 		get_viewport().set_input_as_handled()
@@ -444,6 +541,8 @@ func cancel_selection() -> void:
 
 
 func _process(delta: float) -> void:
+	if mission_build != null and mission_build.targeting:
+		command_overlay.queue_redraw()
 	if horde_commands != null and horde_commands.assault_quantity > 0:
 		if horde_commands.update_assault(delta, maxf(assault_increment_seconds, 0.01)):
 			mission_hud.refresh_commands()
@@ -624,7 +723,7 @@ func _apply_selection(selected_units: Array[Node]) -> void:
 
 
 func _on_resident_converted(resident: Node) -> void:
-	if not is_instance_valid(resident) or not villagers.has(resident):
+	if not is_instance_valid(resident) or not villagers.has(resident) or not resident.is_converted():
 		return
 
 	var resident_id := resident.get_instance_id()
@@ -638,6 +737,8 @@ func _on_resident_converted(resident: Node) -> void:
 		spawn_position = resident.building_task.prepare_resident_conversion(resident)
 	var new_zombie := ZOMBIE_SCENE.instantiate()
 	new_zombie.position = to_local(spawn_position)
+	if mission_build != null:
+		mission_build.prepare_zombie(new_zombie, true)
 	add_child(new_zombie)
 	if resident.infection_source != resident.InfectionSource.PLAYER_ABILITY:
 		new_zombie.get_node("Polygon2D").color = resident.get_node("Polygon2D").color
@@ -646,6 +747,11 @@ func _on_resident_converted(resident: Node) -> void:
 	elif horde_commands != null:
 		horde_commands.inherit(new_zombie)
 	resident.queue_free()
+	if mission_build != null and resident.infected_by_player_zombie:
+		mission_build.virus_earned += 1
+		if progression.credit_conversion():
+			mission_build.revealed_development = true
+		mission_hud.refresh_metaprogression()
 	_refresh_mission_progress()
 	if is_instance_valid(mission_hud):
 		mission_hud.refresh_units()
@@ -767,6 +873,11 @@ func _update_command_preview(delta: float) -> void:
 	command_overlay.queue_redraw()
 
 func _draw_command_overlay() -> void:
+	if mission_build != null:
+		for point in mission_build.queued_points:
+			command_overlay.draw_circle(command_overlay.to_local(point), mission_build.hunger_radius, Color("d2a76350"))
+		if mission_build.targeting and not menu_paused:
+			command_overlay.draw_circle(command_overlay.get_local_mouse_position(), mission_build.hunger_radius, Color("d2a76340"))
 	if choosing_building:
 		var building := horde_commands.assault_building if horde_commands != null else null
 		if not is_instance_valid(building):
