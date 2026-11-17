@@ -26,5 +26,10 @@ const RACES := {
 		"strengths": "Заражённый житель превращается в управляемого зомби.",
 		"weaknesses": "Зомби получают ответный урон в ближнем бою и могут погибнуть.",
 		"preview": "res://scenes/zombie.tscn",
+		"cursor": {
+			"idle": preload("res://assets/ui/cursors/zombie_idle.png"),
+			"pressed": preload("res://assets/ui/cursors/zombie_pressed.png"),
+			"hotspot": Vector2(3, 3),
+		},
 	},
 }

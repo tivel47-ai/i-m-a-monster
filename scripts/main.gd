@@ -641,6 +641,7 @@ func _open_race_selection() -> void:
 func _select_race(id: String) -> void:
 	if screen != Screen.RACES or not CATALOG.MISSIONS[selected_mission].races.has(id): return
 	selected_race = id
+	get_node("/root/RaceCursor").select_race(id)
 	_update_preview()
 
 func _update_preview() -> void:
