@@ -286,7 +286,7 @@ func _tree_camera_and_growth() -> void:
 	var tooltip_style := editor.theme.get_stylebox("panel", "TooltipPanel") as StyleBoxFlat
 	var tooltip_offset: Vector2 = ProjectSettings.get_setting("display/mouse_cursor/tooltip_position_offset")
 	check(editor.theme.get_font_size("font_size", "TooltipLabel") == 16
-		and tooltip_style.bg_color.a < 1.0 and tooltip_offset.y >= 60.0,
+		and tooltip_style.bg_color.a < 1.0 and tooltip_offset.y >= 40.0,
 		"Development tooltips use compact text, translucent panels and a cursor-sized offset")
 	var spots: PackedVector4Array = tree._material.get_shader_parameter("node_spots")
 	check(spots[0].z > spots[1].z and spots[1].z > 0.0 and spots[0].w == 0.0 and spots[1].w == 0.0,

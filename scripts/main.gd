@@ -152,7 +152,7 @@ func _focus_page(page: Screen, preferred_button: Button) -> void:
 func _button(parent: Node, title: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = title
-	button.custom_minimum_size = Vector2(0, 48)
+	button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	return button
@@ -208,9 +208,9 @@ func _page(id: Screen, title: String, centered := false) -> VBoxContainer:
 	return box
 
 func _style_main_button(button: Button) -> void:
-	button.custom_minimum_size = Vector2(294, 56)
+	button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	button.add_theme_font_size_override("font_size", 26)
+	button.add_theme_font_size_override("font_size", 22)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -269,7 +269,7 @@ func _build_ui() -> void:
 	columns.custom_minimum_size.y = 390
 	missions.add_child(columns)
 	var left := VBoxContainer.new()
-	left.custom_minimum_size.x = 240
+	left.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(left)
 	_text(left, "Миссии", 24)
@@ -302,12 +302,12 @@ func _build_ui() -> void:
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 24)
 	missions.add_child(footer)
-	_button(footer, "Назад", func(): _show(Screen.MAIN)).custom_minimum_size.x = 180
+	_button(footer, "Назад", func(): _show(Screen.MAIN)).custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
 	choose_race_button = _button(footer, "Выбрать расу", _open_race_selection)
-	choose_race_button.custom_minimum_size.x = 240
+	choose_race_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	choose_race_button.disabled = true
 	var races := _page(Screen.RACES, "Выбор расы")
 	races.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -344,18 +344,20 @@ func _build_ui() -> void:
 	race_footer.add_theme_constant_override("separation", 24)
 	races.add_child(race_footer)
 	race_back_button = _button(race_footer, "Назад", func(): _show(Screen.MISSIONS))
-	race_back_button.custom_minimum_size.x = 240
+	race_back_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	var race_spacer := Control.new()
 	race_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	race_footer.add_child(race_spacer)
 	development_button = _button(race_footer, "Развитие", _open_development)
-	development_button.custom_minimum_size.x = 240
+	development_button.theme = ui.theme.duplicate()
+	development_button.theme.set_font_size("font_size", "TooltipLabel", 18)
+	development_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	development_button.disabled = true
 	var start_spacer := Control.new()
 	start_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	race_footer.add_child(start_spacer)
 	start_button = _button(race_footer, "Начать миссию", _start_mission)
-	start_button.custom_minimum_size.x = 240
+	start_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	start_button.disabled = true
 	_build_development_page()
 	var pause := _page(Screen.PAUSE, "Пауза", true)
@@ -427,11 +429,11 @@ func _build_settings_page() -> void:
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 12)
 	options.add_child(footer)
-	_button(footer, "Назад", func(): _show(settings_return_screen)).custom_minimum_size.x = 160
+	_button(footer, "Назад", func(): _show(settings_return_screen)).custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	_button(footer, "Применить", _apply_settings).custom_minimum_size.x = 160
+	_button(footer, "Применить", _apply_settings).custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 
 
 func _build_control_settings(box: VBoxContainer) -> void:
@@ -601,6 +603,9 @@ func _confirm_progress_reset() -> void:
 	result_text.text = ""
 	attempt_text.text = ""
 	development.draft = null
+	development_button.disabled = true
+	development_button.tooltip_text = ""
+	start_button.disabled = true
 	_focus_page(Screen.MAIN, null)
 
 func _clear_children(parent: Node) -> void:
@@ -648,7 +653,9 @@ func _update_preview() -> void:
 	_text(race_preview, "Внешний вид", 24)
 	start_button.disabled = not CATALOG.RACES.has(selected_race)
 	var has_progression: bool = CATALOG.MISSIONS[selected_mission].get("zombie_progression", false)
-	development_button.disabled = start_button.disabled or not has_progression
+	var unlocked: bool = selected_race == "zombie" and (developer_mode or progression.state.initial_unlocked)
+	development_button.disabled = start_button.disabled or not has_progression or not unlocked
+	development_button.tooltip_text = 'Чтобы разблокировать развитие, необходим ресурс "Заражение"' if selected_race == "zombie" and has_progression and not unlocked else ""
 	if start_button.disabled:
 		_text(race_preview, "Выберите расу в списке слева.", 18)
 		_text(race_details, "Описание", 24)

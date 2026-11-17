@@ -21,7 +21,7 @@ RaceCursor="*res://scripts/race_cursor.gd"
 
 [display]
 
-mouse_cursor/tooltip_position_offset=Vector2(20, 70)
+mouse_cursor/tooltip_position_offset=Vector2(12, 45)
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"

@@ -158,7 +158,7 @@ func _build_footer(layout: VBoxContainer) -> void:
 	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layout.add_child(footer)
 	back_button = _button(footer, "Назад", request_exit)
-	back_button.custom_minimum_size = Vector2(140, 44)
+	back_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_spacer(false).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hotbar := OverlayPanel.new(5)

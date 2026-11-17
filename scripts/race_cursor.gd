@@ -15,6 +15,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process(false)
 	_watch_window(get_tree().root)
+	get_tree().root.size_changed.connect(_update_tooltip_offset, CONNECT_DEFERRED)
 	get_tree().node_added.connect(_watch_window)
 	var config := ConfigFile.new()
 	if config.load(SAVE_PATH) == OK:
@@ -82,6 +83,18 @@ func _reset_pose() -> void:
 func _set_texture(texture: Texture2D) -> void:
 	for shape in CURSOR_SHAPES:
 		Input.set_custom_mouse_cursor(texture, shape, _cursor.get("hotspot", Vector2.ZERO))
+	_update_tooltip_offset()
+
+
+func _update_tooltip_offset() -> void:
+	var texture: Texture2D = _cursor.get("idle")
+	if texture == null:
+		return
+	var hotspot: Vector2 = _cursor.get("hotspot", Vector2.ZERO)
+	var window_scale := get_tree().root.get_stretch_transform().get_scale()
+	var tooltip_scale := minf(window_scale.x, window_scale.y)
+	var offset := Vector2(12.0, texture.get_height() - hotspot.y + 4.0)
+	ProjectSettings.set_setting("display/mouse_cursor/tooltip_position_offset", offset / tooltip_scale)
 
 
 func _notification(what: int) -> void:

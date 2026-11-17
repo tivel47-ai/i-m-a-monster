@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ACTION_BUTTON_SIZE := Vector2(240, 48)
+
 const INK := Color("090809")
 const TEXT := Color("e4dbce")
 const MUTED := Color("a79892")
