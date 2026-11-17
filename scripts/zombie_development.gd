@@ -29,7 +29,7 @@ var reset_fill: ProgressBar
 var reset_elapsed := -1.0
 var leave_dialog: ConfirmationDialog
 var upgrades: VBoxContainer
-var learned: VBoxContainer
+var learned: GridContainer
 var slots: Array[AbilityButton] = []
 
 
@@ -52,14 +52,14 @@ func _ready() -> void:
 	var sidebars := HBoxContainer.new()
 	sidebars.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(sidebars)
-	sidebars.set_anchors_and_offsets_preset(Control.PRESET_HCENTER_WIDE)
+	sidebars.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	sidebars.offset_left = OVERLAY_MARGIN
 	sidebars.offset_right = -OVERLAY_MARGIN
-	sidebars.offset_top = -230
-	sidebars.offset_bottom = 86
-	upgrades = _sidebar(sidebars, "Действующие улучшения", Vector2(216, 316))
+	sidebars.offset_top = 72
+	sidebars.offset_bottom = -88
+	upgrades = _sidebar(sidebars, "Действующие улучшения", 240) as VBoxContainer
 	sidebars.add_spacer(false).mouse_filter = Control.MOUSE_FILTER_IGNORE
-	learned = _sidebar(sidebars, "Активные способности", Vector2(184, 180))
+	learned = _sidebar(sidebars, "Активные способности", 240, 2) as GridContainer
 
 	var layout := VBoxContainer.new()
 	layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -193,10 +193,10 @@ func _label(parent: Node, value: String, font_size: int, color := DARK_THEME.TEX
 	return label
 
 
-func _sidebar(parent: Control, title: String, minimum_size: Vector2) -> VBoxContainer:
+func _sidebar(parent: Control, title: String, width: float, columns := 1) -> Container:
 	var panel := OverlayPanel.new(12)
-	panel.custom_minimum_size = minimum_size
-	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	panel.custom_minimum_size.x = width
+	panel.size_flags_vertical = Control.SIZE_FILL
 	parent.add_child(panel)
 	var contents := VBoxContainer.new()
 	contents.add_theme_constant_override("separation", 12)
@@ -206,9 +206,19 @@ func _sidebar(parent: Control, title: String, minimum_size: Vector2) -> VBoxCont
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	contents.add_child(scroll)
-	var list := VBoxContainer.new()
+	var list: Container
+	if columns > 1:
+		var grid := GridContainer.new()
+		grid.columns = columns
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 8)
+		list = grid
+	else:
+		list = VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	list.add_theme_constant_override("separation", 7)
 	scroll.add_child(list)
 	return list
@@ -358,7 +368,12 @@ func _refresh_abilities() -> void:
 		if not PROGRESSION.NODES[id].get("optional", false) or PROGRESSION.level(draft.build, id) == 0:
 			continue
 		var button := AbilityButton.new()
-		_style_ability_button(button, 42)
+		_style_ability_button(button, 56)
+		button.expand_icon = true
+		button.custom_minimum_size = Vector2(0, 104)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.add_theme_font_size_override("font_size", 13)
 		button.editor = self
 		button.ability = id
 		button.icon = PROGRESSION.NODES[id].get("icon")
@@ -370,7 +385,7 @@ func _refresh_abilities() -> void:
 		button.tooltip_text = PROGRESSION.effect_text(id, PROGRESSION.level(draft.build, id)) + "\nПеретащите в слот хотбара"
 		learned.add_child(button)
 	if learned.get_child_count() == 0:
-		_label(learned, "Изучите способность в древе", 15, DARK_THEME.MUTED)
+		_label(learned, "Изучите способность в древе", 14, DARK_THEME.MUTED).custom_minimum_size.x = 196
 	for slot in slots:
 		slot.ability = draft.build.slots[slot.index]
 		slot.icon = null

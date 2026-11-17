@@ -6,7 +6,7 @@ const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const INFECTION = preload("res://scripts/zombie_infection.gd")
 const ART = preload("res://assets/ui/zombie_development_grave_roots.png")
 const FOG = preload("res://scripts/zombie_development_fog.gdshader")
-const SOCKET = preload("res://scripts/zombie_perk_socket.gdshader")
+const BRANCH_ART = preload("res://assets/ui/zombie_development_tendril.png")
 const NODE_IDS := [PROGRESSION.FLESH, PROGRESSION.BRUTE, PROGRESSION.HUNGER,
 	PROGRESSION.TENDONS, PROGRESSION.SALIVA, PROGRESSION.GROWTHS,
 	PROGRESSION.HOUND, PROGRESSION.CARRIER, PROGRESSION.FORTITUDE, PROGRESSION.SPASM]
@@ -25,25 +25,22 @@ const NODE_POSITIONS := {
 	PROGRESSION.FORTITUDE: Vector2(0.30, 0.70),
 	PROGRESSION.SPASM: Vector2(0.85, 0.81),
 }
-# Coordinates follow the painted tendrils. Points after a node lead into the fog.
+# Every route ends at an actual perk. The first three follow the original painting.
 const ROUTES := [
 	[CORE, Vector2(0.395, 0.493), Vector2(0.360, 0.468), Vector2(0.322, 0.457),
-		Vector2(0.306, 0.417), Vector2(0.322, 0.347), NODE_POSITIONS[PROGRESSION.FLESH],
-		Vector2(0.389, 0.219), Vector2(0.44, 0.193), Vector2(0.462, 0.137), Vector2(0.462, 0.084)],
+		Vector2(0.306, 0.417), Vector2(0.322, 0.347), NODE_POSITIONS[PROGRESSION.FLESH]],
 	[NODE_POSITIONS[PROGRESSION.FLESH], Vector2(0.246, 0.278), Vector2(0.225, 0.253),
 		Vector2(0.23, 0.211), Vector2(0.217, 0.187), Vector2(0.193, 0.175), NODE_POSITIONS[PROGRESSION.BRUTE]],
 	[CORE, Vector2(0.603, 0.555), Vector2(0.636, 0.556), Vector2(0.647, 0.596),
-		Vector2(0.639, 0.649), Vector2(0.675, 0.673), Vector2(0.685, 0.699), NODE_POSITIONS[PROGRESSION.HUNGER],
-		Vector2(0.768, 0.770), Vector2(0.789, 0.817), Vector2(0.756, 0.886)],
-	[NODE_POSITIONS[PROGRESSION.HUNGER], Vector2(0.81, 0.67), Vector2(0.80, 0.59), NODE_POSITIONS[PROGRESSION.TENDONS]],
+		Vector2(0.639, 0.649), Vector2(0.675, 0.673), Vector2(0.685, 0.699), NODE_POSITIONS[PROGRESSION.HUNGER]],
+	[NODE_POSITIONS[PROGRESSION.HUNGER], Vector2(0.79, 0.67), Vector2(0.80, 0.60), NODE_POSITIONS[PROGRESSION.TENDONS]],
 	[NODE_POSITIONS[PROGRESSION.FLESH], Vector2(0.36, 0.26), Vector2(0.39, 0.19), NODE_POSITIONS[PROGRESSION.SALIVA]],
 	[NODE_POSITIONS[PROGRESSION.BRUTE], Vector2(0.05, 0.28), Vector2(0.06, 0.58), NODE_POSITIONS[PROGRESSION.GROWTHS]],
-	[NODE_POSITIONS[PROGRESSION.TENDONS], Vector2(0.93, 0.56), Vector2(0.91, 0.65), NODE_POSITIONS[PROGRESSION.HOUND]],
-	[NODE_POSITIONS[PROGRESSION.SALIVA], Vector2(0.52, 0.12), Vector2(0.59, 0.19), NODE_POSITIONS[PROGRESSION.CARRIER]],
+	[NODE_POSITIONS[PROGRESSION.TENDONS], Vector2(0.91, 0.57), Vector2(0.93, 0.63), NODE_POSITIONS[PROGRESSION.HOUND]],
+	[NODE_POSITIONS[PROGRESSION.SALIVA], Vector2(0.52, 0.15), Vector2(0.59, 0.17), NODE_POSITIONS[PROGRESSION.CARRIER]],
 	[NODE_POSITIONS[PROGRESSION.FLESH], Vector2(0.24, 0.40), Vector2(0.25, 0.58), NODE_POSITIONS[PROGRESSION.FORTITUDE]],
-	[NODE_POSITIONS[PROGRESSION.HUNGER], Vector2(0.78, 0.79), Vector2(0.79, 0.87), NODE_POSITIONS[PROGRESSION.SPASM]],
+	[NODE_POSITIONS[PROGRESSION.HUNGER], Vector2(0.76, 0.75), Vector2(0.80, 0.78), NODE_POSITIONS[PROGRESSION.SPASM]],
 ]
-const NODE_POINT_INDICES := [6, 6, 7, 3, 3, 3, 3, 3, 3, 3]
 const REVEAL_START := [0.0, 0.55, 0.08]
 const REVEAL_END := [0.60, 1.0, 0.83]
 const PULSE_DURATION := 1.7
@@ -74,9 +71,9 @@ var _core_hover: Control
 var _core_title: Label
 var _material: ShaderMaterial
 var _buttons: Dictionary[String, Button] = {}
-var _sockets: Dictionary[String, TextureRect] = {}
 var _paths: Array[Curve2D] = []
 var _node_distances := PackedFloat32Array()
+var _branch_meshes: Array[ArrayMesh] = []
 
 
 func _ready() -> void:
@@ -90,16 +87,19 @@ func _ready() -> void:
 	for index in ROUTES.size():
 		var points: Array = ROUTES[index]
 		var path := Curve2D.new()
-		path.bake_interval = 0.02
-		var distance := 0.0
+		path.bake_interval = 0.003
 		for point_index in points.size():
 			var point: Vector2 = points[point_index] * ART_SCALE
 			path.add_point(point)
-			if point_index > 0:
-				var previous: Vector2 = points[point_index - 1] * ART_SCALE
-				distance += previous.distance_to(point)
-			if point_index == NODE_POINT_INDICES[index]:
-				_node_distances.append(distance)
+		# Round the new connections; avoid angular, wire-like corners.
+		if index >= 3:
+			for point_index in range(1, points.size() - 1):
+				var before: Vector2 = points[point_index - 1] * ART_SCALE
+				var after: Vector2 = points[point_index + 1] * ART_SCALE
+				var tangent := (after - before) * 0.18
+				path.set_point_in(point_index, -tangent)
+				path.set_point_out(point_index, tangent)
+		_node_distances.append(path.get_baked_length())
 		_paths.append(path)
 
 	var art := TextureRect.new()
@@ -115,6 +115,7 @@ func _ready() -> void:
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay = Control.new()
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	add_child(_overlay)
 	_overlay.draw.connect(_draw_extensions)
 
@@ -152,21 +153,10 @@ func _ready() -> void:
 func add_upgrade(id: String, button: Button) -> void:
 	_buttons[id] = button
 	if NODE_IDS.find(id) >= 3:
-		var socket := TextureRect.new()
-		socket.texture = ART
-		socket.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		socket.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		socket.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var material := ShaderMaterial.new()
-		material.shader = SOCKET
-		material.set_shader_parameter("turn", float(NODE_IDS.find(id)) * 0.7)
-		socket.material = material
-		_overlay.add_child(socket)
-		_sockets[id] = socket
 		button.icon = PROGRESSION.NODES[id].icon
 		button.expand_icon = true
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.add_theme_constant_override("icon_max_width", 48)
+		button.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	button.flat = true
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var empty := StyleBoxEmpty.new()
@@ -219,7 +209,9 @@ func upgrades_visible() -> bool:
 func _layout() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
-	var height := minf(size.y, size.x / ASPECT)
+	# Fit the complete graph between the fixed sidebars on entry. Panning/zooming
+	# still uses the full canvas, while panels stay in place above it.
+	var height := minf(maxf(180.0, size.y - 176.0), maxf(320.0, size.x - 544.0) / ASPECT)
 	_overlay.size = Vector2(height * ASPECT, height)
 	_update_view()
 	_core_hover.position = Vector2(0.36, 0.34) * _overlay.size
@@ -229,13 +221,12 @@ func _layout() -> void:
 	_core_title.size = Vector2(_overlay.size.x * 0.54, 0.0)
 	for id in _buttons:
 		var button := _buttons[id]
-		var hitbox_size := Vector2.ONE * maxf(36.0, height * (0.115 if NODE_IDS.find(id) >= 3 else 0.16))
+		var hitbox_size := Vector2.ONE * maxf(36.0, height * 0.175)
 		var center: Vector2 = NODE_POSITIONS[id] * _overlay.size
 		button.position = center - hitbox_size * 0.5
 		button.size = hitbox_size
-		if _sockets.has(id):
-			_sockets[id].size = hitbox_size * 1.7
-			_sockets[id].position = center - _sockets[id].size * 0.5
+		if NODE_IDS.find(id) >= 3:
+			button.add_theme_constant_override("icon_max_width", roundi(hitbox_size.x))
 
 
 func _update_view() -> void:
@@ -318,9 +309,11 @@ func _update_growth_visuals() -> void:
 		node_spots.append(Vector4(node.x, node.y, reveal * _outline_strength[index], node_light))
 		if growth <= 0.0:
 			continue
-		var to_node := _node_distances[index]
-		var extension := (_paths[index].get_baked_length() - to_node) * spread[index]
-		var remaining := to_node * growth + extension * node_light
+		# Only the original connections reveal the painting. New routes have
+		# their own transparent art and must not uncover unrelated painted roots.
+		if index >= 3:
+			continue
+		var remaining := _node_distances[index] * growth
 		var points: Array = ROUTES[index]
 		for step in range(points.size() - 1):
 			if remaining <= 0.0:
@@ -330,9 +323,8 @@ func _update_growth_visuals() -> void:
 			var length := from.distance_to(to)
 			var tip := from.lerp(to, minf(1.0, remaining / length))
 			segments.append(Vector4(from.x, from.y, tip.x, tip.y))
-			var outer: bool = step >= NODE_POINT_INDICES[index]
 			var radius := lerpf(0.041, 0.062, spread[index])
-			segment_styles.append(Vector2(radius, 0.65 if outer else 1.0))
+			segment_styles.append(Vector2(radius, 1.0))
 			remaining -= length
 	_material.set_shader_parameter("node_spots", node_spots)
 	_material.set_shader_parameter("branch_segment_count", segments.size())
@@ -346,35 +338,49 @@ func _update_growth_visuals() -> void:
 		var id: String = NODE_IDS[index]
 		if _buttons.has(id):
 			_buttons[id].modulate = Color.WHITE if branch_growth[index] >= 0.95 else Color(0.12, 0.14, 0.10, 0.85 if _outline_strength[index] == 1.0 else 0.45)
-			_sockets[id].visible = node_visible(id)
-			_sockets[id].modulate = Color.WHITE if branch_growth[index] >= 0.95 else Color(0.35, 0.38, 0.31, 0.75)
 
 
 func _draw_extensions() -> void:
-	# The original three emblems remain in the painting. New organic branches and
-	# node sockets are drawn in the same moving canvas; icons come from NODES.
+	# Bend a painted transparent root along each dependency, below its medallion.
+	# Canvas drawing retains RIDs; keep their resources alive until the next draw.
+	_branch_meshes.clear()
 	for index in range(3, NODE_IDS.size()):
-		var points := PackedVector2Array()
 		var length := _node_distances[index]
 		var growth := branch_growth[index]
 		var shown := node_visible(NODE_IDS[index])
-		for step in 101:
-			var distance := length * float(step) / 100.0
-			if distance > length * growth and growth > 0.0:
-				break
-			var point := _paths[index].sample_baked(distance) / ART_SCALE
-			point += Vector2(sin(step * 0.41 + index) * 0.0015, sin(step * 0.63 + index) * 0.002)
-			points.append(point * _overlay.size)
-		if points.size() > 1:
-			var strength := 1.0 if growth > 0.0 else (0.22 if shown else 0.07)
-			_overlay.draw_polyline(points, Color(0.045, 0.049, 0.038, strength), 8.0, true)
-			_overlay.draw_polyline(points, Color(0.20, 0.21, 0.15, strength * 0.8), 5.0, true)
-			_overlay.draw_polyline(points, Color(0.36, 0.35, 0.25, strength * 0.7), 1.2 + spread[index], true)
-			for step in range(4, points.size() - 2, 5):
-				var direction := (points[step + 1] - points[step - 1]).normalized()
-				var side := direction.orthogonal() * (1.0 if step % 2 else -1.0)
-				var tip := points[step] + side * (5.0 + sin(step) * 4.0) - direction * 6.0
-				_overlay.draw_polyline(PackedVector2Array([points[step], tip, tip - direction * 5.0 + side * 3.0]), Color(0.27, 0.28, 0.20, strength * 0.65), 1.0, true)
+		var strength := 1.0 if growth > 0.0 else (0.18 if shown else 0.035)
+		var fraction := growth if growth > 0.0 else 1.0
+		var half_width := _overlay.size.y * lerpf(0.065, 0.08, spread[index])
+		# Preserve the source root's proportions on short links instead of
+		# squeezing its full length into a small, zigzagging connection.
+		var texture_length := half_width * 2.0 / 0.6 * BRANCH_ART.get_width() / BRANCH_ART.get_height()
+		texture_length = maxf(texture_length, length * _overlay.size.y)
+		var mesh := ArrayMesh.new()
+		var vertices := PackedVector3Array()
+		var uvs := PackedVector2Array()
+		var indices := PackedInt32Array()
+		for step in 65:
+			var along := float(step) / 64.0 * fraction
+			var distance := length * along
+			var center := _paths[index].sample_baked(distance) / ART_SCALE * _overlay.size
+			var before := _paths[index].sample_baked(maxf(0.0, distance - 0.003))
+			var after := _paths[index].sample_baked(minf(length, distance + 0.003))
+			var side := (after - before).normalized().orthogonal() * half_width
+			for edge in [-1.0, 1.0]:
+				var point: Vector2 = center + side * edge
+				vertices.append(Vector3(point.x, point.y, 0.0))
+				uvs.append(Vector2(distance * _overlay.size.y / texture_length, 0.5 + edge * 0.3))
+			if step > 0:
+				var base := step * 2
+				indices.append_array(PackedInt32Array([base - 2, base - 1, base, base - 1, base + 1, base]))
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = vertices
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
+		arrays[Mesh.ARRAY_INDEX] = indices
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		_branch_meshes.append(mesh)
+		_overlay.draw_mesh(mesh, BRANCH_ART, Transform2D.IDENTITY, Color(0.75, 0.82, 0.75, strength))
 
 
 func _update_pulses() -> void:

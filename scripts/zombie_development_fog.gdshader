@@ -67,13 +67,11 @@ void fragment() {
 	float distance_to_core = length((contour - vec2(aspect * 0.50, 0.474)) * vec2(1.0, 1.11));
 	opening = max(opening, 1.0 - smoothstep(0.159, 0.252, distance_to_core));
 	float haze = preview ? 1.0 : 1.0 - 0.17 * vapor;
-	// Leave a low-contrast trace of the painted tendrils and distant growths in the fog.
+	// Hide unused painted branches entirely; only actual dependency routes open.
 	float buried = textureLod(TEXTURE, sample_uv, 3.2).g;
-	float ground = textureLod(TEXTURE, sample_uv, 7.0).g;
-	float trace = clamp(buried - ground, -0.23, 0.10);
-	vec3 shroud = mist + texture_edge * trace * (0.28 - 0.14 * vapor);
+	vec3 shroud = mist;
 	vec3 result = mix(shroud, art, texture_edge * opening * haze);
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < 3; i++) {
 		vec4 node = node_spots[i];
 		float distance_to_node = length(contour - node.xy);
 		if (distance_to_node < 0.108) {

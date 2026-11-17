@@ -38,29 +38,29 @@ const NODES := {
 	},
 	TENDONS: {
 		"title": "Цепкие сухожилия", "costs": [8, 16, 28, 45, 65], "requires": {HUNGER: 1},
-		"speed_per_level": 0.02, "icon": preload("res://assets/ui/grasping_tendons.svg"),
+		"speed_per_level": 0.02, "icon": preload("res://assets/ui/grasping_tendons_medallion.tres"),
 	},
 	SALIVA: {
 		"title": "Заразная слюна", "costs": [10, 20, 35, 55, 80], "requires": {FLESH: 1},
-		"infection_per_level": 0.01, "icon": preload("res://assets/ui/infectious_saliva.svg"),
+		"infection_per_level": 0.01, "icon": preload("res://assets/ui/infectious_saliva_medallion.tres"),
 	},
 	GROWTHS: {
 		"title": "Костяные наросты", "costs": [8, 16, 28, 45, 65], "requires": {BRUTE: 1},
-		"entrance_per_level": 0.05, "icon": preload("res://assets/ui/bone_growths.svg"),
+		"entrance_per_level": 0.05, "icon": preload("res://assets/ui/bone_growths_medallion.tres"),
 	},
 	HOUND: {
 		"title": "Гончий", "costs": [30], "requires": {TENDONS: 2},
 		"chance": 0.08, "health": 0.70, "speed": 1.25, "damage": 0.70,
-		"interval": 1.0, "infection": 0.15, "icon": preload("res://assets/ui/hound.svg"),
+		"interval": 1.0, "infection": 0.15, "icon": preload("res://assets/ui/hound_medallion.tres"),
 	},
 	CARRIER: {
 		"title": "Носитель", "costs": [40], "requires": {SALIVA: 2},
 		"chance": 0.06, "health": 1.25, "speed": 0.80, "damage": 0.50,
-		"interval": 1.0, "infection": 0.25, "icon": preload("res://assets/ui/carrier.svg"),
+		"interval": 1.0, "infection": 0.25, "icon": preload("res://assets/ui/carrier_medallion.tres"),
 	},
 	FORTITUDE: {
 		"title": "Мёртвая стойкость", "costs": [10, 20, 35, 55, 80], "requires": {FLESH: 3},
-		"optional": true, "icon": preload("res://assets/ui/dead_fortitude.svg"),
+		"optional": true, "icon": preload("res://assets/ui/dead_fortitude_medallion.tres"),
 		"effects": [
 			{"reduction": 0.15, "duration": 8.0, "radius": 3.0, "uses": 1},
 			{"reduction": 0.17, "duration": 9.0, "radius": 3.3, "uses": 2},
@@ -71,7 +71,7 @@ const NODES := {
 	},
 	SPASM: {
 		"title": "Голодная судорога", "costs": [10, 20, 35, 55, 80], "requires": {HUNGER: 3},
-		"optional": true, "icon": preload("res://assets/ui/hungry_spasm.svg"),
+		"optional": true, "icon": preload("res://assets/ui/hungry_spasm_medallion.tres"),
 		"effects": [
 			{"frequency": 0.15, "speed": -0.15, "duration": 6.0, "radius": 3.0, "uses": 1},
 			{"frequency": 0.17, "speed": -0.15, "duration": 7.0, "radius": 3.3, "uses": 2},
