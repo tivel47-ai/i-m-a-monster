@@ -92,6 +92,9 @@ func run() -> void:
 		and not app.progression.state.initial_unlocked and not app.progression.state.reveal_seen,
 		"Developer mode reveals every node without changing persistent unlocks")
 	var editor = app.development
+	await process_frame
+	check(root.gui_get_focus_owner() == editor.back_button,
+		"Opening development focuses Back instead of highlighting a tree node")
 	check(editor.developer_controls.visible and editor.subtract_virus_button.disabled,
 		"Developer balance controls are visible and cannot subtract from zero")
 	editor.developer_controls.get_child(1).pressed.emit()
@@ -217,17 +220,46 @@ func _edit_build() -> void:
 	var learned: Button = editor.learned.get_child(0)
 	var slot: Button = editor.slots[2]
 	var tree_rect: Rect2 = editor.tree.get_global_rect()
-	check(editor.upgrades.get_global_rect().end.x < tree_rect.position.x
-		and learned.get_global_rect().position.x > tree_rect.end.x
-		and slot.get_global_rect().position.y > tree_rect.end.y
-		and editor.reset_button.get_global_rect().position.y > slot.get_global_rect().end.y,
-		"Upgrade list, tree, abilities and hotbar occupy separate regions")
-	check(editor.upgrades.get_child_count() == 3 and learned.icon != null and slot.icon == null,
-		"Draft purchases populate the upgrade list and learned ability icon")
+	var upgrades_panel := editor.upgrades.get_parent().get_parent().get_parent() as PanelContainer
+	var learned_panel := editor.learned.get_parent().get_parent().get_parent() as PanelContainer
+	var hotbar := slot.get_parent().get_parent() as PanelContainer
+	var reset_rect: Rect2 = editor.reset_button.get_global_rect()
+	check(tree_rect == editor.get_global_rect()
+		and tree_rect.encloses(upgrades_panel.get_global_rect())
+		and tree_rect.encloses(learned_panel.get_global_rect())
+		and tree_rect.encloses(hotbar.get_global_rect())
+		and upgrades_panel.get_global_rect().end.x < learned_panel.get_global_rect().position.x
+		and reset_rect.end.y < upgrades_panel.get_global_rect().position.y
+		and is_equal_approx(reset_rect.get_center().x, tree_rect.get_center().x)
+		and is_equal_approx(hotbar.get_global_rect().get_center().y, editor.back_button.get_global_rect().get_center().y),
+		"The reset is centered above the tree and the hotbar sits between the footer buttons")
+	var upgrades_top := upgrades_panel.get_global_rect().position.y
+	check(upgrades_top < tree_rect.position.y + tree_rect.size.y / 3.0
+		and is_equal_approx(upgrades_top, learned_panel.get_global_rect().position.y)
+		and slot.size.is_equal_approx(Vector2(46, 52)),
+		"The sidebars start higher together and the slots use the compact size (%s)" % slot.size)
+	var blank := tree_rect.get_center() + Vector2(0, 145)
+	var hover_targets := {upgrades_panel: editor.upgrades.get_child(0), learned_panel: learned, hotbar: slot}
+	_mouse_motion(blank, Vector2.ZERO, false)
+	await create_timer(0.03).timeout
+	for panel: PanelContainer in hover_targets:
+		var idle := panel.get_theme_stylebox("panel") as StyleBoxFlat
+		var target: Control = hover_targets[panel]
+		_mouse_motion(target.get_global_rect().get_center(), Vector2.ZERO, false)
+		await create_timer(0.03).timeout
+		var hover := panel.get_theme_stylebox("panel") as StyleBoxFlat
+		_mouse_motion(blank, Vector2.ZERO, false)
+		await create_timer(0.03).timeout
+		check(idle.bg_color.a < hover.bg_color.a and panel.get_theme_stylebox("panel") == idle,
+			"Overlay brightens over a child and becomes translucent when the pointer leaves")
+	var emblem := learned.icon as AtlasTexture
+	var node_uv: Vector2 = editor.tree.NODE_POSITIONS[HUNGER]
+	check(editor.upgrades.get_child_count() == 3 and slot.icon == null and emblem != null
+		and emblem.atlas == editor.tree.ART and emblem.region.has_point(node_uv * emblem.atlas.get_size()),
+		"The learned ability uses the emblem sampled from its tree node")
 	_drag(learned.get_global_rect().get_center(), slot.get_global_rect().get_center())
-	check(editor.draft.build.slots[2] == HUNGER and slot.icon != null,
+	check(editor.draft.build.slots[2] == HUNGER and slot.icon == emblem,
 		"A GUI drag from learned abilities assigns its icon to the hovered slot")
-	var blank: Vector2 = editor.tree.get_global_rect().position + Vector2(12, 12)
 	_drag(slot.get_global_rect().get_center(), blank)
 	check(editor.draft.build.slots[2].is_empty() and PROGRESSION.level(editor.draft.build, HUNGER) == 3,
 		"A GUI drag to empty space unassigns without unlearning")
@@ -251,6 +283,11 @@ func _tree_camera_and_growth() -> void:
 	check(editor.nodes.values().all(func(node): return node.text.is_empty() and not node.tooltip_text.is_empty())
 		and "8 Вируса" in flesh.tooltip_text and "Требуется" in editor.nodes[BRUTE].tooltip_text,
 		"Node names, prices and prerequisites are available in tooltips only")
+	var tooltip_style := editor.theme.get_stylebox("panel", "TooltipPanel") as StyleBoxFlat
+	var tooltip_offset: Vector2 = ProjectSettings.get_setting("display/mouse_cursor/tooltip_position_offset")
+	check(editor.theme.get_font_size("font_size", "TooltipLabel") == 16
+		and tooltip_style.bg_color.a < 1.0 and tooltip_offset.y >= 60.0,
+		"Development tooltips use compact text, translucent panels and a cursor-sized offset")
 	var spots: PackedVector4Array = tree._material.get_shader_parameter("node_spots")
 	check(spots[0].z > spots[1].z and spots[1].z > 0.0 and spots[0].w == 0.0 and spots[1].w == 0.0,
 		"Available and prerequisite-locked perks have distinct silhouettes without lit emblems")
@@ -293,7 +330,12 @@ func _tree_camera_and_growth() -> void:
 	for i in 15:
 		_mouse_button(canvas_center, true, MOUSE_BUTTON_WHEEL_DOWN)
 		_mouse_button(canvas_center, false, MOUSE_BUTTON_WHEEL_DOWN)
-	check(is_equal_approx(tree.zoom, 1.0), "Wheel down stops at the full-tree view")
+	check(is_equal_approx(tree.zoom, 0.55) and tree._view_center == center_before,
+		"Wheel down stops at the wider view and centers the tree when it fits")
+	_click_control(flesh)
+	check(PROGRESSION.level(editor.draft.build, FLESH) == 1,
+		"Nodes remain clickable at minimum zoom")
+	_click_control(flesh, MOUSE_BUTTON_RIGHT)
 
 
 func _exercise_mission_build() -> void:
@@ -531,7 +573,7 @@ func _check_reopen_and_refunds() -> void:
 	check(editor.tree.branch_growth == Vector3.ONE and is_equal_approx(editor.tree.zoom, 1.0),
 		"Reopening restores purchased branches at the full-tree zoom")
 	check(editor.reset_button.text == "Сбросить развитие" and not editor.tree.is_ancestor_of(editor.reset_button),
-		"The tree has a single reset button in the footer")
+		"The development screen has a single reset outside the moving tree")
 	_click_control(editor.nodes[FLESH], MOUSE_BUTTON_RIGHT)
 	check(PROGRESSION.level(draft.build, FLESH) == 1 and PROGRESSION.level(draft.build, BRUTE) == 0
 		and draft.build.virus == stored + 41, "RMB refunds one Flesh level and cascades the Brute refund")
@@ -541,8 +583,48 @@ func _check_reopen_and_refunds() -> void:
 	draft = editor.draft
 	var spread_before_reset: Vector3 = editor.tree.spread
 	_click_control(editor.reset_button)
+	check(not draft.changed(), "A short click leaves the development build intact")
+	editor.reset_button.grab_focus()
+	_key(KEY_ENTER)
+	editor._process(2.0)
+	check(not draft.changed(), "Keyboard activation does not bypass the LMB hold")
+	var reset_position: Vector2 = editor.reset_button.get_global_rect().get_center()
+	_mouse_motion(reset_position, Vector2.ZERO, false)
+	_mouse_button(reset_position, true)
+	editor._process(1.9)
+	check(not draft.changed() and editor.reset_fill.value > 0.0,
+		"The development reset fills while held and waits for two seconds")
+	_mouse_button(reset_position, false)
+	editor._process(2.0)
+	check(not draft.changed() and editor.reset_fill.value == 0.0,
+		"Releasing LMB early cancels the development reset")
+	_mouse_button(reset_position, true)
+	_mouse_motion(reset_position + Vector2(0, 100), Vector2(0, 100), true)
+	editor._process(2.0)
+	check(not draft.changed() and editor.reset_fill.value == 0.0,
+		"Leaving the development reset button cancels the hold")
+	_mouse_button(reset_position + Vector2(0, 100), false)
+	_mouse_motion(reset_position, Vector2.ZERO, false)
+	_mouse_button(reset_position, true)
+	editor.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	editor._process(2.0)
+	check(not draft.changed() and editor.reset_fill.value == 0.0,
+		"Losing application focus cancels the development reset")
+	_mouse_button(reset_position, false)
+	_mouse_button(reset_position, true)
+	editor.hide()
+	editor.show()
+	editor._process(2.0)
+	check(not draft.changed() and editor.reset_fill.value == 0.0,
+		"Hiding development cancels the hold before the screen reopens")
+	_mouse_button(reset_position, false)
+	_mouse_motion(reset_position, Vector2.ZERO, false)
+	_mouse_button(reset_position, true)
+	editor._process(2.0)
+	_mouse_button(reset_position, false)
+	editor._process(2.0)
 	check(draft.build.virus == stored + 114 and draft.build.initial_unlocked and draft.build.slots[2].is_empty(),
-		"Full reset immediately returns original costs once, clears assignments and preserves reveal")
+		"A full hold returns original costs once, clears assignments and preserves reveal")
 	await create_timer(0.25).timeout
 	var growth: Vector3 = editor.tree.branch_growth
 	check(growth.y > 0.0 and growth.y < 1.0 and growth.x == 1.0 and growth.z < 1.0

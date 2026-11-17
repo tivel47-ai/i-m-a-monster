@@ -1,10 +1,16 @@
-extends VBoxContainer
+extends Control
 
 signal exit_requested
 
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
 const TREE = preload("res://scripts/zombie_development_tree.gd")
+const RESET_HOLD_SECONDS := 2.0
+const OVERLAY_MARGIN := 16
+const PANEL_IDLE := Color("130f1380")
+const PANEL_HOVER := Color("3a2932eb")
+const EDGE_IDLE := Color("80757792")
+const EDGE_HOVER := Color("af8289")
 
 var profile: PROGRESSION
 var developer_preview := false
@@ -16,8 +22,11 @@ var balance: Label
 var developer_controls: HBoxContainer
 var subtract_virus_button: Button
 var status: Label
+var back_button: Button
 var apply_button: Button
 var reset_button: Button
+var reset_fill: ProgressBar
+var reset_elapsed := -1.0
 var leave_dialog: ConfirmationDialog
 var upgrades: VBoxContainer
 var learned: VBoxContainer
@@ -25,31 +34,14 @@ var slots: Array[AbilityButton] = []
 
 
 func _ready() -> void:
-	add_theme_constant_override("separation", 12)
-	var header := HBoxContainer.new()
-	add_child(header)
-	status = _label(header, "", 16, DARK_THEME.HEADING)
-	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	balance = _label(header, "", 20, Color("efc694"))
-	balance.autowrap_mode = TextServer.AUTOWRAP_OFF
-	balance.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	developer_controls = HBoxContainer.new()
-	header.add_child(developer_controls)
-	subtract_virus_button = _button(developer_controls, "−10", _adjust_virus.bind(-10))
-	subtract_virus_button.tooltip_text = "Убавить Вирус на 10"
-	_button(developer_controls, "+10", _adjust_virus.bind(10)).tooltip_text = "Начислить 10 Вируса"
+	theme = Theme.new()
+	theme.set_font_size("font_size", "TooltipLabel", 16)
+	theme.set_stylebox("panel", "TooltipPanel", DARK_THEME.surface(Color("100d10d9"), DARK_THEME.EDGE, 8))
 
-	var columns := HBoxContainer.new()
-	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	columns.add_theme_constant_override("separation", 12)
-	add_child(columns)
-	upgrades = _sidebar(columns, "Действующие улучшения", 216.0)
 	tree = TREE.new()
-	tree.custom_minimum_size.y = 250
-	tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tree.initial_reveal_finished.connect(_refresh_nodes)
-	columns.add_child(tree)
-	learned = _sidebar(columns, "Активные способности", 184.0)
+	add_child(tree)
+	tree.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for id in PROGRESSION.NODES:
 		var button := Button.new()
 		button.pressed.connect(_purchase.bind(id))
@@ -57,30 +49,27 @@ func _ready() -> void:
 		tree.add_upgrade(id, button)
 		nodes[id] = button
 
-	var hotbar_center := CenterContainer.new()
-	add_child(hotbar_center)
-	var bar := HBoxContainer.new()
-	bar.add_theme_constant_override("separation", 6)
-	hotbar_center.add_child(bar)
-	for index in PROGRESSION.SLOT_COUNT:
-		var slot := AbilityButton.new()
-		slot.editor = self
-		slot.index = index
-		slot.custom_minimum_size = Vector2(56, 64)
-		slot.expand_icon = true
-		_style_ability_button(slot, 26)
-		slot.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		slots.append(slot)
-		bar.add_child(slot)
-	var footer := HBoxContainer.new()
-	add_child(footer)
-	var back_button := _button(footer, "Назад", request_exit)
-	back_button.custom_minimum_size = Vector2(140, 44)
-	footer.add_spacer(false)
-	reset_button = _button(footer, "Сбросить развитие", _reset)
-	footer.add_spacer(false)
-	apply_button = _button(footer, "Применить", _apply)
-	apply_button.custom_minimum_size = back_button.custom_minimum_size
+	var sidebars := HBoxContainer.new()
+	sidebars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(sidebars)
+	sidebars.set_anchors_and_offsets_preset(Control.PRESET_HCENTER_WIDE)
+	sidebars.offset_left = OVERLAY_MARGIN
+	sidebars.offset_right = -OVERLAY_MARGIN
+	sidebars.offset_top = -230
+	sidebars.offset_bottom = 86
+	upgrades = _sidebar(sidebars, "Действующие улучшения", Vector2(216, 316))
+	sidebars.add_spacer(false).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	learned = _sidebar(sidebars, "Активные способности", Vector2(184, 180))
+
+	var layout := VBoxContainer.new()
+	layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layout.add_theme_constant_override("separation", 10)
+	add_child(layout)
+	layout.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, OVERLAY_MARGIN)
+	_build_header(layout)
+	layout.add_spacer(false).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_build_footer(layout)
+
 	leave_dialog = ConfirmationDialog.new()
 	leave_dialog.title = "Неприменённые изменения"
 	leave_dialog.dialog_text = "При выходе неприменённые изменения будут потеряны."
@@ -94,6 +83,103 @@ func _ready() -> void:
 		if leave_dialog.visible:
 			leave_dialog.get_cancel_button().grab_focus())
 	add_child(leave_dialog)
+	visibility_changed.connect(_cancel_reset_hold)
+
+
+func _process(delta: float) -> void:
+	if reset_elapsed < 0.0:
+		return
+	reset_elapsed += delta
+	reset_fill.value = reset_elapsed
+	if reset_elapsed >= RESET_HOLD_SECONDS:
+		_cancel_reset_hold()
+		_reset()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_cancel_reset_hold()
+
+
+func _build_header(layout: VBoxContainer) -> void:
+	var header := HBoxContainer.new()
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_theme_constant_override("separation", 16)
+	layout.add_child(header)
+	var heading := HBoxContainer.new()
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.add_theme_constant_override("separation", 16)
+	header.add_child(heading)
+	var title := _label(heading, "Развитие", 36, DARK_THEME.HEADING)
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status = _label(heading, "", 16, DARK_THEME.HEADING)
+	status.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reset_button = Button.new()
+	reset_button.text = "Сбросить развитие"
+	reset_button.tooltip_text = "Удерживайте ЛКМ 2 секунды, чтобы сбросить развитие"
+	header.add_child(reset_button)
+	reset_button.custom_minimum_size.y = 44
+	reset_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	reset_button.gui_input.connect(_reset_input)
+	reset_button.mouse_exited.connect(_cancel_reset_hold)
+	reset_button.button_up.connect(_cancel_reset_hold)
+	reset_fill = ProgressBar.new()
+	reset_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	reset_fill.show_percentage = false
+	reset_fill.max_value = RESET_HOLD_SECONDS
+	reset_fill.step = 0.0
+	reset_fill.add_theme_stylebox_override("background", StyleBoxEmpty.new())
+	reset_fill.add_theme_stylebox_override("fill", DARK_THEME.surface(Color("a53c4a80"), Color.TRANSPARENT, 0))
+	reset_button.add_child(reset_fill)
+	reset_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var resources := HBoxContainer.new()
+	resources.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	resources.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	resources.add_theme_constant_override("separation", 16)
+	header.add_child(resources)
+	resources.add_spacer(false).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	balance = _label(resources, "", 20, Color("efc694"))
+	balance.autowrap_mode = TextServer.AUTOWRAP_OFF
+	balance.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	for label in [title, status, balance]:
+		label.add_theme_color_override("font_outline_color", DARK_THEME.INK)
+		label.add_theme_constant_override("outline_size", 6)
+	developer_controls = HBoxContainer.new()
+	resources.add_child(developer_controls)
+	subtract_virus_button = _button(developer_controls, "−10", _adjust_virus.bind(-10))
+	subtract_virus_button.tooltip_text = "Убавить Вирус на 10"
+	_button(developer_controls, "+10", _adjust_virus.bind(10)).tooltip_text = "Начислить 10 Вируса"
+
+
+func _build_footer(layout: VBoxContainer) -> void:
+	var footer := HBoxContainer.new()
+	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layout.add_child(footer)
+	back_button = _button(footer, "Назад", request_exit)
+	back_button.custom_minimum_size = Vector2(140, 44)
+	back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_spacer(false).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var hotbar := OverlayPanel.new(5)
+	footer.add_child(hotbar)
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 5)
+	hotbar.add_child(bar)
+	for index in PROGRESSION.SLOT_COUNT:
+		var slot := AbilityButton.new()
+		slot.editor = self
+		slot.index = index
+		slot.custom_minimum_size = Vector2(46, 52)
+		slot.expand_icon = true
+		_style_ability_button(slot, 24)
+		slot.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		slots.append(slot)
+		bar.add_child(slot)
+	footer.add_spacer(false).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	apply_button = _button(footer, "Применить", _apply)
+	apply_button.custom_minimum_size = back_button.custom_minimum_size
+	apply_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 func _label(parent: Node, value: String, font_size: int, color := DARK_THEME.TEXT) -> Label:
@@ -107,11 +193,10 @@ func _label(parent: Node, value: String, font_size: int, color := DARK_THEME.TEX
 	return label
 
 
-func _sidebar(parent: Control, title: String, width: float) -> VBoxContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size.x = width
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	panel.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("130f13"), DARK_THEME.EDGE, 12))
+func _sidebar(parent: Control, title: String, minimum_size: Vector2) -> VBoxContainer:
+	var panel := OverlayPanel.new(12)
+	panel.custom_minimum_size = minimum_size
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	parent.add_child(panel)
 	var contents := VBoxContainer.new()
 	contents.add_theme_constant_override("separation", 12)
@@ -134,9 +219,11 @@ func _style_ability_button(button: Button, icon_size: int) -> void:
 	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	button.add_theme_constant_override("icon_max_width", icon_size)
 	button.add_theme_font_size_override("font_size", 15)
+	button.add_theme_stylebox_override("normal", DARK_THEME.surface(Color("14111480"), EDGE_IDLE, 8))
 
 
 func open(saved: PROGRESSION, bindings: Dictionary, developer_mode: bool, camera_speed: float) -> void:
+	_cancel_reset_hold()
 	profile = saved
 	keys = bindings
 	developer_preview = developer_mode
@@ -151,6 +238,7 @@ func open(saved: PROGRESSION, bindings: Dictionary, developer_mode: bool, camera
 
 
 func request_exit() -> void:
+	_cancel_reset_hold()
 	if leave_dialog.visible:
 		leave_dialog.hide()
 	elif draft.changed():
@@ -184,6 +272,20 @@ func _reset() -> void:
 	_refresh()
 
 
+func _reset_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and is_visible_in_tree() and not reset_button.disabled and not leave_dialog.visible:
+			reset_elapsed = 0.0
+		else:
+			_cancel_reset_hold()
+
+
+func _cancel_reset_hold() -> void:
+	reset_elapsed = -1.0
+	if is_instance_valid(reset_fill):
+		reset_fill.value = 0.0
+
+
 func _adjust_virus(delta: int) -> void:
 	if not developer_preview:
 		return
@@ -215,6 +317,8 @@ func _refresh() -> void:
 		status.text = "Первое начисление Вируса откроет улучшения"
 	apply_button.disabled = not draft.changed()
 	reset_button.disabled = draft.build.paid.is_empty()
+	if reset_button.disabled:
+		_cancel_reset_hold()
 	tree.sync_ranks(draft.build)
 	_refresh_nodes()
 	_refresh_upgrades()
@@ -239,7 +343,7 @@ func _refresh_upgrades() -> void:
 			continue
 		var panel := PanelContainer.new()
 		panel.mouse_filter = Control.MOUSE_FILTER_PASS
-		panel.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("1c151b"), Color("392d35"), 8))
+		panel.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("1c151b85"), Color("80757763"), 8))
 		upgrades.add_child(panel)
 		var row := VBoxContainer.new()
 		panel.add_child(row)
@@ -264,7 +368,7 @@ func _refresh_abilities() -> void:
 		if assigned >= 0:
 			button.text += " · " + _key(assigned)
 			button.modulate.a = 0.65
-		button.tooltip_text = PROGRESSION.effect_text(id, PROGRESSION.level(draft.build, id)) + "\nПеретащите в слот под древом"
+		button.tooltip_text = PROGRESSION.effect_text(id, PROGRESSION.level(draft.build, id)) + "\nПеретащите в слот хотбара"
 		learned.add_child(button)
 	if learned.get_child_count() == 0:
 		_label(learned, "Изучите способность в древе", 15, DARK_THEME.MUTED)
@@ -313,6 +417,26 @@ func _can_drop_data(_position: Vector2, data: Variant) -> bool:
 func _drop_data(_position: Vector2, data: Variant) -> void:
 	draft.unassign(data.index)
 	_refresh()
+
+
+class OverlayPanel extends PanelContainer:
+	var idle: StyleBoxFlat
+	var hover: StyleBoxFlat
+
+	func _init(padding: int) -> void:
+		mouse_filter = Control.MOUSE_FILTER_PASS
+		idle = DARK_THEME.surface(PANEL_IDLE, EDGE_IDLE, padding)
+		hover = DARK_THEME.surface(PANEL_HOVER, EDGE_HOVER, padding)
+		add_theme_stylebox_override("panel", idle)
+
+	func _process(_delta: float) -> void:
+		if not is_visible_in_tree():
+			return
+		var hovered := get_viewport().gui_get_hovered_control()
+		var highlighted := hovered != null and (hovered == self or is_ancestor_of(hovered))
+		var style := hover if highlighted else idle
+		if get_theme_stylebox("panel") != style:
+			add_theme_stylebox_override("panel", style)
 
 
 class AbilityButton extends Button:

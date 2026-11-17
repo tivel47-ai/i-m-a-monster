@@ -138,3 +138,8 @@ Apply these rules automatically to all future development tasks in this reposito
 Do not wait for the user to explicitly request documentation updates.
 
 **Documentation maintenance is mandatory whenever the codebase changes in a way that affects the documented state of the game.**
+
+## Единые значки активных способностей — соглашение от 17.11.2026
+
+- Для каждой активной способности использовать один и тот же значок на древе развития, в панели изученных активных способностей и в хотбаре, включая миссионный HUD.
+- При добавлении новых способностей задавать общий источник значка в определении способности и использовать его во всех перечисленных местах. Если эмблема нарисована на текстуре древа, значок должен использовать ту же эмблему.

@@ -126,7 +126,12 @@ func _show(next: Screen) -> void:
 	menu_background.modulate = Color.WHITE if screen == Screen.MAIN else Color(0.42, 0.42, 0.42)
 	if is_instance_valid(developer_button): developer_button.visible = screen == Screen.MAIN
 	if ui.visible:
-		_focus_page(screen, development_button if returning_from_development else null)
+		var preferred_button: Button
+		if screen == Screen.DEVELOPMENT:
+			preferred_button = development.back_button
+		elif returning_from_development:
+			preferred_button = development_button
+		_focus_page(screen, preferred_button)
 
 func _focus_page(page: Screen, preferred_button: Button) -> void:
 	# Wait for container layout before focus tries to reveal the first button.
@@ -141,7 +146,7 @@ func _focus_page(page: Screen, preferred_button: Button) -> void:
 					button.grab_focus()
 					break
 		await get_tree().process_frame
-	if screen == page:
+	if screen == page and pages[page] is ScrollContainer:
 		pages[page].scroll_vertical = 0
 
 func _button(parent: Node, title: String, callback: Callable) -> Button:
@@ -678,11 +683,11 @@ func _update_preview() -> void:
 	_text(race_details, race.weaknesses, 18)
 
 func _build_development_page() -> void:
-	var page := _page(Screen.DEVELOPMENT, "Развитие")
 	development = DEVELOPMENT.new()
-	development.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	development.exit_requested.connect(func(): _show(Screen.RACES))
-	page.add_child(development)
+	ui.add_child(development)
+	development.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 12)
+	pages[Screen.DEVELOPMENT] = development
 
 
 func _open_development() -> void:

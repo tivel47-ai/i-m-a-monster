@@ -19,7 +19,7 @@ const NODES := {
 	HUNGER: {
 		"title": "Зов голода", "costs": [10, 20, 35, 55, 80], "requires": {},
 		"unlock": "initial_unlocked", "optional": true,
-		"icon": preload("res://assets/ui/call_of_hunger.png"),
+		"icon": preload("res://assets/ui/call_of_hunger_emblem.tres"),
 		"effects": [
 			{"speed": 0.25, "duration": 10.0, "radius": 3.0, "uses": 1},
 			{"speed": 0.27, "duration": 11.0, "radius": 3.3, "uses": 2},

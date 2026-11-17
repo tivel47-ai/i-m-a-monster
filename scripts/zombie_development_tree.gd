@@ -35,13 +35,14 @@ const PULSE_DURATION := 1.7
 const MAX_BRANCH_SEGMENTS := 26
 const GROWTH_DURATION := 0.85
 const VIEW_PADDING := Vector2(112.0, 112.0)
-const ZOOM_MIN := 1.0
+const ZOOM_DEFAULT := 1.0
+const ZOOM_MIN := 0.55
 const ZOOM_MAX := 2.5
 const ZOOM_STEP := 0.15
 
 var camera_speed := 500.0
 var navigation_enabled := true
-var zoom := ZOOM_MIN
+var zoom := ZOOM_DEFAULT
 var reveal_front := 0.0
 var spread := Vector3.ZERO
 var branch_growth := Vector3.ZERO
@@ -149,7 +150,7 @@ func begin(build: Dictionary, preview: bool, animate_reveal: bool) -> void:
 	sync_ranks(build)
 	spread = _target_spread
 	branch_growth = _target_growth
-	zoom = ZOOM_MIN
+	zoom = ZOOM_DEFAULT
 	_view_center = Vector2(0.5, 0.5)
 	_update_view()
 	_material.set_shader_parameter("preview", _preview)
@@ -193,7 +194,7 @@ func _update_view() -> void:
 	if size.x <= 0.0 or size.y <= 0.0 or _overlay.size.x <= 0.0 or _overlay.size.y <= 0.0:
 		return
 	var region := _overlay.size.max(size) + VIEW_PADDING
-	var travel := (region - size / zoom) * 0.5 / _overlay.size
+	var travel := (region - size / zoom).max(Vector2.ZERO) * 0.5 / _overlay.size
 	var middle := Vector2(0.5, 0.5)
 	_view_center = _view_center.clamp(middle - travel, middle + travel)
 	var scaled_size := _overlay.size * zoom
