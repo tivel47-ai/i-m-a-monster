@@ -248,8 +248,14 @@ func _tree_camera_and_growth() -> void:
 	var center_before: Vector2 = tree._view_center
 	var sidebar_before: Rect2 = editor.upgrades.get_global_rect()
 	var hotspot := flesh.get_global_rect().get_center()
+	check(editor.nodes.values().all(func(node): return node.text.is_empty() and not node.tooltip_text.is_empty())
+		and "8 Вируса" in flesh.tooltip_text and "Требуется" in editor.nodes[BRUTE].tooltip_text,
+		"Node names, prices and prerequisites are available in tooltips only")
+	var spots: PackedVector4Array = tree._material.get_shader_parameter("node_spots")
+	check(spots[0].z > spots[1].z and spots[1].z > 0.0 and spots[0].w == 0.0 and spots[1].w == 0.0,
+		"Available and prerequisite-locked perks have distinct silhouettes without lit emblems")
 	check(tree.branch_growth == Vector3.ZERO and tree._material.get_shader_parameter("branch_segment_count") == 0,
-		"Revealed perks start with no connecting branches")
+		"Revealed perks start with no grown branches")
 	_mouse_motion(hotspot, Vector2.ZERO, false)
 	_mouse_button(hotspot, true, MOUSE_BUTTON_WHEEL_UP)
 	_mouse_button(hotspot, false, MOUSE_BUTTON_WHEEL_UP)
@@ -529,10 +535,27 @@ func _check_reopen_and_refunds() -> void:
 	_click_control(editor.nodes[FLESH], MOUSE_BUTTON_RIGHT)
 	check(PROGRESSION.level(draft.build, FLESH) == 1 and PROGRESSION.level(draft.build, BRUTE) == 0
 		and draft.build.virus == stored + 41, "RMB refunds one Flesh level and cascades the Brute refund")
+	editor.request_exit()
+	editor.leave_dialog.get_ok_button().pressed.emit()
+	app._open_development()
+	draft = editor.draft
+	var spread_before_reset: Vector3 = editor.tree.spread
 	_click_control(editor.reset_button)
-	draft.reset()
 	check(draft.build.virus == stored + 114 and draft.build.initial_unlocked and draft.build.slots[2].is_empty(),
-		"Full reset returns original costs once, clears assignments and preserves reveal")
+		"Full reset immediately returns original costs once, clears assignments and preserves reveal")
+	await create_timer(0.25).timeout
+	var growth: Vector3 = editor.tree.branch_growth
+	check(growth.y > 0.0 and growth.y < 1.0 and growth.x == 1.0 and growth.z < 1.0
+		and editor.tree.spread.x == spread_before_reset.x,
+		"Brute and the independent Hunger branch retract while the route to Flesh holds")
+	await create_timer(0.75).timeout
+	growth = editor.tree.branch_growth
+	check(growth.y == 0.0 and growth.x > 0.0 and growth.x < 1.0 and growth.z == 0.0,
+		"The route from Flesh to the core retracts after its Brute branch is gone")
+	await create_timer(0.85).timeout
+	check(editor.tree.branch_growth == Vector3.ZERO and editor.tree.spread == Vector3.ZERO
+		and editor.tree._material.get_shader_parameter("branch_segment_count") == 0,
+		"Once the ordered retreat ends all grown branches are gone")
 	check(profile.apply(draft) == OK and PROGRESSION.new(save_path).state == profile.state,
 		"Refunded build and earned balance reload exactly")
 	draft = profile.begin_edit()

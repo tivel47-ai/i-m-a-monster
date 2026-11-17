@@ -48,6 +48,7 @@ var _view_center := Vector2(0.5, 0.5)
 var _target_reveal := 0.0
 var _target_spread := Vector3.ZERO
 var _target_growth := Vector3.ZERO
+var _outline_strength := Vector3.ZERO
 var _preview := false
 var _elapsed := 0.0
 var _overlay: Control
@@ -110,12 +111,10 @@ func _ready() -> void:
 func add_upgrade(id: String, button: Button) -> void:
 	_buttons[id] = button
 	button.flat = true
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	button.add_theme_color_override("font_color", Color("ede2c8"))
-	button.add_theme_color_override("font_outline_color", Color("10130f"))
-	button.add_theme_constant_override("outline_size", 8)
+	var empty := StyleBoxEmpty.new()
+	for state in [&"normal", &"hover", &"pressed", &"hover_pressed"]:
+		button.add_theme_stylebox_override(state, empty)
 	var focus := StyleBoxFlat.new()
 	focus.bg_color = Color(0.22, 0.26, 0.14, 0.23)
 	focus.border_color = Color("8a905f")
@@ -147,6 +146,7 @@ func sync_ranks(build: Dictionary) -> void:
 		var rank := PROGRESSION.level(build, id)
 		_target_spread[index] = float(rank) / PROGRESSION.NODES[id].costs.size()
 		_target_growth[index] = 1.0 if rank > 0 else 0.0
+		_outline_strength[index] = 1.0 if PROGRESSION.Draft.requirements_met(build, id) else 0.20
 
 
 func upgrades_visible() -> bool:
@@ -162,21 +162,12 @@ func _layout() -> void:
 	_core_title.add_theme_font_size_override("font_size", clampi(roundi(_overlay.size.x * 0.034), 19, 30))
 	_core_title.position = Vector2(0.23, 0.554) * _overlay.size
 	_core_title.size = Vector2(_overlay.size.x * 0.54, 0.0)
+	var hitbox_size := Vector2.ONE * maxf(36.0, height * 0.16)
 	for id in _buttons:
 		var button := _buttons[id]
 		var center: Vector2 = NODE_POSITIONS[id] * _overlay.size
-		var icon_half := maxf(18.0, _overlay.size.x * 0.045)
-		var button_height := maxf(47.0, icon_half * 1.75)
-		var font_size := clampi(roundi(_overlay.size.x * 0.023), 14, 19)
-		var width := minf(_overlay.size.x - center.x + icon_half - 4.0, 2.0 * icon_half + font_size * 9.2)
-		var margins := StyleBoxEmpty.new()
-		margins.content_margin_left = 1.95 * icon_half
-		margins.content_margin_right = 1.0
-		for state in [&"normal", &"hover", &"pressed", &"hover_pressed"]:
-			button.add_theme_stylebox_override(state, margins)
-		button.add_theme_font_size_override("font_size", font_size)
-		button.position = center - Vector2(icon_half, button_height * 0.5)
-		button.size = Vector2(width, button_height)
+		button.position = center - hitbox_size * 0.5
+		button.size = hitbox_size
 
 
 func _update_view() -> void:
@@ -219,10 +210,14 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	var was_visible := upgrades_visible()
 	var next_front := move_toward(reveal_front, _target_reveal, delta / 1.3)
-	var next_spread := spread.move_toward(_target_spread, delta * 1.25)
+	var spread_target := _target_spread
 	var next_growth := branch_growth
 	for index in NODE_IDS.size():
+		if _target_growth[index] == 0.0 and branch_growth[index] > 0.0 and _has_visible_child_branch(index):
+			spread_target[index] = spread[index]
+			continue
 		next_growth[index] = move_toward(branch_growth[index], _target_growth[index], delta / GROWTH_DURATION)
+	var next_spread := spread.move_toward(spread_target, delta * 1.25)
 	if next_front != reveal_front or next_spread != spread or next_growth != branch_growth:
 		reveal_front = next_front
 		spread = next_spread
@@ -231,6 +226,14 @@ func _process(delta: float) -> void:
 		if not was_visible and upgrades_visible():
 			initial_reveal_finished.emit()
 	_update_pulses()
+
+
+func _has_visible_child_branch(index: int) -> bool:
+	var node: Vector2 = NODE_POSITIONS[NODE_IDS[index]]
+	for child_index in ROUTES.size():
+		if branch_growth[child_index] > 0.0 and ROUTES[child_index][0] == node:
+			return true
+	return false
 
 
 func _update_growth_visuals() -> void:
@@ -242,7 +245,7 @@ func _update_growth_visuals() -> void:
 		var reveal := 1.0 if _preview else smoothstep(REVEAL_START[index], REVEAL_END[index], reveal_front)
 		var growth := branch_growth[index] * reveal
 		var node_light := smoothstep(0.68, 1.0, growth)
-		node_spots.append(Vector4(node.x, node.y, reveal, node_light))
+		node_spots.append(Vector4(node.x, node.y, reveal * _outline_strength[index], node_light))
 		if growth <= 0.0:
 			continue
 		var to_node := _node_distances[index]

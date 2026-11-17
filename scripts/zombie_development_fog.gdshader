@@ -9,7 +9,7 @@ uniform int branch_segment_count = 0;
 // Branch segments store two endpoints. The style stores radius and opacity.
 uniform vec4 branch_segments[26];
 uniform vec2 branch_styles[26];
-// Each node stores its position, reveal progress, and activation light.
+// Each node stores its position, silhouette strength, and activation light.
 uniform vec4 node_spots[3];
 uniform vec4 pulses[4];
 
@@ -37,8 +37,7 @@ void fragment() {
 	vec2 point = art_uv * vec2(aspect, 1.0);
 	float inside = min(min(art_uv.x, 1.0 - art_uv.x), min(art_uv.y, 1.0 - art_uv.y));
 	float texture_edge = smoothstep(-0.02, 0.055, inside);
-	vec3 surface = texture(TEXTURE, sample_uv).rgb;
-	vec3 art = surface;
+	vec3 art = texture(TEXTURE, sample_uv).rgb;
 	float pulse = 0.0;
 	for (int i = 0; i < 4; i++) {
 		vec4 glow = pulses[i];
@@ -68,15 +67,31 @@ void fragment() {
 	float distance_to_core = length((contour - vec2(aspect * 0.50, 0.474)) * vec2(1.0, 1.11));
 	opening = max(opening, 1.0 - smoothstep(0.159, 0.252, distance_to_core));
 	float haze = preview ? 1.0 : 1.0 - 0.17 * vapor;
-	vec3 result = mix(mist, art, texture_edge * opening * haze);
+	// Leave a low-contrast trace of the painted tendrils and distant growths in the fog.
+	float buried = textureLod(TEXTURE, sample_uv, 3.2).g;
+	float ground = textureLod(TEXTURE, sample_uv, 7.0).g;
+	float trace = clamp(buried - ground, -0.23, 0.10);
+	vec3 shroud = mist + texture_edge * trace * (0.28 - 0.14 * vapor);
+	vec3 result = mix(shroud, art, texture_edge * opening * haze);
 	for (int i = 0; i < 3; i++) {
 		vec4 node = node_spots[i];
 		float distance_to_node = length(contour - node.xy);
-		float patch = 1.0 - smoothstep(0.049, 0.093, distance_to_node);
-		float gray = dot(surface, vec3(0.30, 0.59, 0.11));
-		vec3 dormant = vec3(0.86, 0.99, 0.92) * (gray * 0.59 + 0.018);
-		vec3 node_color = mix(dormant, art, node.w);
-		result = mix(result, node_color, texture_edge * patch * node.z * haze);
+		if (distance_to_node < 0.108) {
+			float patch = 1.0 - smoothstep(0.057, 0.108, distance_to_node);
+			// Neighboring dark fibers bridge the light emblem while retaining the painted outline.
+			vec2 offset = vec2(0.016 / aspect, 0.016);
+			float fibers_x = min(
+				textureLod(TEXTURE, sample_uv + vec2(offset.x, 0.0), 2.5).g,
+				textureLod(TEXTURE, sample_uv - vec2(offset.x, 0.0), 2.5).g);
+			float fibers_y = min(
+				textureLod(TEXTURE, sample_uv + vec2(0.0, offset.y), 2.5).g,
+				textureLod(TEXTURE, sample_uv - vec2(0.0, offset.y), 2.5).g);
+			float shape = 1.0 - smoothstep(0.085, 0.25, min(buried, min(fibers_x, fibers_y)));
+			float center = 1.0 - smoothstep(0.027, 0.051, distance_to_node);
+			float darkness = max(center * 0.74, shape) * mix(0.12, 0.43, node.z);
+			vec3 node_color = mix(mist * (1.0 - darkness), art, node.w);
+			result = mix(result, node_color, texture_edge * patch * haze);
+		}
 	}
 	float vignette = smoothstep(0.26, 0.71, length((UV - 0.5) * vec2(0.92, 0.88)));
 	COLOR = vec4(result * (1.0 - vignette * 0.31), 1.0);

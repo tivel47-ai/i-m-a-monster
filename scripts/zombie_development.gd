@@ -228,14 +228,7 @@ func _refresh_nodes() -> void:
 		var unlocked: bool = tree.upgrades_visible() and (developer_preview or draft.build.get(spec.unlock, false))
 		var button := nodes[id]
 		button.visible = unlocked
-		button.text = "%s\n%d/%d" % [spec.title, rank, spec.costs.size()] if unlocked else ""
-		if unlocked and rank < spec.costs.size():
-			button.text += "  ·  %d Вируса" % spec.costs[rank]
 		button.tooltip_text = _node_tooltip(id, rank) if unlocked else ""
-		if rank == 0:
-			button.modulate = Color("b9c0b4")
-		else:
-			button.modulate = Color("f4c889") if rank != PROGRESSION.level(draft.original, id) else Color.WHITE
 
 
 func _refresh_upgrades() -> void:
