@@ -54,11 +54,23 @@ func run() -> void:
 	var abilities: ScrollContainer = editor.learned.get_parent()
 	check(not improvements.get_v_scroll_bar().visible and not abilities.get_v_scroll_bar().visible,
 		"Empty panels have no scrollbar")
+	check(not editor.nodes[P.BRUTE].visible and editor.nodes[P.BRUTE].tooltip_text.is_empty()
+		and not editor.nodes[P.HOUND].visible and editor.nodes[P.HOUND].tooltip_text.is_empty(),
+		"Both branches hide second-tier tooltips before their first perk is learned")
 	editor.draft.purchase(P.HUNGER)
 	editor._refresh()
 	await settle()
 	check(not improvements.get_v_scroll_bar().visible and not abilities.get_v_scroll_bar().visible,
 		"One upgrade and one learned ability have no scrollbar")
+	check(editor.tree.node_state(P.TENDONS) == editor.tree.PerkView.AVAILABLE
+		and editor.tree.node_state(P.SPASM) == editor.tree.PerkView.BLOCKED
+		and editor.nodes[P.SPASM].visible and "ур. 3" in editor.nodes[P.SPASM].tooltip_text,
+		"Hunger I exposes dark Tendons and gray Spasm with its exact missing rank")
+	check(not editor.nodes[P.HOUND].visible and editor.nodes[P.HOUND].tooltip_text.is_empty()
+		and editor.tree._frames[P.HOUND].visible,
+		"The distant Hound retains only a faint silhouette without a tooltip")
+	editor.tree._process(1.5)
+	await settle()
 	await capture("single_1280")
 	for id in P.NODES:
 		while P.level(editor.draft.build, id) < P.NODES[id].costs.size():

@@ -92,10 +92,10 @@ func run() -> void:
 	app.developer_mode = true
 	app._update_preview()
 	app._open_development()
-	check(app.screen == app.Screen.DEVELOPMENT and app.development.tree.upgrades_visible()
-		and app.development.nodes.values().all(func(node): return node.visible and not node.tooltip_text.is_empty())
+	check(app.screen == app.Screen.DEVELOPMENT and not app.development.tree.upgrades_visible()
+		and app.development.nodes.values().all(func(node): return not node.visible and node.tooltip_text.is_empty())
 		and not app.progression.state.initial_unlocked and not app.progression.state.reveal_seen,
-		"Developer mode reveals every node without changing persistent unlocks")
+		"Developer mode opens the editor with ordinary discovery rules and no persistent unlock changes")
 	var editor = app.development
 	await process_frame
 	check(root.gui_get_focus_owner() == editor.back_button,
@@ -181,8 +181,8 @@ func _edit_build() -> void:
 	check(editor.nodes.size() == 10 and not editor.tree.upgrades_visible() and app.progression.state.reveal_seen,
 		"First visit after Virus starts the one-time fog animation")
 	await create_timer(1.4).timeout
-	check(editor.tree.upgrades_visible() and editor.nodes.values().filter(func(node): return node.visible).size() == 3,
-		"Fog retreat exposes the three purchasable nodes")
+	check(editor.tree.upgrades_visible() and editor.nodes.values().filter(func(node): return node.visible).size() == 2,
+		"Initial discovery exposes only the two entry nodes")
 	await _tree_camera_and_growth()
 	check(not editor.draft.purchase_block(BRUTE).is_empty(), "Missing Flesh II is reported")
 	editor._purchase(BRUTE)
@@ -285,8 +285,8 @@ func _tree_camera_and_growth() -> void:
 	var sidebar_before: Rect2 = editor.upgrades.get_global_rect()
 	var hotspot := flesh.get_global_rect().get_center()
 	check(editor.nodes.values().filter(func(node): return node.visible).all(func(node): return node.text.is_empty() and not node.tooltip_text.is_empty())
-		and "8 Вируса" in flesh.tooltip_text and "Требуется" in editor.nodes[BRUTE].tooltip_text,
-		"Node names, prices and prerequisites are available in tooltips only")
+		and "8 Вируса" in flesh.tooltip_text and editor.nodes[BRUTE].tooltip_text.is_empty(),
+		"Entry nodes have descriptive tooltips; distant Brute has no tooltip")
 	var tooltip_style := editor.theme.get_stylebox("panel", "TooltipPanel") as StyleBoxFlat
 	var tooltip_offset: Vector2 = ProjectSettings.get_setting("display/mouse_cursor/tooltip_position_offset")
 	check(editor.theme.get_font_size("font_size", "TooltipLabel") == 16
@@ -295,7 +295,7 @@ func _tree_camera_and_growth() -> void:
 	check(tree._frames[FLESH].modulate.a > tree._frames[BRUTE].modulate.a
 		and tree._frames[BRUTE].modulate.a > 0.0
 		and tree._buttons[FLESH].self_modulate.a == 0.0 and tree._buttons[BRUTE].self_modulate.a == 0.0,
-		"Available and prerequisite-locked perks have distinct silhouettes without lit emblems")
+		"Available and distant perks have distinct silhouettes without lit emblems")
 	check(initial_branches(tree.branch_growth) == Vector3.ZERO and tree.active_branch_count() == 0,
 		"Revealed perks start with no grown branches")
 	_mouse_motion(hotspot, Vector2.ZERO, false)

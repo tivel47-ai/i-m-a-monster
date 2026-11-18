@@ -238,7 +238,7 @@ func open(saved: PROGRESSION, bindings: Dictionary, developer_mode: bool, camera
 	keys = bindings
 	developer_preview = developer_mode
 	draft = profile.begin_edit()
-	var animate_reveal: bool = not developer_preview and draft.build.initial_unlocked and not draft.build.reveal_seen
+	var animate_reveal: bool = draft.build.initial_unlocked and not draft.build.reveal_seen
 	if animate_reveal:
 		profile.mark_reveal_seen()
 		draft = profile.begin_edit()
@@ -302,6 +302,10 @@ func _adjust_virus(delta: int) -> void:
 	var virus: int = draft.build.virus
 	draft.build.virus = maxi(0, virus + mini(delta, 9223372036854775807 - virus))
 	if delta > 0:
+		if not draft.build.initial_unlocked:
+			# The initial wave is now started by sync_ranks(), exactly as after
+			# earning the first resource. Applying must not replay it on reentry.
+			draft.build.reveal_seen = true
 		draft.build.initial_unlocked = true
 	_refresh()
 
@@ -323,7 +327,7 @@ func _refresh() -> void:
 		status.text = "Хранилище развития недоступно"
 	elif draft.changed():
 		status.text = "Есть неприменённые изменения"
-	elif not draft.build.initial_unlocked and not developer_preview:
+	elif not draft.build.initial_unlocked:
 		status.text = "Первое начисление Вируса откроет улучшения"
 	apply_button.disabled = not draft.changed()
 	reset_button.disabled = draft.build.paid.is_empty()
@@ -412,8 +416,13 @@ func _node_tooltip(id: String, rank: int) -> String:
 	if rank < spec.costs.size():
 		lines.append("Следующий уровень · %d Вируса" % spec.costs[rank])
 		lines.append(PROGRESSION.effect_text(id, rank + 1))
-	var block := draft.purchase_block(id, developer_preview)
-	if not block.is_empty():
+	var block := draft.purchase_block(id)
+	var unmet := false
+	for parent: String in spec.requires:
+		if PROGRESSION.level(draft.build, parent) < spec.requires[parent]:
+			unmet = true
+			lines.append("Требуется «%s», ур. %d" % [PROGRESSION.NODES[parent].title, spec.requires[parent]])
+	if not block.is_empty() and not unmet:
 		lines.append(block)
 	lines.append("ЛКМ: купить · ПКМ: вернуть уровень")
 	return "\n".join(lines)

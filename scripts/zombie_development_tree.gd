@@ -23,6 +23,9 @@ const ZOOM_DEFAULT := 1.0
 const ZOOM_MIN := 0.55
 const ZOOM_MAX := 2.5
 const ZOOM_STEP := 0.15
+const ROOT_MASK_HEIGHT := 471.0
+const ROOT_MASK_PADDING := 0.24
+enum PerkView { DISTANT, BLOCKED, AVAILABLE, OWNED }
 
 # Node layout and prerequisites come from ability definitions. No node limit.
 var definitions: Dictionary = PROGRESSION.NODES
@@ -37,7 +40,7 @@ var _target_reveal := 0.0
 var _target_growth := PackedFloat32Array()
 var _outline_strength := PackedFloat32Array()
 var _revealed: Dictionary = {}
-var _preview := false
+var _view_states: Dictionary = {}
 var _elapsed := 0.0
 var _overlay: Control
 var _branch_layer: Control
@@ -46,6 +49,15 @@ var _core_hover: Control
 var _core_sprite: TextureRect
 var _core_title: Label
 var _material: ShaderMaterial
+var _fog_material: ShaderMaterial
+var _fog_layer: ColorRect
+var _title_layer: Control
+var _root_mask_view: SubViewport
+var _root_mask_layer: Control
+var _clear_brush: GradientTexture2D
+var _fog_sites: ImageTexture
+var _fog_front := PackedFloat32Array()
+var _initial_fog_radius := 0.0
 var _buttons: Dictionary[String, Button] = {}
 var _frames: Dictionary[String, TextureRect] = {}
 var _branches: Array[Dictionary] = []
@@ -59,6 +71,7 @@ func _ready() -> void:
 	branch_growth.resize(node_ids.size())
 	_target_growth.resize(node_ids.size())
 	_outline_strength.resize(node_ids.size())
+	_fog_front.resize(node_ids.size())
 	_build_connections()
 	var background := ColorRect.new()
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -74,6 +87,20 @@ func _ready() -> void:
 	_branch_layer.z_index = 0
 	_branch_layer.draw.connect(_draw_connections)
 	_node_layer = _layer(_overlay)
+	_fog_material = ShaderMaterial.new()
+	_fog_material.shader = FOG
+	_fog_material.set_shader_parameter("aspect", ASPECT)
+	_fog_material.set_shader_parameter("overlay_pass", true)
+	_fog_layer = ColorRect.new()
+	_fog_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fog_layer.material = _fog_material
+	add_child(_fog_layer)
+	_fog_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Art stays above the atmosphere. Its own tint controls visibility; fog
+	# must never erase a rendered connection or recolor a painted medallion.
+	move_child(_fog_layer, _overlay.get_index())
+	_title_layer = _layer(self)
+	_create_root_mask()
 	# Sibling order keeps nodes above roots while fixed UI panels stay above
 	# the entire tree; a positive z_index would also lift nodes over sidebars.
 	_core_sprite = _sprite(_node_layer, CORE_ART)
@@ -96,7 +123,7 @@ func _ready() -> void:
 	_core_title.add_theme_color_override("font_outline_color", Color("141511"))
 	_core_title.add_theme_constant_override("outline_size", 8)
 	_core_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_node_layer.add_child(_core_title)
+	_title_layer.add_child(_core_title)
 	resized.connect(_layout)
 	visibility_changed.connect(_update_processing)
 	_layout()
@@ -117,6 +144,53 @@ func _sprite(parent: Node, texture: Texture2D) -> TextureRect:
 	sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(sprite)
 	return sprite
+
+
+func _create_root_mask() -> void:
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.72, 1.0])
+	gradient.colors = PackedColorArray([Color.WHITE, Color.WHITE, Color(1, 1, 1, 0)])
+	_clear_brush = GradientTexture2D.new()
+	_clear_brush.gradient = gradient
+	_clear_brush.width = 128
+	_clear_brush.height = 128
+	_clear_brush.fill = GradientTexture2D.FILL_RADIAL
+	_clear_brush.fill_from = Vector2(0.5, 0.5)
+	_clear_brush.fill_to = Vector2(1.0, 0.5)
+	_root_mask_view = SubViewport.new()
+	_root_mask_view.size = Vector2i(ceili((ASPECT + ROOT_MASK_PADDING * 2.0) * ROOT_MASK_HEIGHT), ceili((1.0 + ROOT_MASK_PADDING * 2.0) * ROOT_MASK_HEIGHT))
+	_root_mask_view.transparent_bg = true
+	_root_mask_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(_root_mask_view)
+	_root_mask_layer = _layer(_root_mask_view)
+	_root_mask_layer.draw.connect(_draw_root_clearance)
+	_fog_material.set_shader_parameter("root_clearance", _root_mask_view.get_texture())
+	_fog_material.set_shader_parameter("root_mask_padding", Vector2.ONE * ROOT_MASK_PADDING)
+	_fog_material.set_shader_parameter("root_mask_extent", Vector2(ASPECT, 1.0) + Vector2.ONE * ROOT_MASK_PADDING * 2.0)
+
+
+func _draw_root_clearance() -> void:
+	var height := ROOT_MASK_HEIGHT
+	var radius := height * 0.19
+	for branch in _branches:
+		var index: int = branch.index
+		var scouting := minf(_fog_front[index], reveal_front)
+		var growth := maxf(branch_growth[index], scouting)
+		if growth <= 0.0:
+			continue
+		var path: Curve2D = branch.path
+		var length: float = (branch.end - branch.start) * growth
+		var steps := maxi(1, ceili(length / 0.035))
+		for step in steps + 1:
+			var point := path.sample_baked(branch.start + length * step / steps, true)
+			var brush_radius := radius
+			if definitions[branch.to].requires.is_empty() and reveal_front < 1.0:
+				# Only entry nodes participate in the initial wave from the core.
+				brush_radius = minf(radius, maxf(0.0, reveal_front * _initial_fog_radius - point.distance_to(CORE * ART_SCALE)) * height)
+			if brush_radius <= 0.0:
+				continue
+			var center := (point + Vector2.ONE * ROOT_MASK_PADDING) * height
+			_root_mask_layer.draw_texture_rect(_clear_brush, Rect2(center - Vector2.ONE * brush_radius, Vector2.ONE * brush_radius * 2.0), false)
 
 
 func _build_connections() -> void:
@@ -170,6 +244,9 @@ func _build_connections() -> void:
 			_branches.append({"from": parent, "to": id, "index": node_ids.find(id),
 				"texture": texture,
 				"path": path, "start": first, "end": last})
+		if definitions[id].requires.is_empty():
+			_initial_fog_radius = maxf(_initial_fog_radius,
+				(CORE * ART_SCALE).distance_to(definitions[id].tree_position * ART_SCALE) + 0.30)
 
 
 func add_upgrade(id: String, button: Button) -> void:
@@ -193,39 +270,54 @@ func add_upgrade(id: String, button: Button) -> void:
 	_layout()
 
 
-func begin(build: Dictionary, preview: bool, animate_reveal: bool) -> void:
-	_preview = preview
+func begin(build: Dictionary, _developer_mode: bool, animate_reveal: bool) -> void:
+	# Developer mode only adds resource controls in the editor, not a second
+	# set of discovery, tooltip or fog rules.
 	_target_reveal = 1.0 if build.initial_unlocked else 0.0
 	reveal_front = 0.0 if animate_reveal else _target_reveal
 	sync_ranks(build)
 	branch_growth = _target_growth.duplicate()
+	for index in node_ids.size():
+		_fog_front[index] = 1.0 if node_state(node_ids[index]) in [PerkView.AVAILABLE, PerkView.OWNED] else 0.0
 	zoom = ZOOM_DEFAULT
 	_view_center = Vector2(0.5, 0.5)
 	_update_view()
-	_material.set_shader_parameter("preview", _preview)
 	_update_growth_visuals()
 
 
 func sync_ranks(build: Dictionary) -> void:
+	_target_reveal = 1.0 if build.initial_unlocked else 0.0
 	for index in node_ids.size():
 		var id: String = node_ids[index]
 		var rank: int = build.paid.get(id, []).size()
-		_revealed[id] = build.initial_unlocked if definitions[id].has("unlock") else id in build.revealed
+		var adjacent := false
+		for parent: String in definitions[id].requires:
+			adjacent = adjacent or not build.paid.get(parent, []).is_empty()
+		# Saved discovery is history, not current reachability. Refunding a
+		# parent immediately removes tooltips from the now distant descendants.
+		_revealed[id] = rank > 0 or (build.initial_unlocked and (definitions[id].requires.is_empty() or adjacent))
 		_target_growth[index] = 1.0 if rank > 0 else 0.0
 		var met := true
 		for parent: String in definitions[id].requires:
 			if build.paid.get(parent, []).size() < definitions[id].requires[parent]:
 				met = false
 		_outline_strength[index] = 1.0 if met else 0.20
+		var affordable: bool = rank < definitions[id].costs.size() and build.get("virus", 0) >= definitions[id].costs[rank]
+		_view_states[id] = PerkView.OWNED if rank > 0 else (PerkView.DISTANT if not _revealed[id]
+			else (PerkView.AVAILABLE if met and affordable else PerkView.BLOCKED))
 	_update_growth_visuals()
 
 
 func node_visible(id: String) -> bool:
-	return _preview or (upgrades_visible() and _revealed.get(id, false))
+	return upgrades_visible() and _revealed.get(id, false)
+
+
+func node_state(id: String) -> PerkView:
+	return _view_states.get(id, PerkView.DISTANT)
 
 
 func upgrades_visible() -> bool:
-	return _preview or reveal_front >= 1.0
+	return reveal_front >= 1.0
 
 
 func _layout() -> void:
@@ -264,8 +356,12 @@ func _update_view() -> void:
 	var scaled_size := _overlay.size * zoom
 	_overlay.scale = Vector2.ONE * zoom
 	_overlay.position = (size * 0.5 - _view_center * scaled_size).round()
+	_title_layer.position = _overlay.position
+	_title_layer.scale = _overlay.scale
 	_material.set_shader_parameter("content_scale", scaled_size / size)
 	_material.set_shader_parameter("content_origin", _overlay.position / size)
+	_fog_material.set_shader_parameter("content_scale", scaled_size / size)
+	_fog_material.set_shader_parameter("content_origin", _overlay.position / size)
 	_branch_layer.queue_redraw()
 
 
@@ -296,17 +392,24 @@ func _process(delta: float) -> void:
 	var was_visible := upgrades_visible()
 	var next_front := move_toward(reveal_front, _target_reveal, delta / 1.3)
 	var next_growth := branch_growth.duplicate()
+	var fog_changed := false
 	for index in node_ids.size():
+		var clear_target := 1.0 if node_state(node_ids[index]) in [PerkView.AVAILABLE, PerkView.OWNED] else 0.0
+		var next_fog := move_toward(_fog_front[index], clear_target, delta / 1.2)
+		fog_changed = fog_changed or next_fog != _fog_front[index]
+		_fog_front[index] = next_fog
 		if _target_growth[index] == 0.0 and branch_growth[index] > 0.0 and _has_visible_child_branch(index):
 			continue
 		next_growth[index] = move_toward(branch_growth[index], _target_growth[index], delta / GROWTH_DURATION)
-	if next_front != reveal_front or next_growth != branch_growth:
+	if next_front != reveal_front or next_growth != branch_growth or fog_changed:
 		reveal_front = next_front
 		branch_growth = next_growth
 		_update_growth_visuals()
 		if not was_visible and upgrades_visible():
 			initial_reveal_finished.emit()
 	_update_pulses()
+	_material.set_shader_parameter("mist_time", _elapsed)
+	_fog_material.set_shader_parameter("mist_time", _elapsed)
 
 
 func _has_visible_child_branch(index: int) -> bool:
@@ -321,14 +424,43 @@ func _update_growth_visuals() -> void:
 		var id: String = node_ids[index]
 		if not _buttons.has(id):
 			continue
-		_frames[id].visible = _preview or (_revealed.get(id, false) and reveal_front > 0.0)
+		_frames[id].visible = reveal_front > 0.0
 		var light := smoothstep(0.68, 1.0, branch_growth[index])
-		var silhouette := Color(0.14, 0.17, 0.13, 0.75 if _outline_strength[index] == 1.0 else 0.40)
-		silhouette.a *= 1.0 if _preview else smoothstep(0.0, 1.0, reveal_front)
+		var state := node_state(id)
+		# Retain the accepted painted texture and original dark/veiled tint.
+		# Only the third, distant state adds a weaker version of that silhouette.
+		var alpha := 0.10 if state == PerkView.DISTANT else (0.75 if state in [PerkView.AVAILABLE, PerkView.OWNED] else 0.40)
+		var silhouette := Color(0.14, 0.17, 0.13, alpha * smoothstep(0.0, 1.0, reveal_front))
 		_frames[id].modulate = silhouette.lerp(Color.WHITE, light)
 		_buttons[id].self_modulate = Color(1.0, 1.0, 1.0, light)
 	if is_instance_valid(_branch_layer):
 		_branch_layer.queue_redraw()
+	if is_instance_valid(_fog_material):
+		_update_fog_sites()
+		_root_mask_layer.queue_redraw()
+		_root_mask_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+func _update_fog_sites() -> void:
+	var image := Image.create(maxi(1, _branches.size()), 2, false, Image.FORMAT_RGBAF)
+	for site in _branches.size():
+		var branch := _branches[site]
+		var index: int = branch.index
+		var initial: bool = definitions[branch.to].requires.is_empty()
+		var source: Vector2 = CORE if initial or branch.from.is_empty() else definitions[branch.from].tree_position
+		var target: Vector2 = definitions[branch.to].tree_position
+		source *= ART_SCALE
+		target *= ART_SCALE
+		var radius := 0.16 + 0.05 * branch_growth[index]
+		var wave := minf(reveal_front * _initial_fog_radius, _fog_front[index] * (_initial_fog_radius + 0.08)) if initial else _fog_front[index] * (source.distance_to(target) + radius + 0.08)
+		image.set_pixel(site, 0, Color(source.x, source.y, target.x, target.y))
+		image.set_pixel(site, 1, Color(wave, radius, 0.0, 1.0 if _fog_front[index] > 0.0 else 0.0))
+	if _fog_sites == null:
+		_fog_sites = ImageTexture.create_from_image(image)
+		_fog_material.set_shader_parameter("reveal_sites", _fog_sites)
+	else:
+		_fog_sites.update(image)
+	_fog_material.set_shader_parameter("reveal_count", _branches.size())
 
 
 func active_branch_count() -> int:
@@ -345,8 +477,8 @@ func _draw_connections() -> void:
 		var index: int = branch.index
 		var growth := branch_growth[index]
 		var path: Curve2D = branch.path
-		var known: bool = _preview or _revealed.get(branch.to, false)
-		var strength := 1.0 if growth > 0.0 else (0.13 * (1.0 if _preview else reveal_front) if known else 0.0)
+		var known: bool = _revealed.get(branch.to, false)
+		var strength := 1.0 if growth > 0.0 else (0.13 * reveal_front if known else 0.0)
 		if strength == 0.0 or branch.end <= branch.start:
 			continue
 		var fraction := growth if growth > 0.0 else 1.0
