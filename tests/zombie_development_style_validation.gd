@@ -57,6 +57,9 @@ func run() -> void:
 	check(not editor.nodes[P.BRUTE].visible and editor.nodes[P.BRUTE].tooltip_text.is_empty()
 		and not editor.nodes[P.HOUND].visible and editor.nodes[P.HOUND].tooltip_text.is_empty(),
 		"Both branches hide second-tier tooltips before their first perk is learned")
+	check(complete_pending_routes(editor.tree),
+		"Every tier has a full faint connection before learning any perk")
+	await capture("empty_routes_1280")
 	editor.draft.purchase(P.HUNGER)
 	editor._refresh()
 	await settle()
@@ -69,6 +72,8 @@ func run() -> void:
 	check(not editor.nodes[P.HOUND].visible and editor.nodes[P.HOUND].tooltip_text.is_empty()
 		and editor.tree._frames[P.HOUND].visible,
 		"The distant Hound retains only a faint silhouette without a tooltip")
+	check(complete_pending_routes(editor.tree),
+		"Distant routes remain complete in a partially purchased tree")
 	editor.tree._process(1.5)
 	await settle()
 	await capture("single_1280")
@@ -163,6 +168,19 @@ func run() -> void:
 	await process_frame
 	print("Zombie development style: %d checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+
+func complete_pending_routes(tree) -> bool:
+	if tree._branch_meshes.size() != tree._branches.size():
+		return false
+	for index in tree._branches.size():
+		if tree.branch_growth[tree._branches[index].index] > 0.0:
+			continue
+		var arrays: Array = tree._branch_meshes[index].surface_get_arrays(0)
+		var uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+		if not is_equal_approx(uv[-1].x, 1.0):
+			return false
+	return true
 
 
 func continuous_stem(image: Image) -> bool:
@@ -329,5 +347,7 @@ func scalability() -> void:
 	await settle()
 	check(tree.active_branch_count() == 0 and tree.branch_growth.count(0.0) == 16,
 		"Cascade retraction reaches zero even in the expanded graph")
+	check(complete_pending_routes(tree),
+		"All seventeen faint routes remain after refunding the expanded tree")
 	tree.queue_free()
 	await process_frame

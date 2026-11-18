@@ -1,8 +1,0 @@
-[gd_resource type="AtlasTexture" load_steps=2 format=3]
-
-[ext_resource type="Texture2D" path="res://assets/ui/zombie_perk_medallions.png" id="1_art"]
-
-[resource]
-atlas = ExtResource("1_art")
-region = Rect2(887, 0, 443.5, 443.5)
-filter_clip = true

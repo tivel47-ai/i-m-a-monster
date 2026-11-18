@@ -477,8 +477,9 @@ func _draw_connections() -> void:
 		var index: int = branch.index
 		var growth := branch_growth[index]
 		var path: Curve2D = branch.path
-		var known: bool = _revealed.get(branch.to, false)
-		var strength := 1.0 if growth > 0.0 else (0.13 * reveal_front if known else 0.0)
+		# Every real dependency has a faint full-length route, including distant
+		# tiers. Inspectability only controls node input and fog clearing.
+		var strength := 1.0 if growth > 0.0 else 0.13 * reveal_front
 		if strength == 0.0 or branch.end <= branch.start:
 			continue
 		var fraction := growth if growth > 0.0 else 1.0

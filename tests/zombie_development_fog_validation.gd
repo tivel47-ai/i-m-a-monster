@@ -231,8 +231,6 @@ func draw_roots(layer: Control) -> void:
 	var mesh_index := 0
 	for branch in tree._branches:
 		var growth: float = tree.branch_growth[branch.index]
-		if growth <= 0.0 and not tree._revealed.get(branch.to, false):
-			continue
 		if growth >= 1.0:
 			layer.draw_mesh(tree._branch_meshes[mesh_index], branch.texture)
 		mesh_index += 1
