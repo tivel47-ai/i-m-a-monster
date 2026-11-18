@@ -15,19 +15,24 @@ const SPASM := "hungry_spasm"
 const FORMS := [BRUTE, HOUND, CARRIER]
 const NODES := {
 	FLESH: {
+		"tree_position": Vector2(0.289, 0.274),
+		"icon": preload("res://assets/ui/zombie_style/tough_flesh.png"),
 		"title": "Крепкая плоть", "costs": [8, 16, 28, 45, 65], "requires": {},
 		"unlock": "initial_unlocked", "hp_per_level": 0.05,
 	},
 	BRUTE: {
+		"tree_position": Vector2(0.163, 0.122),
+		"icon": preload("res://assets/ui/zombie_style/brute.png"),
 		"title": "Громила", "costs": [25], "requires": {FLESH: 2},
 		"unlock": "initial_unlocked", "chance": 0.10, "health": 2.0, "speed": 0.65,
 		"damage": 1.5, "interval": 2.0, "splash": 0.4, "radius": 1.5,
 		"knockback": 0.5, "infection": 0.02,
 	},
 	HUNGER: {
+		"tree_position": Vector2(0.726, 0.716),
 		"title": "Зов голода", "costs": [10, 20, 35, 55, 80], "requires": {},
 		"unlock": "initial_unlocked", "optional": true,
-		"icon": preload("res://assets/ui/call_of_hunger_emblem.tres"),
+		"icon": preload("res://assets/ui/zombie_style/call_of_hunger.png"),
 		"effects": [
 			{"speed": 0.25, "duration": 10.0, "radius": 3.0, "uses": 1},
 			{"speed": 0.27, "duration": 11.0, "radius": 3.3, "uses": 2},
@@ -37,30 +42,37 @@ const NODES := {
 		],
 	},
 	TENDONS: {
+		"tree_position": Vector2(0.86, 0.55),
 		"title": "Цепкие сухожилия", "costs": [8, 16, 28, 45, 65], "requires": {HUNGER: 1},
-		"speed_per_level": 0.02, "icon": preload("res://assets/ui/grasping_tendons_medallion.tres"),
+		"speed_per_level": 0.02, "icon": preload("res://assets/ui/zombie_style/grasping_tendons.png"),
 	},
 	SALIVA: {
+		"tree_position": Vector2(0.28, 0.015),
 		"title": "Заразная слюна", "costs": [10, 20, 35, 55, 80], "requires": {FLESH: 1},
-		"infection_per_level": 0.01, "icon": preload("res://assets/ui/infectious_saliva_medallion.tres"),
+		"infection_per_level": 0.01, "icon": preload("res://assets/ui/zombie_style/infectious_saliva.png"),
 	},
 	GROWTHS: {
+		"tree_position": Vector2(0.10, 0.72),
+		"tree_via": [Vector2(0.05, 0.28), Vector2(0.06, 0.58)],
 		"title": "Костяные наросты", "costs": [8, 16, 28, 45, 65], "requires": {BRUTE: 1},
-		"entrance_per_level": 0.05, "icon": preload("res://assets/ui/bone_growths_medallion.tres"),
+		"entrance_per_level": 0.05, "icon": preload("res://assets/ui/zombie_style/bone_growths.png"),
 	},
 	HOUND: {
+		"tree_position": Vector2(0.94, 0.70),
 		"title": "Гончий", "costs": [30], "requires": {TENDONS: 2},
 		"chance": 0.08, "health": 0.70, "speed": 1.25, "damage": 0.70,
-		"interval": 1.0, "infection": 0.15, "icon": preload("res://assets/ui/hound_medallion.tres"),
+		"interval": 1.0, "infection": 0.15, "icon": preload("res://assets/ui/zombie_style/hound.png"),
 	},
 	CARRIER: {
+		"tree_position": Vector2(0.56, 0.04),
 		"title": "Носитель", "costs": [40], "requires": {SALIVA: 2},
 		"chance": 0.06, "health": 1.25, "speed": 0.80, "damage": 0.50,
-		"interval": 1.0, "infection": 0.25, "icon": preload("res://assets/ui/carrier_medallion.tres"),
+		"interval": 1.0, "infection": 0.25, "icon": preload("res://assets/ui/zombie_style/carrier.png"),
 	},
 	FORTITUDE: {
+		"tree_position": Vector2(0.30, 0.70),
 		"title": "Мёртвая стойкость", "costs": [10, 20, 35, 55, 80], "requires": {FLESH: 3},
-		"optional": true, "icon": preload("res://assets/ui/dead_fortitude_medallion.tres"),
+		"optional": true, "icon": preload("res://assets/ui/zombie_style/dead_fortitude.png"),
 		"effects": [
 			{"reduction": 0.15, "duration": 8.0, "radius": 3.0, "uses": 1},
 			{"reduction": 0.17, "duration": 9.0, "radius": 3.3, "uses": 2},
@@ -70,8 +82,9 @@ const NODES := {
 		],
 	},
 	SPASM: {
+		"tree_position": Vector2(0.85, 0.81),
 		"title": "Голодная судорога", "costs": [10, 20, 35, 55, 80], "requires": {HUNGER: 3},
-		"optional": true, "icon": preload("res://assets/ui/hungry_spasm_medallion.tres"),
+		"optional": true, "icon": preload("res://assets/ui/zombie_style/hungry_spasm.png"),
 		"effects": [
 			{"frequency": 0.15, "speed": -0.15, "duration": 6.0, "radius": 3.0, "uses": 1},
 			{"frequency": 0.17, "speed": -0.15, "duration": 7.0, "radius": 3.3, "uses": 2},

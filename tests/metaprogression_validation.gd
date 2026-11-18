@@ -211,7 +211,7 @@ func _edit_build() -> void:
 	check(app.screen == app.Screen.RACES and app.progression.state.virus == 100,
 		"Exit without saving discards the provisional changes")
 	app._open_development()
-	check(editor.tree.upgrades_visible() and initial_branches(editor.tree.spread) == Vector3.ZERO,
+	check(editor.tree.upgrades_visible() and initial_branches(editor.tree.branch_growth) == Vector3.ZERO,
 		"A second visit skips the first reveal and discards unapplied fog growth")
 	for id in [FLESH, FLESH, BRUTE, HUNGER, HUNGER, HUNGER]:
 		if id == HUNGER and PROGRESSION.level(editor.draft.build, HUNGER) == 2:
@@ -220,8 +220,8 @@ func _edit_build() -> void:
 		editor._purchase(id)
 	await process_frame
 	await process_frame
-	check(editor.tree.spread[0] > 0.0 and editor.tree.spread[1] > 0.0 and editor.tree.spread[2] > 0.0,
-		"Purchases advance the fog front along the upgraded branches")
+	check(editor.tree.branch_growth[0] > 0.0 and editor.tree.branch_growth[1] > 0.0 and editor.tree.branch_growth[2] > 0.0,
+		"First purchases grow their connections toward the nodes")
 	var learned: Button = editor.learned.get_child(0)
 	var slot: Button = editor.slots[2]
 	var tree_rect: Rect2 = editor.tree.get_global_rect()
@@ -257,11 +257,10 @@ func _edit_build() -> void:
 		await create_timer(0.03).timeout
 		check(idle.bg_color.a < hover.bg_color.a and panel.get_theme_stylebox("panel") == idle,
 			"Overlay brightens over a child and becomes translucent when the pointer leaves")
-	var emblem := learned.icon as AtlasTexture
-	var node_uv: Vector2 = editor.tree.NODE_POSITIONS[HUNGER]
+	var emblem: Texture2D = learned.icon
 	check(editor.upgrades.get_child_count() == 3 and slot.icon == null and emblem != null
-		and emblem.atlas == editor.tree.ART and emblem.region.has_point(node_uv * emblem.atlas.get_size()),
-		"The learned ability uses the emblem sampled from its tree node")
+		and emblem == PROGRESSION.NODES[HUNGER].icon and editor.nodes[HUNGER].icon == emblem,
+		"The learned ability uses the same independent symbol as its tree node")
 	_drag(learned.get_global_rect().get_center(), slot.get_global_rect().get_center())
 	check(editor.draft.build.slots[2] == HUNGER and slot.icon == emblem,
 		"A GUI drag from learned abilities assigns its icon to the hovered slot")
@@ -293,10 +292,11 @@ func _tree_camera_and_growth() -> void:
 	check(editor.theme.get_font_size("font_size", "TooltipLabel") == 16
 		and tooltip_style.bg_color.a < 1.0 and tooltip_offset.y >= 40.0,
 		"Development tooltips use compact text, translucent panels and a cursor-sized offset")
-	var spots: PackedVector4Array = tree._material.get_shader_parameter("node_spots")
-	check(spots[0].z > spots[1].z and spots[1].z > 0.0 and spots[0].w == 0.0 and spots[1].w == 0.0,
+	check(tree._frames[FLESH].modulate.a > tree._frames[BRUTE].modulate.a
+		and tree._frames[BRUTE].modulate.a > 0.0
+		and tree._buttons[FLESH].self_modulate.a == 0.0 and tree._buttons[BRUTE].self_modulate.a == 0.0,
 		"Available and prerequisite-locked perks have distinct silhouettes without lit emblems")
-	check(initial_branches(tree.branch_growth) == Vector3.ZERO and tree._material.get_shader_parameter("branch_segment_count") == 0,
+	check(initial_branches(tree.branch_growth) == Vector3.ZERO and tree.active_branch_count() == 0,
 		"Revealed perks start with no grown branches")
 	_mouse_motion(hotspot, Vector2.ZERO, false)
 	_mouse_button(hotspot, true, MOUSE_BUTTON_WHEEL_UP)
@@ -316,7 +316,7 @@ func _tree_camera_and_growth() -> void:
 	check(PROGRESSION.level(editor.draft.build, FLESH) == 1,
 		"The transformed perk remains clickable after pan and zoom")
 	await create_timer(0.26).timeout
-	var segments: int = tree._material.get_shader_parameter("branch_segment_count")
+	var segments: int = tree.active_branch_count()
 	check(tree.branch_growth[0] > 0.0 and tree.branch_growth[0] < 1.0 and segments > 0
 		and tree.branch_growth[1] == 0.0 and tree.branch_growth[2] == 0.0,
 		"Only the purchased branch grows from its starting point")
@@ -325,7 +325,7 @@ func _tree_camera_and_growth() -> void:
 	_click_control(flesh, MOUSE_BUTTON_RIGHT)
 	await create_timer(0.92).timeout
 	check(initial_branches(tree.branch_growth) == Vector3.ZERO and editor.draft.build.virus == 100
-		and tree._material.get_shader_parameter("branch_segment_count") == 0,
+		and tree.active_branch_count() == 0,
 		"Right click after zoom refunds the level and retracts its whole branch")
 	var canvas_center: Vector2 = tree.get_global_rect().get_center()
 	for i in 15:
@@ -586,7 +586,6 @@ func _check_reopen_and_refunds() -> void:
 	editor.leave_dialog.get_ok_button().pressed.emit()
 	app._open_development()
 	draft = editor.draft
-	var spread_before_reset := initial_branches(editor.tree.spread)
 	_click_control(editor.reset_button)
 	check(not draft.changed(), "A short click leaves the development build intact")
 	editor.reset_button.grab_focus()
@@ -632,16 +631,15 @@ func _check_reopen_and_refunds() -> void:
 		"A full hold returns original costs once, clears assignments and preserves reveal")
 	await create_timer(0.25).timeout
 	var growth := initial_branches(editor.tree.branch_growth)
-	check(growth.y > 0.0 and growth.y < 1.0 and growth.x == 1.0 and growth.z < 1.0
-		and editor.tree.spread[0] == spread_before_reset.x,
+	check(growth.y > 0.0 and growth.y < 1.0 and growth.x == 1.0 and growth.z < 1.0,
 		"Brute and the independent Hunger branch retract while the route to Flesh holds")
 	await create_timer(0.75).timeout
 	growth = initial_branches(editor.tree.branch_growth)
 	check(growth.y == 0.0 and growth.x > 0.0 and growth.x < 1.0 and growth.z == 0.0,
 		"The route from Flesh to the core retracts after its Brute branch is gone")
 	await create_timer(0.85).timeout
-	check(initial_branches(editor.tree.branch_growth) == Vector3.ZERO and initial_branches(editor.tree.spread) == Vector3.ZERO
-		and editor.tree._material.get_shader_parameter("branch_segment_count") == 0,
+	check(initial_branches(editor.tree.branch_growth) == Vector3.ZERO
+		and editor.tree.active_branch_count() == 0,
 		"Once the ordered retreat ends all grown branches are gone")
 	check(profile.apply(draft) == OK and PROGRESSION.new(save_path).state == profile.state,
 		"Refunded build and earned balance reload exactly")
