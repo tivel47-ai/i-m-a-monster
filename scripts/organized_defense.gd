@@ -46,6 +46,9 @@ var _capacity_cache: Dictionary = {}
 var _protected_iteration := -1
 var _slot_sides: Dictionary = {}
 var _slot_ranks: Dictionary = {}
+var _monsters: Array[Node2D] = []
+var _monster_frame := -1
+var _flank_losses: Array[bool] = [false, false, false]
 @onready var service = get_parent()
 
 func initialize(actors: Array[Node]) -> void:
@@ -133,13 +136,36 @@ func controller(actor: Node) -> RefCounted:
 func arrived(actor: Node) -> bool:
 	return is_instance_valid(actor) and members.has(actor.get_instance_id())
 
+func exterior_monsters() -> Array[Node2D]:
+	var frame := Engine.get_physics_frames()
+	if _monster_frame != frame:
+		_monster_frame = frame
+		_monsters.clear()
+		for monster in get_tree().get_nodes_in_group("player_units"):
+			if service.get_parent().is_ancestor_of(monster) and monster.is_alive() and not is_instance_valid(monster.interior_building):
+				_monsters.append(monster)
+	return _monsters
+
+func melee_support_available(actor: Node2D, enemy: Node2D) -> bool:
+	var committed := 0
+	for behavior in controllers.values():
+		var resident: Variant = behavior.actor
+		if not eligible(resident) or resident == actor: continue
+		if resident.encounter_participants.has(enemy) or (behavior.target == enemy and not behavior.ranged()):
+			committed += 1
+			if committed >= 3: return false
+	return true
+
 func check_arrival(actor: Node2D) -> void:
 	if not active() or not eligible(actor) or arrived(actor): return
-	if not service.visible(actor, arrival_marker, arrival_radius): return
+	var fortified := is_instance_valid(service.last_stand)
+	if fortified:
+		if is_instance_valid(actor.interior_building) or not inside(actor.global_position): return
+	elif not service.visible(actor, arrival_marker, arrival_radius): return
 	var id = actor.get_instance_id()
 	members[id] = weakref(actor)
 	settling[id] = true
-	if is_instance_valid(service.last_stand):
+	if fortified:
 		controller(actor).next_position_retry = service.elapsed + decision_interval * float(id % 23) / 23.0
 	if actor.escort != null:
 		actor.escort.arm(true)
@@ -180,6 +206,7 @@ func _draw() -> void:
 	for point in places.values(): draw_circle(to_local(point), 3.0, Color(0.2, 0.6, 1.0, 0.8))
 
 func refresh(delta: float) -> void:
+	var protected := is_instance_valid(service.last_stand)
 	var representative: Node2D
 	for actor in residents:
 		if eligible(actor):
@@ -187,6 +214,8 @@ func refresh(delta: float) -> void:
 			break
 	for id in controllers.keys():
 		if not eligible(controllers[id].actor):
+			if protected and places.has(id) and _slot_ranks.has(places[id]):
+				_flank_losses[sector(places[id])] = true
 			controllers.erase(id)
 			members.erase(id)
 			places.erase(id)
@@ -197,7 +226,6 @@ func refresh(delta: float) -> void:
 	if representative == null: return
 	var iteration := NavigationServer2D.map_get_iteration_id(representative.navigation_agent.get_navigation_map())
 	if iteration == 0: return
-	var protected := is_instance_valid(service.last_stand)
 	if protected and iteration != _protected_iteration:
 		slots = build_slots(representative, radius)
 		_protected_iteration = iteration
@@ -378,14 +406,17 @@ func flank_counts(include_in_transit: bool = false) -> Array[int]:
 	return counts
 
 func update_flank_strength() -> void:
-	var counts := flank_counts()
+	var protected := is_instance_valid(service.last_stand)
+	var counts := flank_counts(protected)
 	for side in range(3): _flank_peak[side] = maxi(_flank_peak[side], counts[side])
 	if _reinforcement_flank >= 0 and counts[_reinforcement_flank] >= ceili(_flank_peak[_reinforcement_flank] * flank_reinforcement_goal):
+		_flank_losses[_reinforcement_flank] = false
 		_reinforcement_flank = -1
 	if _reinforcement_flank >= 0: return
 	var weakest_ratio := INF
 	for side in range(3):
 		if _flank_peak[side] < 4: continue # Do not treat an unfinished small line as a routed flank.
+		if protected and not _flank_losses[side]: continue
 		var ratio := float(counts[side]) / _flank_peak[side]
 		if ratio < flank_reinforcement_trigger and ratio < weakest_ratio:
 			weakest_ratio = ratio
@@ -395,12 +426,16 @@ func reinforcement_target(actor: Node2D) -> int:
 	if not arrived(actor) or central_role(actor) or not places.has(actor.get_instance_id()): return -1
 	var behavior = controller(actor)
 	if actor.is_in_collision() or behavior == null or behavior.transfer_sector >= 0 or behavior.mode in ["combat", "assist", "hold_contact"]: return -1
-	update_flank_strength()
+	var protected := is_instance_valid(service.last_stand)
+	if protected:
+		if service.elapsed < _next_transfer: return -1
+	else:
+		update_flank_strength()
 	var own := sector(places[actor.get_instance_id()])
 	var target := _reinforcement_flank
 	if target < 0 or target == own: return -1
 	if flank_counts(true)[target] >= ceili(_flank_peak[target] * flank_reinforcement_goal): return -1
-	var counts := flank_counts()
+	var counts := flank_counts(protected)
 	if counts[own] <= maxi(1, ceili(_flank_peak[own] * flank_donor_floor)): return -1
 	var intact := float(counts[own]) / maxi(_flank_peak[own], 1) >= 0.8
 	var idle := true

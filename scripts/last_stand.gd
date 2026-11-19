@@ -259,15 +259,19 @@ func update_work(behavior: RefCounted, delta: float) -> bool:
 	if not section.needs_work() or section.occupants.get(index, actor) != actor:
 		stop_work(actor)
 		return false
-	if not behavior.enemies.is_empty() and not behavior.safe_path(point):
-		stop_work(actor)
-		return false
-	var result: int = behavior.move_to(point, delta, false, false)
+	for enemy in behavior.enemies:
+		if not is_instance_valid(enemy) or not enemy.is_alive() or formation.sector(enemy.global_position) != section.side: continue
+		var approach := Geometry2D.get_closest_point_to_segment(enemy.global_position, actor.global_position, point)
+		if approach.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE + actor.navigation_agent.radius:
+			stop_work(actor)
+			return false
+	var at_work := actor.global_position.distance_to(point) <= work_reach
+	var result: int = behavior.move_in_formation(point, delta, work_reach)
 	if result == actor.NavigationResult.FAILED:
 		stop_work(actor)
 		return false
 	behavior.mode = "barricade"
-	if actor.global_position.distance_to(point) > work_reach:
+	if not at_work:
 		section.occupants.erase(index)
 		return true
 	section.occupants[index] = actor
@@ -278,30 +282,27 @@ func update_work(behavior: RefCounted, delta: float) -> bool:
 func _find_work(actor: Node2D, side: int) -> Dictionary:
 	var best := {}
 	var best_distance := INF
-	var best_on_side := false
+	var reserved: Dictionary = {}
+	for job in assignments.values():
+		if not reserved.has(job.section): reserved[job.section] = []
+		reserved[job.section].append(job.index)
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = actor.get_node("CollisionShape2D").shape
+	query.collision_mask = 8
+	query.exclude = [actor.get_rid()]
+	var space := actor.get_world_2d().direct_space_state
 	for section in sections:
-		if not section.needs_work():
-			continue
-		var on_side: bool = section.side == side
-		if best_on_side and not on_side:
-			continue
-		var local: Vector2 = section.to_local(actor.global_position)
-		var nearest_x := clampf(local.x, -section.length * 0.5, section.length * 0.5)
-		var section_distance := Vector2(nearest_x, 0.0).distance_squared_to(local)
-		if on_side == best_on_side and section_distance >= best_distance:
-			continue
-		var nearest_point := INF
+		if section.side != side or not section.needs_work(): continue
+		var booked: Array = reserved.get(section, [])
 		for i in section.work_points.size():
-			if section.occupants.has(i):
-				continue
+			if section.occupants.has(i) or booked.has(i): continue
 			var point: Vector2 = section.work_points[i]
 			var distance := actor.global_position.distance_squared_to(point)
-			if distance >= nearest_point or not defense.reachable(actor, point):
-				continue
+			if distance >= best_distance: continue
+			query.transform = Transform2D(actor.global_rotation, point)
+			if not space.intersect_shape(query, 1).is_empty() or not defense.reachable(actor, point): continue
 			best = {"section": section, "index": i}
-			nearest_point = distance
-			best_distance = section_distance
-			best_on_side = on_side
+			best_distance = distance
 	return best
 
 

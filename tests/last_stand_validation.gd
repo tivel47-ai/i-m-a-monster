@@ -93,6 +93,12 @@ func run() -> void:
 	await test_formation_ranks()
 	await setup()
 	await test_barricade_aggro()
+	await setup()
+	await test_arrivals_at_barricade_line()
+	await setup()
+	await test_fortified_flanks()
+	await setup()
+	await test_converted_melee_support()
 	mission.queue_free()
 	await frames(2)
 	print("IDEA-005: ", checks - failures, "/", checks, " checks passed")
@@ -155,7 +161,7 @@ func test_construction() -> void:
 	last.assignments[worker] = task
 	last.assignments[other] = task.duplicate()
 	worker.global_position = position + Vector2(22, 0)
-	check(last.update_work(controller, 0.5) and west.hp == 0.0 and west.occupants.is_empty(), "Travel earns zero HP and does not reserve the position")
+	check(last.update_work(controller, 0.5) and west.hp == 0.0 and west.occupants.is_empty(), "Travel earns zero HP and does not occupy the reserved position")
 	worker.global_position = position
 	check(last.update_work(controller, 0.5) and west.hp == 3.0 and west.occupants[0] == worker, "First physical worker creates the barricade on the first HP tick")
 	other.global_position = position + Vector2(3, 0)
@@ -286,8 +292,14 @@ func test_worker_ai() -> void:
 	await frames(3)
 	check(worker.is_in_collision() and section.hp == remaining and not last.assignments.has(worker), "Physical combat interrupts a worker's live task without HP decay")
 	worker.autonomous_movement_enabled = false
+	worker.leave_encounter(opponent)
+	controller.enemies.append(opponent)
 	opponent.queue_free()
 	await frames(2)
+	last.assignments[worker] = {"section": section, "index": 0}
+	worker.global_position = home
+	check(last.update_work(controller, 0.016) and section.hp > remaining, "The builder resumes work with a freed enemy still in its last observation")
+	controller.enemies.clear()
 	section.take_damage(section.max_hp)
 
 
@@ -481,6 +493,105 @@ func test_barricade_aggro() -> void:
 	check(await until(func(): return west.hp < 35.0, 95), "An unordered monster sees the resident, approaches, and attacks the blocking barricade")
 	check(monster.aggro_target == resident and not resident.is_in_collision() and west.to_local(monster.global_position).y < 0.0, "The monster retains its target and stays outside until the breach")
 	check(await until(func(): return west.state == SECTION.State.DESTROYED and resident.is_encounter_owner(monster), 140), "After destroying the barricade the same monster reaches the same resident")
+
+func stage_ordinary_posts(count: int) -> Array[Node]:
+	for actor in last.residents:
+		actor.global_position = Vector2(2300, 800)
+	var actors: Array[Node] = last.residents.filter(func(actor): return not formation.central_role(actor))
+	var slots: Array[Vector2] = formation.build_slots(actors[0], formation.radius)
+	var ordinary_posts := slots.filter(func(point): return formation._slot_ranks.has(point))
+	for i in count:
+		var actor := actors[i] as Node2D
+		actor.global_position = ordinary_posts[i]
+		formation.check_arrival(actor)
+		formation.places[actor.get_instance_id()] = ordinary_posts[i]
+	return actors
+
+func test_arrivals_at_barricade_line() -> void:
+	activate_defense()
+	var actors := stage_ordinary_posts(21)
+	var late := actors[21] as Node2D
+	late.global_position = Vector2(1417, 725)
+	last._check_assembly()
+	check(not last.construction_enabled and not formation.arrived(late), "An occupied front rank still needs the actual next arrival before construction")
+	late.autonomous_movement_enabled = true
+	check(await until(func(): return formation.arrived(late), 270), "A newcomer crosses the occupied southern rank and is counted at the inner perimeter")
+	check(formation.center.distance_to(late.global_position) > formation.arrival_radius, "The resident does not need to reach the former central arrival circle")
+	last._check_assembly()
+	check(last.construction_enabled, "The newcomer unlocks barricade work at exactly half the village")
+	for actor in actors.slice(0, 22): actor.autonomous_movement_enabled = true
+	check(await until(func(): return last.sections.all(func(section): return section.hp > 0.0), 375), "Workers reach their assigned points and start all five sections with the front rank already present")
+	var used := {}
+	for job in last.assignments.values():
+		var key := Vector2i(job.section.get_instance_id(), job.index)
+		used[key] = true
+	check(used.size() == last.assignments.size(), "Each work position is reserved by at most one traveling or active builder")
+
+func test_fortified_flanks() -> void:
+	activate_defense()
+	var actors := stage_ordinary_posts(41)
+	for section in last.sections:
+		section.build(section.max_hp)
+	for actor in actors:
+		actor.autonomous_movement_enabled = true
+		actor.threat_detection.detection_enabled = true
+		actor.current_health = 10000.0
+	await frames(24)
+	var original: Dictionary = formation.places.duplicate()
+	var strength: Array[int] = formation.flank_counts()
+	var east := spawn_monster(Vector2(1613, 550))
+	east.current_health = 10000.0
+	await frames(70)
+	check(formation.places == original and formation.flank_counts() == strength, "Merely seeing a monster outside the east wall transfers no one")
+	east.global_position = Vector2(1484, 620)
+	await frames(50)
+	var held := true
+	var pursuers := 0
+	var local_response := false
+	for actor in actors:
+		var post: Vector2 = original[actor.get_instance_id()]
+		var behavior: RefCounted = formation.controller(actor)
+		if formation.sector(post) != formation.sector(east.global_position):
+			held = held and actor.global_position.distance_to(post) <= actor.arrival_tolerance and behavior.target == null
+		else:
+			local_response = local_response or behavior.target == east or actor.encounter_participants.has(east)
+			if behavior.target == east and not behavior.ranged(): pursuers += 1
+	check(formation.inside(east.global_position) and formation.sector(east.global_position) == 2 and held, "A monster inside the east flank does not pull other flanks out of position")
+	check(local_response and pursuers <= 3, "The attacked flank responds with a bounded number of assigned melee pursuers")
+	east.queue_free()
+	await frames(3)
+	var survivors := 2
+	for actor in actors:
+		if formation.sector(original[actor.get_instance_id()]) != 2: continue
+		if survivors > 0:
+			survivors -= 1
+		else:
+			actor._die()
+	var goal := ceili(strength[2] * formation.flank_reinforcement_goal)
+	check(await until(func(): return formation.flank_counts()[2] >= goal, 850), "Actual east-flank losses dispatch enough defenders from other sectors")
+	var replenished: Array[int] = formation.flank_counts(true)
+	check(replenished[2] == goal and replenished[0] >= ceili(strength[0] * formation.flank_donor_floor) and replenished[1] >= ceili(strength[1] * formation.flank_donor_floor), "Transfers stop at the recovery target and leave both donor sectors guarded")
+
+
+func test_converted_melee_support() -> void:
+	activate_defense()
+	var actors := stage_ordinary_posts(4)
+	var candidate := actors[0] as Node2D
+	var converted := actors[1] as Node2D
+	var converted_id := converted.get_instance_id()
+	var enemy := spawn_monster(candidate.global_position + Vector2(30, 0))
+	for actor in actors.slice(1, 4):
+		formation.controller(actor).target = enemy
+	check(not formation.melee_support_available(candidate, enemy), "Three live defenders fill the melee support limit")
+	# Hold the periodic roster refresh so the real conversion frees the node
+	# while other defenders can still consult its controller.
+	formation.set_physics_process(false)
+	converted._complete_conversion()
+	await frames(2)
+	check(not is_instance_valid(converted) and formation.controllers.has(converted_id), "Converted defender is freed before the roster refresh")
+	check(formation.melee_support_available(candidate, enemy), "Melee support excludes the freed defender before the roster refresh")
+	formation.refresh(0.0)
+	check(not formation.controllers.has(converted_id) and not formation.places.has(converted_id), "The next refresh removes the converted defender and its post")
 
 
 func test_march_corner() -> void:

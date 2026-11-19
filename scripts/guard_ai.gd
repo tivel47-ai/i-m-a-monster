@@ -719,7 +719,8 @@ func update_ai(delta: float) -> bool:
 		if now() >= next_decision:
 			next_decision = now() + _decision_delay()
 			memory.expire(now())
-			sense()
+			if not is_instance_valid(actor.defense.last_stand):
+				sense()
 			_send_reports()
 		# The same local B2 evidence is used by travel decisions. No old ALARM
 		# task may override church defense or repeatedly cancel physical combat.

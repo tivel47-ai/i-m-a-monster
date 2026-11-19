@@ -22,6 +22,8 @@ var recognized_target: Node2D
 var recognition_elapsed: float = 0.0
 var recognition_required: float = 0.0
 var recognition_random := RandomNumberGenerator.new()
+var fortified_elapsed := 0.0
+const FORTIFIED_SAMPLE_STEPS := 6
 
 @onready var villager = get_parent()
 
@@ -32,10 +34,20 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not detection_enabled or not villager.is_available_for_infection() or is_instance_valid(villager.interior_building):
+		fortified_elapsed = 0.0
 		reset_awareness()
 		if not villager.is_alive():
 			set_physics_process(false)
 		return
+	var fortified: Node
+	if is_instance_valid(villager.defense) and is_instance_valid(villager.defense.last_stand) and villager.defense.organized.active():
+		fortified = villager.defense.organized
+		fortified_elapsed += delta
+		if (Engine.get_physics_frames() + get_instance_id()) % FORTIFIED_SAMPLE_STEPS != 0: return
+		delta = fortified_elapsed
+		fortified_elapsed = 0.0
+	else:
+		fortified_elapsed = 0.0
 	if awareness == Awareness.AWARE:
 		if _is_visible_target(recognized_target):
 			_record_alarm_sighting()
@@ -44,7 +56,7 @@ func _physics_process(delta: float) -> void:
 	if awareness == Awareness.RECOGNIZING and not _is_visible_target(pending_target):
 		reset_awareness()
 	if awareness == Awareness.UNAWARE:
-		pending_target = _nearest_visible_zombie()
+		pending_target = _nearest_visible_zombie(fortified)
 		if pending_target == null:
 			return
 		var minimum := maxf(recognition_delay_min, 0.0)
@@ -97,10 +109,11 @@ func _is_visible_target(target: Variant) -> bool:
 	return get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
 
 
-func _nearest_visible_zombie() -> Node2D:
+func _nearest_visible_zombie(formation: Node = null) -> Node2D:
 	var nearest: Node2D
 	var nearest_distance := INF
-	for candidate in nearby_threats():
+	var candidates: Array[Node2D] = formation.exterior_monsters() if is_instance_valid(formation) else nearby_threats()
+	for candidate in candidates:
 		if candidate is Node2D and _is_visible_target(candidate):
 			var distance := global_position.distance_squared_to(candidate.global_position)
 			if distance < nearest_distance:
