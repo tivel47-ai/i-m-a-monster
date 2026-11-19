@@ -2,6 +2,7 @@ extends Control
 
 const INFECTION_ORB = preload("res://scripts/infection_orb.gdshader")
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
+const CATALOG = preload("res://scripts/mission_catalog.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ZOMBIE = preload("res://scripts/zombie.gd")
 const INFECTION_ORB_SIZE := 92.0
@@ -21,6 +22,8 @@ var infection_button: Button
 var infection_orb_material: ShaderMaterial
 var infection_charges: Label
 var virus_label: Label
+var hotbar: PanelContainer
+var abilities_placeholder: PanelContainer
 var ability_slots: Array[Button] = []
 var hunger_slot_key: Label
 var hunger_slot_uses: Label
@@ -31,6 +34,7 @@ var _blocks: Array[Control] = []
 var developer_button: Button
 var developer_panel: PanelContainer
 var developer_tool_label: Label
+var developer_ability_popup: PopupMenu
 
 
 func _ready() -> void:
@@ -41,6 +45,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
 	_build_developer_tools()
+	refresh_metaprogression()
 	_refresh()
 	if mission.can_finish_mission():
 		show_victory_notice()
@@ -99,7 +104,9 @@ func _build() -> void:
 	pause_button.pressed.connect(func(): mission.pause_requested.emit())
 	gear.add_child(pause_button)
 	if mission.mission_build != null:
-		_build_metaprogression()
+		var virus := _panel(0.74, 0.0, 0.91, 0.075)
+		virus_label = _label(virus, "", 16)
+		virus_label.mouse_filter = Control.MOUSE_FILTER_PASS
 
 	var army := _panel(0.0, 0.86, 0.18, 1.0)
 	var army_box := VBoxContainer.new()
@@ -124,8 +131,9 @@ func _build() -> void:
 	if mission.zombie_infection != null:
 		_build_infection()
 	if mission.mission_build == null:
-		var abilities := _panel(0.32, 0.90, 0.73, 1.0)
-		_label(abilities, "Способности", 16)
+		abilities_placeholder = _panel(0.32, 0.90, 0.73, 1.0)
+		_label(abilities_placeholder, "Способности", 16)
+	_build_hotbar()
 	var command_top := 0.77 if mission.horde_commands != null else 0.88
 	var commands := _panel(0.80, command_top, 1.0, 1.0)
 	var orders := VBoxContainer.new()
@@ -179,54 +187,51 @@ func show_victory_notice() -> void:
 	fade.tween_callback(victory_notice.hide)
 
 
-func _build_metaprogression() -> void:
-	var virus := _panel(0.74, 0.0, 0.91, 0.075)
-	virus_label = _label(virus, "", 16)
-	var abilities := _panel(0.32, 0.90, 0.79, 1.0)
+func _build_hotbar() -> void:
+	hotbar = _panel(0.32, 0.90, 0.79, 1.0)
 	var bar := HBoxContainer.new()
-	abilities.add_child(bar)
+	hotbar.add_child(bar)
 	for index in PROGRESSION.SLOT_COUNT:
 		var slot := Button.new()
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slot.custom_minimum_size.y = 36
 		slot.add_theme_font_size_override("font_size", 14)
 		slot.focus_mode = Control.FOCUS_NONE
+		slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		slot.expand_icon = true
+		slot.add_theme_constant_override("icon_max_width", 28)
+		slot.toggle_mode = true
+		slot.pressed.connect(func():
+			mission.toggle_racial_targeting(mission.ability_runtime().build.slots[index]))
 		ability_slots.append(slot)
 		bar.add_child(slot)
-		var id: String = mission.mission_build.build.slots[index]
-		if not id.is_empty():
-			slot.icon = PROGRESSION.NODES[id].icon
-			slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			slot.expand_icon = true
-			slot.add_theme_constant_override("icon_max_width", 28)
-			slot.pressed.connect(mission.toggle_racial_targeting.bind(id))
-			slot.toggle_mode = true
-			var key_label := _label(slot, "", 11)
-			key_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			key_label.offset_left = 4
-			key_label.offset_right = -4
-			key_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-			key_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			var uses_label := _label(slot, "", 13)
-			uses_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			uses_label.offset_right = -4
-			uses_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			uses_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-			ability_keys[index] = key_label
-			ability_uses[index] = uses_label
-			if id == PROGRESSION.HUNGER:
-				hunger_slot_key = key_label
-				hunger_slot_uses = uses_label
-	refresh_metaprogression()
+		var key_label := _label(slot, "", 11)
+		key_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		key_label.offset_left = 4
+		key_label.offset_right = -4
+		key_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		key_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		var uses_label := _label(slot, "", 13)
+		uses_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		uses_label.offset_right = -4
+		uses_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		uses_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		ability_keys[index] = key_label
+		ability_uses[index] = uses_label
 
 
 func refresh_metaprogression() -> void:
-	if not is_instance_valid(virus_label):
+	if virus_label != null:
+		virus_label.text = "Вирус: %d" % mission.progression.state.virus
+		virus_label.tooltip_text = "Ошибка сохранения профиля" if mission.progression.save_error != OK else ""
+	var runtime = mission.ability_runtime()
+	hotbar.visible = runtime != null
+	if abilities_placeholder != null:
+		abilities_placeholder.visible = runtime == null
+	hunger_slot_key = null
+	hunger_slot_uses = null
+	if runtime == null:
 		return
-	var runtime = mission.mission_build
-	virus_label.text = "Вирус: %d" % mission.progression.state.virus
-	virus_label.tooltip_text = "Ошибка сохранения профиля" if mission.progression.save_error != OK else ""
-	virus_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	for index in ability_slots.size():
 		var slot := ability_slots[index]
 		var action := "ability_slot_%d" % (index + 1)
@@ -238,14 +243,26 @@ func refresh_metaprogression() -> void:
 		var ability: String = runtime.build.slots[index]
 		if ability.is_empty():
 			slot.text = key
+			slot.icon = null
 			slot.disabled = true
+			slot.tooltip_text = ""
+			slot.set_pressed_no_signal(false)
+			ability_keys[index].text = ""
+			ability_uses[index].text = ""
 			continue
+		slot.text = ""
+		var definition: Dictionary = PROGRESSION.NODES[ability]
+		slot.icon = definition.icon
 		ability_keys[index].text = key
-		ability_uses[index].text = str(runtime.uses_for(ability))
-		slot.disabled = runtime.uses_for(ability) == 0
-		slot.tooltip_text = "%s · %s\n%s" % [PROGRESSION.NODES[ability].title, key,
-			PROGRESSION.effect_text(ability, PROGRESSION.level(runtime.build, ability))]
+		var uses: int = runtime.uses_for(ability)
+		ability_uses[index].text = str(uses)
+		slot.disabled = uses == 0
+		slot.tooltip_text = "%s · %s\n%s" % [definition.title, key,
+			PROGRESSION.effect_text(ability, runtime.abilities[ability].rank)]
 		slot.set_pressed_no_signal(runtime.targeting and runtime.active_ability == ability)
+		if ability == PROGRESSION.HUNGER:
+			hunger_slot_key = ability_keys[index]
+			hunger_slot_uses = ability_uses[index]
 
 
 func _build_infection() -> void:
@@ -321,29 +338,25 @@ func _build_developer_tools() -> void:
 	developer_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(developer_button)
 	_blocks.append(developer_button)
-	developer_panel = _panel(0.78, 0.16, 1.0, 0.55)
+	developer_panel = _panel(0.76, 0.0, 1.0, 0.0)
+	developer_panel.offset_top = 115
+	developer_panel.offset_bottom = 115
 	developer_panel.visible = false
 	var box := VBoxContainer.new()
 	developer_panel.add_child(box)
 	_label(box, "Режим разработки", 17)
-	var resident := Button.new()
-	resident.text = "Создать жителя"
-	resident.pressed.connect(func(): _choose_developer_tool("resident"))
-	box.add_child(resident)
-	var zombie := Button.new()
-	zombie.text = "Создать зомби"
-	zombie.pressed.connect(func(): _choose_developer_tool("zombie"))
-	box.add_child(zombie)
-	if mission.developer_guard_spawn_enabled:
-		var guard := Button.new()
-		guard.text = "Создать стражника"
-		guard.pressed.connect(func(): _choose_developer_tool("guard"))
-		box.add_child(guard)
-	developer_tool_label = _label(box, "Щёлкните по карте для создания", 13)
+	_add_spawn_menu(box, "Создать монстра", CATALOG.monster_types())
+	_add_spawn_menu(box, "Создать человека", CATALOG.HUMAN_TYPES)
+	developer_tool_label = _label(box, "Выберите инструмент", 13)
 	var stop := Button.new()
 	stop.text = "Отменить создание"
 	stop.pressed.connect(func(): _choose_developer_tool(""))
 	box.add_child(stop)
+	_add_ability_menu(box)
+	var refill := Button.new()
+	refill.text = "Восстановить заряды"
+	refill.pressed.connect(mission.developer_restore_charges)
+	box.add_child(refill)
 	_label(box, "Этап оповещения", 14)
 	var stages := OptionButton.new()
 	for stage in ["Спокойствие", "Подозрение", "Тревога", "Организованная оборона"]:
@@ -356,25 +369,90 @@ func _build_developer_tools() -> void:
 	box.add_child(stages)
 	developer_button.pressed.connect(func():
 		developer_panel.visible = not developer_panel.visible
-		if not developer_panel.visible: _choose_developer_tool(""))
+		if not developer_panel.visible:
+			developer_ability_popup.hide()
+			_choose_developer_tool(""))
+
+
+func _developer_menu(parent: VBoxContainer, title: String) -> PopupMenu:
+	var button := MenuButton.new()
+	button.text = title
+	button.flat = false
+	parent.add_child(button)
+	return button.get_popup()
+
+
+func _add_spawn_menu(parent: VBoxContainer, title: String, types: Dictionary) -> void:
+	var popup := _developer_menu(parent, title)
+	var ids := types.keys()
+	for id in ids:
+		popup.add_item(types[id])
+	popup.id_pressed.connect(func(index: int): _choose_developer_tool(ids[index]))
+
+
+func _add_ability_menu(parent: VBoxContainer) -> void:
+	var races := _developer_menu(parent, "Добавить способность")
+	var race_ids := CATALOG.RACES.keys()
+	for race in race_ids:
+		races.add_item(CATALOG.RACES[race].name)
+	developer_ability_popup = PopupMenu.new()
+	races.get_parent().add_child(developer_ability_popup)
+	races.id_pressed.connect(func(index: int):
+		_show_developer_abilities.call_deferred(race_ids[index], races.position))
+	developer_ability_popup.id_pressed.connect(_select_developer_ability)
+
+
+func _show_developer_abilities(race: String, popup_position: Vector2i) -> void:
+	if not developer_panel.visible:
+		return
+	var popup := developer_ability_popup
+	popup.clear()
+	for id: String in CATALOG.RACES[race].active_perks:
+		var definition: Dictionary = PROGRESSION.NODES[id]
+		popup.add_icon_item(definition.icon, definition.title)
+		var index := popup.item_count - 1
+		popup.set_item_icon_max_width(index, 24)
+		popup.set_item_metadata(index, [race, id])
+	popup.popup(Rect2i(popup_position, popup.get_contents_minimum_size()))
+
+
+func _select_developer_ability(index: int) -> void:
+	var item: Array = developer_ability_popup.get_item_metadata(index)
+	var id: String = item[1]
+	if mission.developer_add_ability(item[0], id):
+		_choose_developer_tool("")
+		developer_tool_label.text = "Добавлено: %s" % PROGRESSION.NODES[id].title
+	elif mission.ability_runtime() != null and id in mission.ability_runtime().build.slots:
+		developer_tool_label.text = "Способность уже на панели"
+	else:
+		developer_tool_label.text = "Нет свободных слотов"
+
 
 func set_developer_mode(enabled: bool) -> void:
 	developer_button.visible = enabled
 	developer_panel.visible = false
+	developer_ability_popup.hide()
 	if not enabled: _choose_developer_tool("")
+	refresh_metaprogression()
 
 func _choose_developer_tool(kind: String) -> void:
 	if not kind.is_empty():
+		if not mission.developer_mode:
+			return
+		mission.cancel_selection()
 		mission.cancel_order_preview()
 		mission.cancel_infection_targeting()
 		mission.cancel_hunger_targeting()
 	mission.developer_spawn = kind
 	refresh_developer_tool()
 
-func refresh_developer_tool() -> void:
-	var names := {"resident": "житель", "zombie": "зомби", "guard": "стражник"}
-	var tool_name: String = names.get(mission.developer_spawn, "")
-	developer_tool_label.text = "Инструмент: %s (ПКМ — отмена)" % tool_name if not tool_name.is_empty() else "Выберите инструмент"
+func refresh_developer_tool(placement_failed := false) -> void:
+	if placement_failed:
+		developer_tool_label.text = "Выберите доступное место на карте"
+		return
+	var kind: String = mission.developer_spawn
+	var unit_name: String = CATALOG.HUMAN_TYPES.get(kind, CATALOG.monster_types().get(kind, ""))
+	developer_tool_label.text = "%s · ЛКМ на карте, ПКМ — отмена" % unit_name if not unit_name.is_empty() else "Выберите инструмент"
 
 
 func _process(delta: float) -> void:

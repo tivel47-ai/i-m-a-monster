@@ -104,6 +104,7 @@ var interior_building: Node:
 var defense: Node
 var guard_ai: Node
 var escort: Node
+var priest_ai: Node
 @onready var priest_guard = get_node_or_null("PriestGuard")
 
 @onready var polygon: Polygon2D = $Polygon2D
@@ -156,8 +157,8 @@ func _physics_process(delta: float) -> void:
 	var navigation_map := navigation_agent.get_navigation_map()
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0:
 		return
-	if priest_routine != null and defense != null and is_instance_valid(defense.priest_ai) and defense.priest_ai.actor == self:
-		if defense.priest_ai.update_priest(delta): return
+	if is_instance_valid(priest_ai) and priest_ai.update_priest(delta):
+		return
 	if escort != null and escort.update_escort(delta): return
 	if (not has_tactical_controller()) and threat_reaction.update_response(delta):
 		return
@@ -492,7 +493,7 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 
 
 func has_tactical_controller() -> bool:
-	if priest_routine != null and defense != null and is_instance_valid(defense.priest_ai) and defense.priest_ai.actor == self and defense.priest_ai.alarm_active():
+	if is_instance_valid(priest_ai) and priest_ai.alarm_active():
 		return true
 	return priest_guard != null or (guard_ai != null and guard_ai.enabled) or (defense != null and defense.organized != null and defense.organized.active())
 

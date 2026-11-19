@@ -17,6 +17,7 @@ var alert: Node
 var bell: Node2D
 var organized: Node
 var priest_ai: Node
+var _priests: Array[Node] = []
 var guard_group_combat := false
 
 func initialize(residents: Array[Node], village_alert: Node) -> void:
@@ -35,14 +36,8 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 		add_child(organized)
 	organized.initialize(residents)
 	for actor in residents:
-		if actor.priest_routine == null: continue
-		priest_ai = actor.get_node_or_null("PriestAI")
-		if priest_ai == null:
-			priest_ai = PRIEST.new()
-			priest_ai.name = "PriestAI"
-			actor.add_child(priest_ai)
-		priest_ai.initialize(actor, self)
-		break
+		if actor.priest_routine != null:
+			_register_priest(actor)
 
 func register_resident(actor: Node) -> void:
 	actor.defense = self
@@ -73,12 +68,29 @@ func register_resident(actor: Node) -> void:
 				escort.name = "CivilianEscort"
 				actor.add_child(escort)
 			actor.escort = escort
-	if organized != null and organized.configured:
+	if organized != null:
 		organized.register_resident(actor)
+		if actor.priest_routine != null:
+			_register_priest(actor)
+
+
+func _register_priest(actor: Node) -> void:
+	var ai := actor.get_node_or_null("PriestAI")
+	if ai == null:
+		ai = PRIEST.new()
+		ai.name = "PriestAI"
+		actor.add_child(ai)
+	actor.priest_ai = ai
+	ai.initialize(actor, self)
+	_priests.append(ai)
+	ai.tree_exiting.connect(func(): _priests.erase(ai))
+	if not is_instance_valid(priest_ai):
+		priest_ai = ai
 
 func _physics_process(delta: float) -> void:
 	elapsed += delta
-	if is_instance_valid(priest_ai): priest_ai.refresh(organized.residents)
+	for ai in _priests:
+		ai.refresh(organized.residents)
 
 func nearby(actor: Node2D, radius: float, mask: int = 8) -> Array[Node2D]:
 	var result: Array[Node2D] = []

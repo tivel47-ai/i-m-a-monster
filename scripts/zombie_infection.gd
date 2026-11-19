@@ -37,3 +37,7 @@ func record_non_converting_kill() -> void:
 	if recovery_progress == KILLS_PER_CHARGE:
 		recovery_progress = 0
 		charges += 1
+
+
+func restore_charges() -> void:
+	charges = maxi(charges, INITIAL_CHARGES)

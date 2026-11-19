@@ -1,5 +1,16 @@
 extends RefCounted
 
+const ZOMBIE_PROGRESSION = preload("res://scripts/zombie_progression.gd")
+
+const HUMAN_TYPES := {
+	"resident": "Житель",
+	"peasant": "Крестьянин",
+	"artisan": "Ремесленник",
+	"guard": "Стражник",
+	"priest": "Священник",
+	"priest_guard": "Охранник священника",
+}
+
 # Content lives here; navigation does not depend on individual scene paths.
 const MISSIONS := {
 	"village": {
@@ -26,6 +37,8 @@ const RACES := {
 		"strengths": "Заражённый житель превращается в управляемого зомби.",
 		"weaknesses": "Зомби получают ответный урон в ближнем бою и могут погибнуть.",
 		"preview": "res://scenes/zombie.tscn",
+		"active_perks": [ZOMBIE_PROGRESSION.HUNGER,
+			ZOMBIE_PROGRESSION.FORTITUDE, ZOMBIE_PROGRESSION.SPASM],
 		"cursor": {
 			"idle": preload("res://assets/ui/cursors/zombie_idle.png"),
 			"pressed": preload("res://assets/ui/cursors/zombie_pressed.png"),
@@ -33,3 +46,10 @@ const RACES := {
 		},
 	},
 }
+
+
+static func monster_types() -> Dictionary:
+	var types := {"zombie": "Зомби"}
+	for form in ZOMBIE_PROGRESSION.FORMS:
+		types[form] = ZOMBIE_PROGRESSION.NODES[form].title
+	return types
