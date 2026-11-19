@@ -12,6 +12,7 @@ const CROWD_PUSH_CLEARANCE := 48.0
 const MOVEMENT_STALL_TIMEOUT := 3.0
 const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const ORDINARY_VISUAL = preload("res://scripts/ordinary_zombie_visual.gd")
 
 @export var move_speed: float = 100.0
 @export var max_health: float = 120.0
@@ -49,6 +50,7 @@ var current_health: float
 var is_dead: bool = false
 var is_brute := false
 var zombie_form := ""
+var _ordinary_visual: ORDINARY_VISUAL
 var entrance_damage_bonus := 0.0
 var damage_reduction := 0.0
 var attack_frequency_bonus := 0.0
@@ -97,8 +99,27 @@ func _ready() -> void:
 	attack_timer.wait_time = maxf(attack_interval, 0.01)
 	attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(attack_timer)
+	_setup_ordinary_visual()
 	if current_health == 0.0:
 		_die()
+
+
+func _setup_ordinary_visual() -> void:
+	if is_brute or not zombie_form.is_empty():
+		return
+	var ancestor := get_parent()
+	while ancestor != null and not ancestor.get_meta("ordinary_zombie_sprites", false):
+		ancestor = ancestor.get_parent()
+	if ancestor != null:
+		_ordinary_visual = ORDINARY_VISUAL.new()
+		_ordinary_visual.name = "OrdinaryZombieVisual"
+		add_child(_ordinary_visual)
+		zombie_visual.hide()
+
+
+func play_attack_visual(world_point: Vector2, at_impact := false) -> void:
+	if _ordinary_visual != null:
+		_ordinary_visual.play_attack(world_point - global_position, effective_attack_interval(), at_impact)
 
 
 func movement_speed() -> float:
@@ -202,7 +223,8 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, 10.0, 0.0, TAU, 24, Color("b4c4a3"), 1.0)
 	if attack_frequency_bonus > 0.0:
 		draw_arc(Vector2.ZERO, 8.5, 0.0, PI, 12, Color("b96e54"), 1.5)
-	var health_rect := Rect2(-5.85, -16.25, 11.7, 2.6)
+	var health_y := ORDINARY_VISUAL.HEALTH_BAR_Y if _ordinary_visual != null else -16.25
+	var health_rect := Rect2(-5.85, health_y, 11.7, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
 		Rect2(health_rect.position + Vector2(0.65, 0.65), Vector2(10.4 * health_ratio, 1.3)),
@@ -291,8 +313,11 @@ func _die() -> void:
 	navigation_agent.velocity = Vector2.ZERO
 	navigation_agent.avoidance_enabled = false
 	z_index = 0
-	death_marker_a.show()
-	death_marker_b.show()
+	if _ordinary_visual != null:
+		_ordinary_visual.play_death()
+	else:
+		death_marker_a.show()
+		death_marker_b.show()
 	queue_redraw()
 
 
@@ -443,6 +468,7 @@ func _on_encounter_attack_timer_timeout() -> void:
 	if is_brute:
 		_brute_hit(villager)
 	else:
+		play_attack_visual(villager.global_position, true)
 		villager.receive_zombie_attack(attack_damage, infection_chance, self)
 
 
@@ -952,6 +978,7 @@ func _attack_barricade(section: StaticBody2D) -> void:
 	recovery_blocked_seconds = 0.0
 	if barricade_attack_remaining <= 0.0:
 		barricade_attack_remaining = effective_attack_interval()
+		play_attack_visual(section.global_position)
 		section.take_damage(entrance_damage())
 
 
