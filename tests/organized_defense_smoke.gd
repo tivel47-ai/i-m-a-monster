@@ -20,7 +20,7 @@ func check(value: bool, label: String) -> void:
 func frames(count: int) -> void:
 	for i in range(count): await physics_frame
 
-func fixture() -> void:
+func fixture(with_last_stand := false) -> void:
 	if is_instance_valid(map):
 		map.queue_free()
 		await frames(2)
@@ -40,6 +40,11 @@ func fixture() -> void:
 	await frames(3)
 	service = map.get_node("VillageDefense")
 	formation = service.organized
+	if not with_last_stand:
+		# These scenarios exercise the original expanding formation.
+		# The fixed barricade footprint is exercised in last_stand_validation.
+		service.last_stand.set_physics_process(false)
+		service.last_stand = null
 
 func activate() -> void:
 	service.alert.bell_activated = true

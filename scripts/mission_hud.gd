@@ -45,6 +45,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
 	_build_developer_tools()
+	mission.get_node("VillageAlert").level_changed.connect(func(_previous: int, _current: int): _refresh_alert())
 	refresh_metaprogression()
 	_refresh()
 	if mission.can_finish_mission():
@@ -358,14 +359,20 @@ func _build_developer_tools() -> void:
 	refill.pressed.connect(mission.developer_restore_charges)
 	box.add_child(refill)
 	_label(box, "Этап оповещения", 14)
+	var alert: Node = mission.get_node("VillageAlert")
 	var stages := OptionButton.new()
-	for stage in ["Спокойствие", "Подозрение", "Тревога", "Организованная оборона"]:
-		stages.add_item(stage)
-	stages.select(mission.get_node("VillageAlert").level)
+	for index in alert.LEVEL_LABELS.size():
+		if index < alert.Level.LAST_STAND or mission.has_node("LastStand"):
+			stages.add_item(alert.LEVEL_LABELS[index])
+	if mission.has_node("LastStand"):
+		stages.set_item_disabled(alert.Level.LAST_STAND, alert.level != alert.Level.LAST_STAND)
+	stages.select(alert.level)
 	stages.item_selected.connect(func(index: int):
 		if mission.developer_mode:
-			mission.get_node("VillageAlert").set_debug_level(index))
-	mission.get_node("VillageAlert").level_changed.connect(func(_previous: int, current: int): stages.select(current))
+			alert.set_debug_level(index))
+	alert.level_changed.connect(func(_previous: int, current: int):
+		stages.select(current)
+		if current == alert.Level.LAST_STAND: stages.set_item_disabled(current, false))
 	box.add_child(stages)
 	developer_button.pressed.connect(func():
 		developer_panel.visible = not developer_panel.visible
@@ -465,12 +472,15 @@ func _process(delta: float) -> void:
 func _refresh() -> void:
 	if not is_instance_valid(mission): return
 	_refresh_objective()
+	_refresh_alert()
+	refresh_units()
+
+
+func _refresh_alert() -> void:
 	var alert: Node = mission.get_node("VillageAlert")
-	var stages := ["Спокойствие", "Подозрение", "Тревога", "Организованная оборона"]
-	alert_label.text = "Деревня: %s" % stages[alert.level]
+	alert_label.text = "Деревня: %s" % alert.LEVEL_LABELS[alert.level]
 	if alert.level == alert.Level.ALARM:
 		alert_label.text += "  •  Опасность %.0f / %.0f" % [alert.danger, alert.danger_threshold]
-	refresh_units()
 
 
 func _refresh_objective() -> void:

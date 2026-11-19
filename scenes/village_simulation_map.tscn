@@ -11,6 +11,9 @@
 [ext_resource type="Script" uid="uid://bcgm133eekdng" path="res://scripts/priest_routine.gd" id="30_priest_routine"]
 [ext_resource type="PackedScene" path="res://scenes/priest_guard.tscn" id="31_priest_guard"]
 [ext_resource type="Script" uid="uid://c4ylnuqxnmwo" path="res://scripts/village_defense.gd" id="32_village_defense"]
+[ext_resource type="Script" path="res://scripts/last_stand.gd" id="33_last_stand"]
+[ext_resource type="Script" path="res://scripts/last_stand_barricade.gd" id="34_barricade"]
+[ext_resource type="Script" path="res://scripts/reinforcement_squad.gd" id="35_reinforcements"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -4645,6 +4648,55 @@ role_based_corpse_alarm = true
 script = ExtResource("32_village_defense")
 bell_reach = 50.0
 bell_path = NodePath("../NavigationRegion2D/Buildings/Public/AlarmBell")
+
+[node name="LastStand" type="Node2D" parent="."]
+z_index = 3
+script = ExtResource("33_last_stand")
+village_territory = Rect2(145, 45, 2515, 1910)
+beacon_position = Vector2(1384, 247)
+
+[node name="Barricades" type="Node2D" parent="LastStand"]
+z_as_relative = false
+
+[node name="West" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1242, 553)
+rotation = -1.5707963
+script = ExtResource("34_barricade")
+length = 84.0
+
+[node name="Southwest" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1285, 635)
+rotation = -2.3561945
+script = ExtResource("34_barricade")
+length = 70.0
+
+[node name="South" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1417, 684)
+script = ExtResource("34_barricade")
+side = 1
+length = 116.0
+defender_side = 1
+
+[node name="Southeast" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1538, 635)
+rotation = -0.7853982
+script = ExtResource("34_barricade")
+side = 2
+length = 70.0
+defender_side = 1
+
+[node name="East" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1590, 550)
+rotation = 1.5707963
+script = ExtResource("34_barricade")
+side = 2
+length = 84.0
+
+[node name="Reinforcements" type="Node2D" parent="LastStand"]
+script = ExtResource("35_reinforcements")
+entry_points = PackedVector2Array(104, 974, 2880, 1180)
+church_approach = Vector2(1420, 614)
+patrol_points = PackedVector2Array(1520, 947, 2230, 805, 2250, 1340, 1070, 1460, 700, 1250, 600, 970, 1120, 710)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=305544344]
 position = Vector2(650, 1000)

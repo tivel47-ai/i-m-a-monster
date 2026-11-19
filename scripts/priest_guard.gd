@@ -63,10 +63,10 @@ func halt() -> void:
 	movement_goal = Vector2.INF
 
 func move_to(point: Vector2, speed: float, delta: float) -> int:
-	if not actor.defense.reachable(actor, point):
-		halt()
-		return actor.NavigationResult.FAILED
 	if not actor.has_destination or movement_goal.distance_to(point) > 8.0:
+		if not actor.defense.reachable(actor, point):
+			halt()
+			return actor.NavigationResult.FAILED
 		actor._stop_movement()
 		actor._set_peaceful_destination(point)
 		movement_goal = point
@@ -85,10 +85,16 @@ func update_ai(delta: float) -> bool:
 	if defending:
 		organized.check_arrival(actor)
 		church_position = organized.center
+	var last_stand: Node = actor.defense.last_stand
+	var guarding_door: bool = defending and is_instance_valid(last_stand) and last_stand.church_posts_active
 	var alive := priest_alive()
-	var anchor: Vector2 = priest.global_position if alive else church_position
+	var outside := alive and not is_instance_valid(priest.interior_building)
+	var anchor: Vector2 = priest.global_position if outside else church_position
+	if guarding_door:
+		anchor = last_stand.church.layout.exterior()
+		organized.release_place(actor)
 	var previous_state := state
-	if not alive:
+	if guarding_door or not outside:
 		leave_group()
 		permanent = true
 		state = State.CHURCH_DEFENSE
@@ -143,12 +149,19 @@ func update_ai(delta: float) -> bool:
 		elif move_to(patrol_points[patrol_index], actor.move_speed, delta) == actor.NavigationResult.ARRIVED:
 			patrol_index = (patrol_index + 1) % patrol_points.size()
 		return true
+	if guarding_door:
+		var post: Vector2 = last_stand.door_post(slot)
+		if actor.global_position.distance_to(post) <= actor.arrival_tolerance:
+			halt()
+		elif post.is_finite():
+			move_to(post, tactical_speed, delta)
+		return true
 	# Trail the actual travel direction; fixed southern slots would block a
 	# southbound priest and repeatedly invalidate his normal navigation.
-	if alive and priest.velocity.length_squared() > 4.0:
+	if outside and priest.velocity.length_squared() > 4.0:
 		escort_heading = priest.velocity.normalized()
 	var offset := -escort_heading * 32.0 + escort_heading.orthogonal() * (-22 if slot == 0 else 22)
-	if not alive: offset = Vector2(-22 if slot == 0 else 22,22)
+	if not outside: offset = Vector2(-22 if slot == 0 else 22,22)
 	var goal: Vector2 = anchor + offset
 	if defending and organized.arrived(actor) and (not alive or organized.arrived(priest)):
 		var place: Vector2 = organized.position_for(actor, anchor, protection_radius * 0.8)

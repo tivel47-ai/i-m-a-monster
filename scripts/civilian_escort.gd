@@ -277,13 +277,11 @@ func panic(contact: Node2D = null) -> void:
 	if target != null: actor.threat_reaction._enter_reaction(actor.threat_reaction.Reaction.FLEEING)
 
 func steadfast() -> bool:
-	var priest = actor.defense.priest_ai
-	return is_instance_valid(priest) and priest.steadfast(actor)
+	return actor.defense.steadfast(actor)
 
 func panic_occurs(resistance: float) -> bool:
 	if steadfast(): return false
-	var priest = actor.defense.priest_ai
-	var calming: float = priest.calming(actor) if is_instance_valid(priest) else 0.0
+	var calming: float = actor.defense.calming(actor)
 	return rng.randf() > 1.0 - (1.0 - clampf(resistance, 0.0, 1.0)) * (1.0 - calming)
 
 func update_combat() -> void:

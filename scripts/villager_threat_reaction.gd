@@ -109,9 +109,7 @@ func recognize_threat(target: Node2D) -> void:
 
 func _try_calm_home() -> bool:
 	if villager.defense == null: return false
-	var priest = villager.defense.priest_ai
-	if not is_instance_valid(priest): return false
-	var chance: float = priest.calming(villager)
+	var chance: float = villager.defense.calming(villager)
 	if chance <= 0.0: return false
 	if _immediate_danger(_visible_threats()): return false
 	var home = villager.private_shelter_marker()

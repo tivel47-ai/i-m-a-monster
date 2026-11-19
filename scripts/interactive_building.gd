@@ -4,6 +4,9 @@ extends Node2D
 const PROJECTILE = preload("res://scripts/defender_projectile.gd")
 const ARRIVAL := 1.5
 const REPATH_SECONDS := 0.35
+const SIGNAL_DOOR_MULTIPLIER := 5.0
+
+signal signal_operator_entered(actor: Node2D)
 
 var rules: BuildingRules
 var layout: BuildingInterior
@@ -13,6 +16,9 @@ var door_closed := false
 var reinforcement := 0.0
 var reinforcement_hp := 0.0
 var barricade_hp := 0.0
+var signal_operator: CharacterBody2D
+var signal_sealed := false
+var signal_door_max_hp := 0.0
 var damage_remaining := 0.0
 var recovery_remaining := 0.0
 var battle_active := false
@@ -88,6 +94,8 @@ func shelter_approach(side: float = 0.0) -> Vector2:
 
 
 func request_shelter(resident: CharacterBody2D) -> bool:
+	if signal_sealed and door_hp > 0.0:
+		return false
 	if not resident.is_available_for_infection() or resident.building_task != null or not monsters.is_empty():
 		return false
 	if door_hp == 0.0 and (reinforcement_hp > 0.0 or barricade_hp > 0.0):
@@ -101,7 +109,46 @@ func request_shelter(resident: CharacterBody2D) -> bool:
 	return true
 
 
+func request_signal_entry(actor: CharacterBody2D) -> bool:
+	if actor.interior_building == self and residents.has(actor) and not signal_sealed and not is_instance_valid(_crossing):
+		_seal_for_signal(actor)
+		_refresh_entrance()
+		return true
+	if not actor.is_available_for_infection() or (signal_sealed and door_hp > 0.0):
+		return false
+	if is_instance_valid(actor.building_task) or not shelter_approach().is_finite():
+		return false
+	signal_operator = actor
+	actor.building_task = self
+	actor._stop_movement()
+	shelter_queue.push_front(actor)
+	set_physics_process(true)
+	return true
+
+
+func _seal_for_signal(actor: Node2D) -> void:
+	if not signal_sealed:
+		signal_sealed = true
+		signal_door_max_hp = rules.barricade_health * SIGNAL_DOOR_MULTIPLIER
+		door_hp = signal_door_max_hp
+		door_closed = true
+		restoration_allowed = false
+		reinforcement = 0.0
+		reinforcement_hp = 0.0
+		barricade_hp = 0.0
+		for waiting in shelter_queue:
+			if is_instance_valid(waiting):
+				waiting.building_task = null
+				_clear_actor(waiting)
+		shelter_queue.clear()
+		departing.clear()
+	signal_operator = null
+	signal_operator_entered.emit(actor)
+
+
 func request_resident_exit(resident: Node2D) -> void:
+	if signal_sealed and door_hp > 0.0:
+		return
 	if not battle_active and not restoration_allowed and residents.has(resident) and not departing.has(resident):
 		departing.append(resident)
 
@@ -274,9 +321,15 @@ func _choose_crossing() -> void:
 				distance = distance_to_door
 		if nearest != null:
 			_begin_crossing(nearest, false)
-	elif monsters.is_empty() and not shelter_queue.is_empty() and not _entrance_threatened():
-		if door_hp > 0.0 or not _blocked():
-			_begin_crossing(shelter_queue[0], false)
+	elif monsters.is_empty() and not shelter_queue.is_empty():
+		var next_resident := shelter_queue[0]
+		var obstructed := _blocked() and (signal_sealed or door_hp == 0.0)
+		if next_resident == signal_operator:
+			if not next_resident.is_in_collision() and not obstructed:
+				_begin_crossing(next_resident, false)
+			return
+		if not obstructed and not _entrance_threatened():
+			_begin_crossing(next_resident, false)
 
 
 func _begin_crossing(actor: CharacterBody2D, exits: bool) -> void:
@@ -342,7 +395,7 @@ func _advance_crossing(delta: float) -> void:
 		return
 	var speed: float = actor.movement_speed() if zombie else actor.threat_reaction.fleeing_speed
 	if not _crossing_started:
-		if not zombie and (battle_active or _entrance_threatened()):
+		if not zombie and (battle_active or (actor.is_in_collision() if actor == signal_operator else _entrance_threatened())):
 			_end_crossing()
 			return
 		if _stalled(actor):
@@ -409,6 +462,8 @@ func _advance_crossing(delta: float) -> void:
 			actor.threat_detection.reset_awareness()
 			door_closed = door_hp > 0.0
 			_assign_rest(actor)
+			if actor == signal_operator:
+				_seal_for_signal(actor)
 		_end_crossing()
 	elif _crossing_stalled >= 0.6 and zombie:
 		_blocked_lane[actor] = {"side": _crossing_lane, "until": _elapsed + 2.0}
@@ -421,6 +476,10 @@ func _advance_crossing(delta: float) -> void:
 				_paths.erase(actor)
 			_choose_lane(actor)
 			_crossing_stalled = 0.0
+	elif _crossing_stalled >= 0.6 and actor == signal_operator:
+		_blocked_lane[actor] = {"side": _crossing_lane, "until": _elapsed + 2.0}
+		_choose_lane(actor)
+		_crossing_stalled = 0.0
 
 
 func _enter_monster(zombie: CharacterBody2D) -> void:
@@ -439,6 +498,8 @@ func _enter_monster(zombie: CharacterBody2D) -> void:
 
 
 func _blocked() -> bool:
+	if signal_sealed:
+		return door_hp > 0.0
 	if door_hp > 0.0:
 		var civilian_crossing := _crossing_started and is_instance_valid(_crossing) and not _crossing.is_in_group("player_units")
 		return door_closed and not civilian_crossing and _vacating.is_empty()
@@ -452,7 +513,9 @@ func _refresh_entrance() -> void:
 	elif reinforcement > 0.0:
 		color = color.lerp(Color("ad9066"), reinforcement)
 	layout.set_blocked(_blocked(), color)
-	if reinforcement_hp > 0.0:
+	if signal_sealed:
+		layout.set_barricade_health(door_hp, signal_door_max_hp)
+	elif reinforcement_hp > 0.0:
 		layout.set_barricade_health(reinforcement_hp, rules.reinforcement_health)
 	else:
 		layout.set_barricade_health(barricade_hp, rules.barricade_health)
@@ -578,7 +641,7 @@ func _damage_entrance(amount: float) -> void:
 		barricade_hp = maxf(barricade_hp - amount, 0.0)
 	if door_hp == 0.0 and reinforcement_hp == 0.0 and barricade_hp == 0.0:
 		# Survivors can rebuild even if the attackers are driven off outdoors.
-		restoration_allowed = true
+		restoration_allowed = not signal_sealed
 	damage_remaining = rules.damage_cooldown
 	_refresh_entrance()
 	if _elapsed >= _next_noise:
@@ -600,7 +663,7 @@ func _entrance_threatened() -> bool:
 
 
 func _update_residents(delta: float) -> void:
-	var reinforcing := door_hp > 0.0 and door_closed and reinforcement < 1.0
+	var reinforcing := not signal_sealed and door_hp > 0.0 and door_closed and reinforcement < 1.0
 	var rebuilding := (
 		restoration_allowed and door_hp == 0.0 and reinforcement_hp == 0.0
 		and barricade_hp < rules.barricade_health and damage_remaining <= 0.0 and _vacating.is_empty()
@@ -955,6 +1018,8 @@ func _path(from: Vector2, to: Vector2, nav: RID, tolerance: float) -> PackedVect
 
 
 func _step(actor: CharacterBody2D, goal: Vector2, speed: float, delta: float, bypass_units := false) -> void:
+	if actor.has_method("barricade_speed_factor"):
+		speed *= actor.barricade_speed_factor()
 	var motion := (goal - actor.global_position).limit_length(speed * delta)
 	if bypass_units and not motion.is_zero_approx():
 		var collision := KinematicCollision2D.new()
@@ -970,3 +1035,5 @@ func _step(actor: CharacterBody2D, goal: Vector2, speed: float, delta: float, by
 					break
 	actor.velocity = motion / delta
 	actor.move_and_slide()
+	if actor.has_method("hit_blocking_barricade"):
+		actor.hit_blocking_barricade()

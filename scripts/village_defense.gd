@@ -17,6 +17,7 @@ var alert: Node
 var bell: Node2D
 var organized: Node
 var priest_ai: Node
+var last_stand: Node
 var _priests: Array[Node] = []
 var guard_group_combat := false
 
@@ -91,6 +92,20 @@ func _physics_process(delta: float) -> void:
 	elapsed += delta
 	for ai in _priests:
 		ai.refresh(organized.residents)
+
+
+func steadfast(actor: Node2D) -> bool:
+	if is_instance_valid(last_stand) and last_stand.supports(actor):
+		return true
+	return is_instance_valid(priest_ai) and priest_ai.steadfast(actor)
+
+
+func calming(actor: Node2D) -> float:
+	return priest_ai.calming(actor) if is_instance_valid(priest_ai) else 0.0
+
+
+func crossing_speed(actor: Node2D) -> float:
+	return last_stand.crossing_speed(actor) if is_instance_valid(last_stand) else 1.0
 
 func nearby(actor: Node2D, radius: float, mask: int = 8) -> Array[Node2D]:
 	var result: Array[Node2D] = []
@@ -259,7 +274,6 @@ func broadcast_reports(sender: Node2D, messages: Array[Dictionary], radius: floa
 
 func mobilize_civilians() -> void:
 	# Compatibility hook: equipment is only granted at physical church arrival.
-	if alert.level != alert.Level.ORGANIZED_DEFENSE: return
 	if organized == null or not organized.active(): return
 	for actor in get_parent().villagers:
 		if is_instance_valid(actor) and organized.members.has(actor.get_instance_id()) and actor.escort != null and actor.is_available_for_infection() and actor.escort.can_recruit():

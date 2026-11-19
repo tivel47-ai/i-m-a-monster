@@ -102,6 +102,7 @@ var interior_building: Node:
 		if is_instance_valid(value) and is_instance_valid(priest_routine) and is_instance_valid(priest_routine.sermon_label):
 			priest_routine.sermon_label.hide()
 var defense: Node
+var reinforcement_squad: Node
 var guard_ai: Node
 var escort: Node
 var priest_ai: Node
@@ -141,6 +142,11 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if is_instance_valid(building_task):
+		return
+	if (is_instance_valid(defense) and is_instance_valid(defense.last_stand)
+		and defense.last_stand.operator == self and not defense.last_stand.beacon_lit
+		and is_available_for_infection()):
+		_stop_movement()
 		return
 	if defense != null and priest_guard != null and autonomous_movement_enabled:
 		if priest_guard.update_ai(delta): return
@@ -488,8 +494,12 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 		# Geometry only: no per-frame path or physics-space queries.
 		var clearance := maxf(current_zone.distance_to_boundary(global_position) - 0.05, 0.0)
 		safe_velocity = safe_velocity.limit_length(clearance / maxf(get_physics_process_delta_time(), 0.000001))
-	velocity = safe_velocity
+	velocity = safe_velocity * barricade_speed_factor()
 	move_and_slide()
+
+
+func barricade_speed_factor() -> float:
+	return defense.crossing_speed(self) if is_instance_valid(defense) else 1.0
 
 
 func has_tactical_controller() -> bool:

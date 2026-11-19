@@ -5,7 +5,8 @@ signal score_changed(score: float)
 ## Traceable accepted incidents contain IDs, never threat coordinates or references.
 signal incident_recorded(kind: StringName, subject_id: int, contribution: float)
 
-enum Level { NORMAL, SUSPICION, ALARM, ORGANIZED_DEFENSE }
+enum Level { NORMAL, SUSPICION, ALARM, ORGANIZED_DEFENSE, LAST_STAND }
+const LEVEL_LABELS := ["Спокойствие", "Подозрение", "Тревога", "Организованная оборона", "Последний оплот"]
 
 @export_group("Legacy score compatibility")
 @export_range(1, 1000) var max_score: float = 100.0
@@ -175,6 +176,8 @@ func advance_level(next: Level) -> void:
 		return
 	if next == Level.ORGANIZED_DEFENSE and danger < maxf(danger_threshold, 0.001):
 		return
+	if next == Level.LAST_STAND and level != Level.ORGANIZED_DEFENSE:
+		return
 	if next <= level:
 		return
 	var previous := level
@@ -185,9 +188,12 @@ func advance_level(next: Level) -> void:
 ## Mission-only developer control. Keep the ordinary evidence gates in advance_level.
 func set_debug_level(next: Level) -> void:
 	if next == level: return
+	if next == Level.LAST_STAND:
+		var last_stand := get_parent().get_node_or_null("LastStand")
+		if last_stand == null or not last_stand.beacon_lit: return
 	var previous := level
 	bell_activated = next >= Level.ALARM
-	danger = danger_threshold if next == Level.ORGANIZED_DEFENSE else 0.0
+	danger = danger_threshold if next >= Level.ORGANIZED_DEFENSE else 0.0
 	level = next
 	level_changed.emit(previous, level)
 	_update_debug()

@@ -9,8 +9,11 @@ func _init(owner: Node) -> void:
 func radius() -> float:
 	if not is_instance_valid(ai.actor) or ai.actor.is_queued_for_deletion() or not ai.actor.is_alive():
 		return 0.0
+	if is_instance_valid(ai.actor.interior_building):
+		coverage.clear()
+		return 0.0
 	var alert = ai.service.alert
-	if alert.level == alert.Level.ORGANIZED_DEFENSE:
+	if alert.level >= alert.Level.ORGANIZED_DEFENSE:
 		return maxf(ai.defense_morale_radius, ai.alarm_morale_radius)
 	return ai.alarm_morale_radius if alert.level == alert.Level.ALARM else 0.0
 

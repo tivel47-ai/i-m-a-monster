@@ -1,4 +1,5 @@
 extends Node
+const PROJECTILE = preload("res://scripts/defender_projectile.gd")
 ## Reasonable Defender. All tactical evidence is local; peaceful patrol stays separate.
 enum State { PATROL, ALERT_PATROL, INVESTIGATE, SEARCH, COMBAT, RETREAT, ASSIST, GROUP_PATROL, RAISE_ALARM }
 const MEMORY = preload("res://scripts/guard_memory.gd")
@@ -74,6 +75,7 @@ var cohesion_started: float = -1.0
 var bell_elapsed: float = 0.0
 var rng = RandomNumberGenerator.new()
 var investigation: RefCounted
+var next_shot := 0.0
 @onready var actor = get_parent()
 
 func _ready() -> void:
@@ -87,6 +89,7 @@ func _ready() -> void:
 	if actor.defense.alert.level >= actor.defense.alert.Level.ALARM: _on_alert_changed(0, actor.defense.alert.level)
 
 func _on_alert_changed(previous: int, current: int) -> void:
+	if is_instance_valid(actor.reinforcement_squad): return
 	if current < actor.defense.alert.Level.ALARM or previous >= actor.defense.alert.Level.ALARM: return
 	investigation.end("interrupted", "physical village alarm supersedes local response")
 	mobilizing = true
@@ -158,6 +161,7 @@ func _report(id: Variant, point: Vector2, count: int, help: bool = false) -> Dic
 	return {"incident": id, "point": point, "count": count, "help": help, "source": actor.get_instance_id(), "observed_at": now(), "credibility": 1.0, "relay": 0}
 
 func observe(target: Node2D) -> void:
+	if is_instance_valid(actor.reinforcement_squad): return
 	if not enabled: return
 	if not actor.threat_detection._is_visible_target(target): return
 	last_seen_id = target.get_instance_id()
@@ -186,6 +190,7 @@ func observe(target: Node2D) -> void:
 		_queue_report(report)
 
 func receive_message(message: Dictionary, sender: Node2D) -> bool:
+	if is_instance_valid(actor.reinforcement_squad): return false
 	if message.get("kind", "") == "corpse": return receive_corpse(message, sender)
 	if not enabled or not actor.local_warning.communication_enabled or not actor.is_alive() or not is_instance_valid(sender) or sender == actor or sender.defense != actor.defense:
 		return false
@@ -226,6 +231,7 @@ func receive_message(message: Dictionary, sender: Node2D) -> bool:
 	return true
 
 func receive_eyewitness(message: Dictionary, sender: Node2D) -> bool:
+	if is_instance_valid(actor.reinforcement_squad): return false
 	if message.get("kind", "") == "corpse": return receive_corpse(message, sender)
 	if sender.escort == null or sender.defense != actor.defense or not sender.is_available_for_infection(): return false
 	if not sender.local_warning.communication_enabled or not actor.local_warning.communication_enabled: return false
@@ -238,6 +244,7 @@ func receive_eyewitness(message: Dictionary, sender: Node2D) -> bool:
 	return true
 
 func hear_break_in(incident: int, point: Vector2) -> bool:
+	if is_instance_valid(actor.reinforcement_squad): return false
 	if not enabled or actor.defense == null or not actor.defense.reachable(actor, point):
 		return false
 	var report := _report(incident, point, 1)
@@ -269,6 +276,7 @@ func sense() -> void:
 			local_allies.append(other)
 	for id in seen_since.keys():
 		if not present.has(id): seen_since.erase(id)
+	if is_instance_valid(actor.reinforcement_squad): return
 	for enemy in visible_enemies: observe(enemy)
 	actor.defense.alert.observe_combat(actor, actor)
 	for ally in available_local_allies():
@@ -357,16 +365,41 @@ func movement_speed() -> float:
 			speed = minf(speed, follower.movement_speed * escort_speed_factor)
 	return speed
 
-func move_to(point: Vector2, delta: float) -> int:
+func move_to(point: Vector2, delta: float, pace := -1.0) -> int:
 	if actor.global_position.distance_to(point) <= actor.arrival_tolerance:
 		halt()
 		return actor.NavigationResult.ARRIVED
 	if not movement_goal.is_finite() or movement_goal.distance_to(point) > 8.0 or not actor.has_destination:
 		if not actor.defense.reachable(actor, point): return actor.NavigationResult.FAILED
-		actor._stop_movement()
+		if pace < 0.0: actor._stop_movement()
 		actor._set_peaceful_destination(point)
 		movement_goal = point
+	if pace >= 0.0:
+		return actor._advance_navigation(movement_goal, pace, delta)
 	return actor._advance_navigation(point, movement_speed(), delta)
+
+
+func engage_target(enemy: Node2D, delta: float, origin: Vector2, limit: float) -> void:
+	set_state(State.COMBAT)
+	var distance: float = actor.global_position.distance_to(enemy.global_position)
+	if actor.defense_ranged_weapon and distance <= actor.defense_weapon_range:
+		halt()
+		if now() >= next_shot:
+			next_shot = now() + maxf(actor.attack_interval, 0.01)
+			var bolt = PROJECTILE.new()
+			bolt.position = actor.defense.get_parent().to_local(actor.global_position)
+			bolt.direction = actor.global_position.direction_to(enemy.global_position)
+			bolt.damage = actor.attack_damage
+			bolt.speed = actor.defense_projectile_speed
+			bolt.remaining = actor.defense_weapon_range
+			actor.defense.get_parent().add_child(bolt)
+	elif distance <= enemy.INFECTION_DISTANCE:
+		enemy.engage_defender(actor)
+	elif actor._uses_local_melee_route(enemy):
+		if not actor._advance_melee_route(enemy, movement_speed(), delta, origin, limit):
+			halt()
+	else:
+		move_to(actor.defense.combat_approach(actor, enemy, movement_goal), delta)
 
 func finish(status: String, reason: String) -> void:
 	memory.finish(active, status, reason)
@@ -680,6 +713,8 @@ func update_ai(delta: float) -> bool:
 	if not enabled or not actor.autonomous_movement_enabled: return false
 	if not actor.is_alive() or actor.infection_state == actor.InfectionState.TRANSFORMING: return false
 	if NavigationServer2D.map_get_iteration_id(actor.navigation_agent.get_navigation_map()) == 0: return true
+	if is_instance_valid(actor.reinforcement_squad):
+		return actor.reinforcement_squad.update_soldier(self, delta)
 	if actor.defense.organized != null and actor.defense.organized.active():
 		if now() >= next_decision:
 			next_decision = now() + _decision_delay()
@@ -797,13 +832,7 @@ func update_ai(delta: float) -> bool:
 			actor._stop_movement()
 			halt() # cautious observation at pursuit boundary, not an endless chase
 			return true
-		set_state(State.COMBAT)
-		if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
-			enemy.engage_defender(actor)
-		elif actor._uses_local_melee_route(enemy):
-			if not actor._advance_melee_route(enemy, movement_speed(), delta, pursuit_origin, pursuit_distance):
-				halt()
-		else: move_to(actor.defense.combat_approach(actor, enemy, movement_goal), delta)
+		engage_target(enemy, delta, pursuit_origin, pursuit_distance)
 		return true
 	if investigation.update(delta): return true
 	if decision: choose_task()
@@ -882,6 +911,7 @@ func update_ai(delta: float) -> bool:
 	return false # established road patrol and physical post relief remain authoritative
 
 func receive_corpse(message: Dictionary, sender: Node2D) -> bool:
+	if is_instance_valid(actor.reinforcement_squad): return false
 	if not enabled or not actor.is_available_for_infection() or not is_instance_valid(sender) or sender == actor:
 		return false
 	if not investigation.can_receive(sender):

@@ -1,7 +1,7 @@
 extends "res://tests/organized_defense_smoke.gd"
 
 func run() -> void:
-	await fixture()
+	await fixture(true)
 	activate()
 	await frames(2)
 	for resident in map.villagers: resident.global_position = Vector2(900, 900)

@@ -39,6 +39,7 @@ var developer_spawn := ""
 var _developer_build: ZOMBIE_MISSION_BUILD
 @export var building_rules := BuildingRules.new()
 var buildings: Array[InteractiveBuilding] = []
+var reinforcement_units: Array[Node] = []
 var shelter_buildings: Dictionary = {}
 var choosing_building := false
 var consume_assault_cancel_release := false
@@ -144,6 +145,9 @@ func _ready() -> void:
 	defense.initialize(villagers, $VillageAlert)
 	if not get_meta("baking_exterior_navigation", false):
 		_setup_buildings()
+		var last_stand := get_node_or_null("LastStand")
+		if last_stand != null:
+			last_stand.initialize(self, defense)
 	_refresh_mission_progress()
 	mission_hud = MISSION_HUD.new()
 	$CanvasLayer.add_child(mission_hud)
@@ -318,7 +322,7 @@ func cancel_infection_targeting() -> bool:
 func _infect_at(world_position: Vector2) -> void:
 	if not is_gameplay_active() or not zombie_infection.targeting:
 		return
-	for resident in villagers:
+	for resident in combat_residents():
 		if not is_instance_valid(resident) or not resident.is_alive() or is_instance_valid(resident.interior_building):
 			continue
 		var visual: Polygon2D = resident.polygon
@@ -860,14 +864,18 @@ func _apply_selection(selected_units: Array[Node]) -> void:
 
 
 func _on_resident_converted(resident: Node) -> void:
-	if not is_instance_valid(resident) or not villagers.has(resident) or not resident.is_converted():
+	if not is_instance_valid(resident) or not resident.is_converted():
 		return
-
+	var original := villagers.has(resident)
+	if not original and not reinforcement_units.has(resident):
+		return
 	var resident_id := resident.get_instance_id()
 	if converted_resident_ids.has(resident_id) or dead_resident_ids.has(resident_id):
 		return
 
 	converted_resident_ids[resident_id] = true
+	if not original:
+		reinforcement_units.erase(resident)
 
 	var spawn_position: Vector2 = resident.global_position
 	if is_instance_valid(resident.building_task):
@@ -895,18 +903,63 @@ func _on_resident_converted(resident: Node) -> void:
 
 
 func _on_resident_died(resident: Node) -> void:
-	if not is_instance_valid(resident) or not villagers.has(resident):
+	if not is_instance_valid(resident):
 		return
-
+	var original := villagers.has(resident)
+	if not original and not reinforcement_units.has(resident):
+		return
 	var resident_id := resident.get_instance_id()
 	if converted_resident_ids.has(resident_id) or dead_resident_ids.has(resident_id):
 		return
 
 	dead_resident_ids[resident_id] = true
+	if not original:
+		reinforcement_units.erase(resident)
 	if zombie_infection != null and resident.killed_by_player_monster:
 		zombie_infection.record_non_converting_kill()
 		mission_hud.refresh_infection()
 	_refresh_mission_progress()
+
+
+func primary_objective_completed() -> bool:
+	return mission_state == MissionState.WON
+
+
+func combat_residents() -> Array[Node]:
+	return villagers + reinforcement_units
+
+
+func spawn_reinforcement_wave(roles: Array[StringName], positions: PackedVector2Array, squad: Node) -> Array[Node2D]:
+	var arrived: Array[Node2D] = []
+	for i in roles.size():
+		arrived.append(_spawn_reinforcement(roles[i], positions[i], squad))
+	total_residents += arrived.size()
+	_refresh_mission_progress()
+	return arrived
+
+
+func _spawn_reinforcement(role: StringName, point: Vector2, squad: Node) -> Node2D:
+	var soldier := VILLAGER_SCENE.instantiate()
+	soldier.name = String(role).capitalize()
+	soldier.set_meta("village_role", "guard")
+	soldier.set_meta("reinforcement_role", role)
+	soldier.position = to_local(point)
+	soldier.defense = $VillageDefense
+	soldier.reinforcement_squad = squad
+	soldier.defense_ranged_weapon = role == &"archer"
+	soldier.immediate_combat_conversion = zombie_infection_enabled
+	var colors := {&"swordsman": Color("#8b9fb1"), &"spearman": Color("#778e9c"), &"archer": Color("#a5af74")}
+	soldier.get_node("Polygon2D").color = colors[role]
+	add_child(soldier, true)
+	soldier.remove_from_group("civilian_warning_receivers")
+	var guard := preload("res://scripts/guard_ai.gd").new()
+	guard.name = "GuardAI"
+	soldier.add_child(guard)
+	soldier.guard_ai = guard
+	soldier.converted.connect(_on_resident_converted)
+	soldier.died.connect(_on_resident_died)
+	reinforcement_units.append(soldier)
+	return soldier
 
 
 func track_building_exit_clearance(zombie: Node) -> void:
@@ -988,7 +1041,7 @@ func _owned_zombies() -> Array[Node]:
 
 func _command_targets(center: Vector2, radius: float) -> Array[Node2D]:
 	var result: Array[Node2D] = []
-	for resident in villagers:
+	for resident in combat_residents():
 		if is_instance_valid(resident) and resident.is_alive() and not is_instance_valid(resident.interior_building) and resident.global_position.distance_to(center) <= radius:
 			result.append(resident)
 	return result

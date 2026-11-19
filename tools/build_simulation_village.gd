@@ -48,6 +48,7 @@ var reset_road_geometry := false
 var reset_patrol_routes := PackedStringArray()
 var road_preferences: Dictionary = {}
 var tavern_nodes: Dictionary = {}
+var authored_last_stand: Node2D
 
 func _initialize() -> void:
 	for argument in OS.get_cmdline_user_args():
@@ -448,6 +449,9 @@ func build() -> void:
 	defense.bell_reach = 50.0
 	defense.bell_path = NodePath("../NavigationRegion2D/Buildings/Public/AlarmBell")
 	for key in defense_preferences: defense.set(key, defense_preferences[key])
+	if authored_last_stand != null:
+		attach(village, authored_last_stand, "LastStand")
+		assign_owners(authored_last_stand)
 	var camera := source.get_node("Camera2D").duplicate() as Camera2D
 	attach(village,camera,"Camera2D")
 	camera.position = Vector2(650,1000)
@@ -511,6 +515,9 @@ func exported_values(node: Node) -> Dictionary:
 func read_npc_preferences() -> void:
 	if not ResourceLoader.exists(preferences_source): return
 	var previous: Node2D = load(preferences_source).instantiate()
+	authored_last_stand = previous.get_node_or_null("LastStand") as Node2D
+	if authored_last_stand != null:
+		previous.remove_child(authored_last_stand)
 	var tavern_paths := {
 		"building": "NavigationRegion2D/Buildings/Public/Tavern",
 		"label": "Environment/TavernLabel",

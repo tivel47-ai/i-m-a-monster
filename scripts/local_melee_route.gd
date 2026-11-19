@@ -27,8 +27,12 @@ func move(actor: CharacterBody2D, agent: NavigationAgent2D, speed: float, delta:
 	agent.velocity = Vector2.ZERO
 	actor.velocity = Vector2.ZERO
 	if not path.is_empty():
+		if actor.has_method("barricade_speed_factor"):
+			speed *= actor.barricade_speed_factor()
 		actor.velocity = ((path[0] - actor.global_position) / delta).limit_length(speed)
 		actor.move_and_slide()
+		if actor.has_method("hit_blocking_barricade"):
+			actor.hit_blocking_barricade()
 
 
 static func enabled_for(actor: Node) -> bool:

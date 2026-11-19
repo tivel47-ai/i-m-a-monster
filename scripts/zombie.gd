@@ -1,7 +1,10 @@
 extends CharacterBody2D
+const BARRICADE = preload("res://scripts/last_stand_barricade.gd")
+var barricade_attack_remaining := 0.0
 
 const VILLAGER_COLLISION_LAYER := 8
 const VILLAGER_APPROACH_DISTANCE := 12.0
+const BARRICADE_REACH := 14.0
 # Center-to-center melee range.
 const INFECTION_DISTANCE := 20.8
 const AGGRO_REACQUIRE_DELAY_SECONDS := 0.3
@@ -81,6 +84,7 @@ var crowd_default_target_desired_distance: float
 
 
 func _ready() -> void:
+	collision_mask |= BARRICADE.MONSTER_OBSTACLE
 	if LOCAL_MELEE_ROUTE.enabled_for(self):
 		melee_route = LOCAL_MELEE_ROUTE.new()
 	current_health = maxf(max_health, 0.0)
@@ -410,7 +414,7 @@ func on_encounter_ended(villager: Node) -> void:
 
 func engage_defender(defender: Node2D) -> bool:
 	# A nearby autonomous defender uses the same encounter/timer contract as aggro.
-	if is_dead or interior_building != defender.interior_building or global_position.distance_to(defender.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(defender): return false
+	if is_dead or global_position.distance_to(defender.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(defender, true): return false
 	if is_instance_valid(aggro_target) and aggro_target != defender:
 		# Additional nearby defenders use their own existing attack timers; the
 		# zombie retains its current opponent rather than receiving a global order.
@@ -429,7 +433,7 @@ func _on_encounter_attack_timer_timeout() -> void:
 		return
 	if not aggro_target.call("is_encounter_owner", self):
 		return
-	if (is_brute or is_instance_valid(interior_building)) and (global_position.distance_to(aggro_target.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(aggro_target)):
+	if not _barricade_on_approach(aggro_target).is_empty() or ((is_brute or is_instance_valid(interior_building)) and (global_position.distance_to(aggro_target.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(aggro_target, true))):
 		aggro_target.leave_encounter(self)
 		return
 
@@ -450,10 +454,10 @@ func _brute_hit(primary: Node2D) -> void:
 	var center := primary.global_position
 	var radius_squared := pow(width * float(stats.radius), 2)
 	var splash_targets: Array[Node2D] = []
-	for resident in get_parent().villagers:
+	for resident in get_parent().combat_residents():
 		if not is_instance_valid(resident) or resident == primary or not resident.is_alive():
 			continue
-		if center.distance_squared_to(resident.global_position) <= radius_squared and _has_line_of_sight(resident):
+		if center.distance_squared_to(resident.global_position) <= radius_squared and _has_line_of_sight(resident, true):
 			splash_targets.append(resident)
 	primary.receive_knockback(global_position.direction_to(center) * width * stats.knockback)
 	primary.receive_zombie_attack(attack_damage, infection_chance, self)
@@ -487,63 +491,26 @@ func _on_aggro_area_body_exited(body: Node2D) -> void:
 		velocity = Vector2.ZERO
 
 
-func _update_aggro_target(delta: float) -> void:
+func _update_aggro_target(delta: float) -> bool:
 	if not priority_targets.is_empty():
-		_update_priority_attack()
-		return
-	if is_dead:
-		return
-	if has_player_order:
-		return
+		return _update_priority_attack(delta)
+	if is_dead or has_player_order:
+		return false
 	if aggro_reacquire_delay > 0.0:
 		aggro_reacquire_delay = maxf(aggro_reacquire_delay - delta, 0.0)
-		return
+		return false
+
+	if is_instance_valid(aggro_target) and _has_line_of_sight(aggro_target) and (
+		aggro_target.is_available_for_infection() or aggro_target.is_in_collision()
+	):
+		return _pursue_aggro_target(delta)
 
 	if aggro_target != null:
-		if is_instance_valid(aggro_target) and _has_line_of_sight(aggro_target):
-			if aggro_target.call("is_in_collision"):
-				if aggro_target.call("is_encounter_owner", self):
-					has_target = false
-					velocity = Vector2.ZERO
-					return
-
-				if global_position.distance_to(aggro_target.global_position) <= INFECTION_DISTANCE:
-					if aggro_target.call("begin_encounter", zombie_visual.color, self):
-						has_target = false
-						velocity = Vector2.ZERO
-						_start_encounter_attack_timer()
-					else:
-						aggro_target = null
-						has_target = false
-					return
-
-				if not has_target or aggro_destination_origin.distance_squared_to(aggro_target.global_position) >= 64.0:
-					_set_aggro_destination()
-				return
-			elif aggro_target.call("is_available_for_infection"):
-				if global_position.distance_to(aggro_target.global_position) <= INFECTION_DISTANCE:
-					if aggro_target.call("begin_encounter", zombie_visual.color, self):
-						has_target = false
-						velocity = Vector2.ZERO
-						_start_encounter_attack_timer()
-						return
-
-					aggro_target = null
-					has_target = false
-					velocity = Vector2.ZERO
-				else:
-					if not has_target or aggro_destination_origin.distance_squared_to(aggro_target.global_position) >= 64.0:
-						_set_aggro_destination()
-					return
-			else:
-				aggro_target = null
-				has_target = false
-				velocity = Vector2.ZERO
-		else:
-			aggro_target = null
-			has_target = false
-			velocity = Vector2.ZERO
-
+		if is_instance_valid(aggro_target) and aggro_target.is_encounter_owner(self):
+			aggro_target.leave_encounter(self)
+		aggro_target = null
+		has_target = false
+		velocity = Vector2.ZERO
 	var closest_visible_target: Node2D
 	var closest_distance_squared := INF
 	for candidate in aggro_candidates:
@@ -564,16 +531,42 @@ func _update_aggro_target(delta: float) -> void:
 			closest_visible_target = candidate
 
 	if closest_visible_target == null:
-		return
+		return false
 
 	aggro_target = closest_visible_target
-	if global_position.distance_to(aggro_target.global_position) <= INFECTION_DISTANCE:
-		if aggro_target.call("begin_encounter", zombie_visual.color, self):
+	has_target = false
+	return _pursue_aggro_target(delta)
+
+
+func _pursue_aggro_target(delta: float, ordered := false) -> bool:
+	var target := aggro_target
+	var obstruction := _barricade_on_approach(target)
+	if not obstruction.is_empty():
+		if target.is_encounter_owner(self):
+			target.leave_encounter(self)
+			aggro_target = target
+		if delta > 0.0:
+			_advance_to_barricade(obstruction, delta)
+		return true
+	if target.is_encounter_owner(self):
+		if not ordered or _has_line_of_sight(target):
+			has_target = false
+			return false
+		target.leave_encounter(self)
+		aggro_target = target
+	if global_position.distance_to(target.global_position) <= INFECTION_DISTANCE:
+		if (not ordered or _has_line_of_sight(target)) and target.begin_encounter(zombie_visual.color, self):
 			has_target = false
 			velocity = Vector2.ZERO
 			_start_encounter_attack_timer()
-		return
-	_set_aggro_destination()
+			return false
+		if not ordered:
+			aggro_target = null
+			has_target = false
+			return false
+	if not has_target or aggro_destination_origin.distance_squared_to(target.global_position) >= 64.0:
+		_set_aggro_destination()
+	return false
 
 
 func _start_encounter_attack_timer() -> void:
@@ -632,6 +625,9 @@ func _pursue_moving_resident(delta: float) -> bool:
 	var collision := KinematicCollision2D.new()
 	if test_move(global_transform, motion, collision):
 		var ally := collision.get_collider() as Node2D
+		if ally is BARRICADE:
+			_attack_barricade(ally)
+			return true
 		if (
 			ally == null or not ally.is_in_group("player_units") or ally.aggro_target != aggro_target
 			or (ally.global_position - global_position).dot(offset) <= 0.0
@@ -677,16 +673,45 @@ func _combat_approach(direction: Vector2) -> Vector2:
 	return best
 
 
-func _has_line_of_sight(target: Node2D) -> bool:
+func _has_line_of_sight(target: Node2D, for_melee := false) -> bool:
 	if interior_building != target.get("interior_building"):
 		return false
-	var query := PhysicsRayQueryParameters2D.create(global_position, target.global_position)
-	query.collision_mask = 1
-	query.exclude = [get_rid()]
-	return get_world_2d().direct_space_state.intersect_ray(query).is_empty()
+	var mask := 1 | BARRICADE.MONSTER_OBSTACLE if for_melee else 1
+	return _trace_to(target, mask).is_empty()
+
+
+func _trace_to(target: Node2D, mask: int) -> Dictionary:
+	var query := PhysicsRayQueryParameters2D.create(global_position, target.global_position, mask)
+	return get_world_2d().direct_space_state.intersect_ray(query)
+
+
+func _barricade_on_approach(target: Node2D) -> Dictionary:
+	if is_instance_valid(interior_building) or is_instance_valid(target.interior_building):
+		return {}
+	var hit := _trace_to(target, 1 | BARRICADE.MONSTER_OBSTACLE)
+	return hit if hit.get("collider") is BARRICADE else {}
+
+
+func _advance_to_barricade(hit: Dictionary, delta: float) -> void:
+	if melee_route != null and melee_route.target != null:
+		melee_route.cancel()
+	_cancel_crowd_displacement()
+	has_target = false
+	detour_remaining = 0.0
+	navigation_agent.velocity = Vector2.ZERO
+	var point: Vector2 = hit.position
+	var offset := point - global_position
+	if offset.length_squared() <= BARRICADE_REACH * BARRICADE_REACH:
+		velocity = Vector2.ZERO
+		_attack_barricade(hit.collider)
+	else:
+		velocity = (offset / delta).limit_length(movement_speed())
+		move_and_slide()
+		hit_blocking_barricade()
 
 
 func _physics_process(delta: float) -> void:
+	barricade_attack_remaining = maxf(barricade_attack_remaining - delta, 0.0)
 	if is_dead or is_instance_valid(building_task):
 		return
 	if detour_remaining > 0.0:
@@ -726,7 +751,8 @@ func _physics_process(delta: float) -> void:
 		recovery_window_elapsed = 0.0
 		recovery_blocked_seconds = 0.0
 		recovery_window_origin = global_position
-	_update_aggro_target(delta)
+	if _update_aggro_target(delta):
+		return
 	if _pursue_moving_resident(delta):
 		return
 	if _uses_local_melee_route():
@@ -847,7 +873,7 @@ func _can_yield_to(destination: Vector2) -> bool:
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = $CollisionShape2D.shape
 	query.transform = Transform2D(0.0, destination)
-	query.collision_mask = 11
+	query.collision_mask = 11 | BARRICADE.MONSTER_OBSTACLE
 	query.exclude = [get_rid()]
 	return get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty()
 
@@ -907,9 +933,26 @@ func _on_navigation_agent_velocity_computed(safe_velocity: Vector2) -> void:
 
 	velocity = safe_velocity
 	move_and_slide()
+	hit_blocking_barricade()
 	_push_crowd_zombies_from_collisions()
 	if navigation_agent.is_navigation_finished():
 		_finish_movement_target()
+
+
+func hit_blocking_barricade() -> void:
+	for i in get_slide_collision_count():
+		var obstacle := get_slide_collision(i).get_collider()
+		if obstacle is BARRICADE:
+			_attack_barricade(obstacle)
+			return
+
+
+func _attack_barricade(section: StaticBody2D) -> void:
+	stalled_seconds = 0.0
+	recovery_blocked_seconds = 0.0
+	if barricade_attack_remaining <= 0.0:
+		barricade_attack_remaining = effective_attack_interval()
+		section.take_damage(entrance_damage())
 
 
 func _push_crowd_zombies_from_collisions() -> void:
@@ -1027,7 +1070,7 @@ func issue_player_attack_order(targets: Array[Node2D], first: int = 0) -> void:
 	for i in range(targets.size()): priority_targets.append(targets[(i + first) % targets.size()])
 	_update_priority_attack()
 
-func _update_priority_attack() -> void:
+func _update_priority_attack(delta := 0.0) -> bool:
 	priority_targets = priority_targets.filter(func(target): return is_instance_valid(target) and target.is_alive() and not is_instance_valid(target.interior_building))
 	if priority_targets.is_empty():
 		follows_horde_order = false
@@ -1035,7 +1078,7 @@ func _update_priority_attack() -> void:
 		aggro_target = null
 		has_target = false
 		aggro_reacquire_delay = AGGRO_REACQUIRE_DELAY_SECONDS
-		return
+		return false
 	var target := priority_targets[0]
 	if melee_route != null and is_instance_valid(aggro_target) and priority_targets.has(aggro_target):
 		target = aggro_target
@@ -1043,15 +1086,7 @@ func _update_priority_attack() -> void:
 		if is_instance_valid(aggro_target): aggro_target.leave_encounter(self)
 		aggro_target = target
 		has_target = false
-	if target.is_encounter_owner(self):
-		has_target = false
-		return
-	if global_position.distance_to(target.global_position) <= INFECTION_DISTANCE and _has_line_of_sight(target):
-		if target.begin_encounter(zombie_visual.color, self):
-			has_target = false
-			_start_encounter_attack_timer()
-			return
-	if detour_remaining <= 0.0 and (not has_target or aggro_destination_origin.distance_squared_to(target.global_position) >= 64.0): _set_aggro_destination()
+	return _pursue_aggro_target(delta, true)
 
 
 func _try_other_melee_target() -> void:
@@ -1063,7 +1098,7 @@ func _try_other_melee_target() -> void:
 			continue
 		if global_position.distance_squared_to(candidate.global_position) > reach * reach:
 			continue
-		if not (candidate.is_available_for_infection() or candidate.can_join_encounter()) or not _has_line_of_sight(candidate):
+		if not (candidate.is_available_for_infection() or candidate.can_join_encounter()) or not _has_line_of_sight(candidate, true):
 			continue
 		nearby.append(candidate)
 	nearby.sort_custom(func(a: Node2D, b: Node2D) -> bool:
