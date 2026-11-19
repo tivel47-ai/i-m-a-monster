@@ -4,6 +4,7 @@ extends SceneTree
 
 const OUTPUT := "res://scenes/village_simulation_map.tscn"
 const NAVIGATION := "res://scenes/village_simulation_navigation.tres"
+const TERRAIN := preload("res://assets/maps/mission_01_terrain.png")
 const ROAD := Color("71654f")
 const PATH := Color("645d47")
 const TAVERN_ANGLE := 1.7139033
@@ -48,6 +49,7 @@ var reset_road_geometry := false
 var reset_patrol_routes := PackedStringArray()
 var road_preferences: Dictionary = {}
 var tavern_nodes: Dictionary = {}
+var authored_tree_positions: Dictionary = {}
 var authored_last_stand: Node2D
 
 func _initialize() -> void:
@@ -195,6 +197,7 @@ func building(parent: Node, title: String, center: Vector2, size: Vector2, angle
 func field(title: String, vertices: PackedVector2Array, vertical: bool, color := Color("60563a")) -> void:
 	var plot := polygon(details, title, vertices, color)
 	plot.add_to_group("simulation_fields", true)
+	plot.hide() # Plots are drawn by the terrain renderer or its exported preview.
 	var bounds := Rect2(vertices[0], Vector2.ZERO)
 	for vertex in vertices: bounds = bounds.expand(vertex)
 	var start := bounds.position.x if vertical else bounds.position.y
@@ -210,7 +213,7 @@ func tree_at(title: String, at: Vector2, radius: float) -> void:
 	var outline := PackedVector2Array()
 	for i in range(10):
 		outline.append(Vector2.from_angle(TAU*i/10.0) * radius * (1.0 if i%2==0 else 0.87))
-	var body := solid(trees,title,at,outline,Color("283b2e"))
+	var body := solid(trees,title,authored_tree_positions.get(title, at),outline,Color("283b2e"))
 	var crown := PackedVector2Array()
 	for vertex in outline: crown.append(vertex * 0.78)
 	polygon(body,"Crown",crown,Color("354a32"))
@@ -267,18 +270,24 @@ func build() -> void:
 	village.set_meta("local_melee_routing", true)
 	village.set_meta("guard_group_combat", true)
 	village.set_meta("map_size", Vector2(3000,2000))
-	patch(village,"Ground",Vector2(1500,1000),Vector2(3000,2000),Color("48513a"))
-	var ground := container(village,"GroundVariation")
+	var ground := patch(village,"Ground",Vector2(1500,1000),Vector2(3000,2000),Color.WHITE)
+	var texture_size := TERRAIN.get_size()
+	ground.texture = TERRAIN
+	ground.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	ground.uv = PackedVector2Array([Vector2.ZERO, Vector2(texture_size.x, 0), texture_size, Vector2(0, texture_size.y)])
+	var ground_variation := container(village,"GroundVariation")
+	ground_variation.hide()
 	# Sparse, seeded ground patches have no collision and never regenerate in play.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20261102
 	for i in range(90):
 		var at := Vector2(rng.randf_range(40,2960),rng.randf_range(40,1960))
 		var shape := rectangle(Vector2(rng.randf_range(25,85),rng.randf_range(12,45)))
-		var node := polygon(ground,"Grass"+str(i),shape,Color("4d563c") if i%2 else Color("444e37"))
+		var node := polygon(ground_variation,"Grass"+str(i),shape,Color("4d563c") if i%2 else Color("444e37"))
 		node.position = at
 		node.rotation = rng.randf_range(-0.4,0.4)
 	roads = container(village,"Roads")
+	roads.hide()
 	details = container(village,"Environment")
 	region = NavigationRegion2D.new()
 	attach(village,region,"NavigationRegion2D")
@@ -288,6 +297,7 @@ func build() -> void:
 	var workshops := container(buildings,"Workshops")
 	var agricultural := container(buildings,"Agricultural")
 	trees = container(region,"Trees")
+	trees.hide()
 	points = container(village,"VillagePointsOfInterest")
 
 	road("MainStreet",[Vector2(0,960),Vector2(400,1010),Vector2(650,940),Vector2(790,960),Vector2(1020,730),Vector2(1220,730),Vector2(1470,880),Vector2(1790,900),Vector2(1980,820),Vector2(2160,890),Vector2(2370,970),Vector2(2550,970),Vector2(2590,1100),Vector2(2650,1180),Vector2(2740,1180),Vector2(2910,1180)],66)
@@ -364,7 +374,7 @@ func build() -> void:
 	var carpenter := building(workshops,"Carpenter",Vector2(2420,795),Vector2(145,110),0.12,"workshop",2)
 	var weaver := building(workshops,"Weaver",Vector2(2175,1090),Vector2(130,102),-0.17,"workshop",0)
 	var storage := building(workshops,"Storage",Vector2(2440,1090),Vector2(120,80),0.08,"storage",3)
-	patch(details,"WorkYard",Vector2(2260,815),Vector2(155,110),Color("5a5543"))
+	patch(details,"WorkYard",Vector2(2260,815),Vector2(155,110),Color("5a5543")).hide()
 	var anvil := solid(workshops,"Anvil",Vector2(2295,795),rectangle(Vector2(26,16)),Color("727772"))
 	patch(anvil,"Neck",Vector2.ZERO,Vector2(12,10),Color("444a45"))
 	solid(workshops,"Timber",Vector2(2470,875),rectangle(Vector2(60,22)),Color("746344"),0.08)
@@ -414,7 +424,7 @@ func build() -> void:
 	entrance_path(guard_post,"GuardDoorPath",Vector2(2140,1620),[Vector2(2290,1640)])
 
 	build_river()
-	# Large trees use the same visible outline for collision and sight occlusion.
+	# Tree obstacles and sight occlusion remain in the scene under the painted art.
 	var groves := [Vector2(240,250),Vector2(580,185),Vector2(1090,155),Vector2(2100,175),Vector2(2370,285),Vector2(200,1110),Vector2(1330,1860),Vector2(2030,1840),Vector2(2500,1750)]
 	for g in range(groves.size()):
 		for j in range(3 if g in [6,7] else 5):
@@ -426,7 +436,7 @@ func build() -> void:
 	for i in range(12):
 		var at := Vector2(320+i*184,1850-(i%3)*29)
 		if i<3: at = [Vector2(250,1785),Vector2(260,1910),Vector2(720,1920)][i]
-		if i<3 or i>5: patch(details,"Bush"+str(i),at,Vector2(24,17),Color("354831"))
+		if i<3 or i>5: patch(details,"Bush"+str(i),at,Vector2(24,17),Color("354831")).hide()
 	build_fences()
 	var bounds := container(region,"Boundaries")
 	for entry in [[Vector2(1500,6),Vector2(3000,12)],[Vector2(1500,1994),Vector2(3000,12)],[Vector2(6,1000),Vector2(12,1976)],[Vector2(2994,1000),Vector2(12,1976)]]:
@@ -485,6 +495,7 @@ func build() -> void:
 	if needs_bake:
 		error = ResourceSaver.save(navigation, NAVIGATION)
 		navigation.take_over_path(NAVIGATION)
+	ground.set_script(preload("res://scripts/mission_terrain.gd"))
 	village.set_script(load("res://scripts/test_map.gd"))
 	village.zombie_infection_enabled = true
 	village.dark_fantasy_hud = true
@@ -515,6 +526,14 @@ func exported_values(node: Node) -> Dictionary:
 func read_npc_preferences() -> void:
 	if not ResourceLoader.exists(preferences_source): return
 	var previous: Node2D = load(preferences_source).instantiate()
+	var previous_trees := previous.get_node_or_null("NavigationRegion2D/Trees") as Node2D
+	if previous_trees != null:
+		var previous_region := previous_trees.get_parent() as Node2D
+		var tree_transform := previous_region.transform * previous_trees.transform
+		for tree in previous_trees.get_children():
+			# Keep the saved world positions when rebuilding the authored layout.
+			if tree is StaticBody2D:
+				authored_tree_positions[tree.name] = tree_transform * tree.position
 	authored_last_stand = previous.get_node_or_null("LastStand") as Node2D
 	if authored_last_stand != null:
 		previous.remove_child(authored_last_stand)
@@ -753,6 +772,7 @@ func build_river() -> void:
 	for x in range(2663,2820,12):
 		patch(bridge,"Plank"+str(x),Vector2(x,1180),Vector2(3,116),Color("524b39"))
 	var rails := container(river,"BridgeRails")
+	rails.hide()
 	for y in [1121,1239]:
 		solid(rails,"Rail"+str(y),Vector2(2740,y),rectangle(Vector2(158,6)),Color("a08b61"))
 	marker("BridgeWest",Vector2(2600,1180))

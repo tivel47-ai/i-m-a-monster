@@ -4,12 +4,22 @@ extends Control
 var shapes: Array[Dictionary] = []
 var map_rect := Rect2()
 
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+
 func show_mission(scene_path: String) -> void:
 	shapes.clear()
 	map_rect = Rect2()
 	var scene := load(scene_path) as PackedScene
 	if scene != null:
 		_collect_scene(scene, Transform2D.IDENTITY)
+		var state := scene.get_state()
+		for index in range(state.get_node_property_count(0)):
+			if state.get_node_property_name(0, index) == &"metadata/map_size":
+				var map_size: Vector2 = state.get_node_property_value(0, index)
+				if map_size.x > 0.0 and map_size.y > 0.0:
+					map_rect = Rect2(Vector2.ZERO, map_size)
+				break
 	queue_redraw()
 
 func _collect_scene(scene: PackedScene, base_transform: Transform2D) -> void:
@@ -37,7 +47,15 @@ func _collect_scene(scene: PackedScene, base_transform: Transform2D) -> void:
 		if polygon.size() < 3: continue
 		var points: PackedVector2Array = transform * polygon
 		var first_shape := shapes.is_empty()
-		shapes.append({"points": points, "color": properties.get("color", Color.WHITE)})
+		var shape := {"points": points, "color": properties.get("color", Color.WHITE)}
+		var texture := properties.get("texture") as Texture2D
+		var uv: PackedVector2Array = properties.get("uv", PackedVector2Array())
+		if texture != null and uv.size() == points.size():
+			var normalized_uv := PackedVector2Array()
+			for pixel_uv in uv: normalized_uv.append(pixel_uv / texture.get_size())
+			shape["texture"] = texture
+			shape["uv"] = normalized_uv
+		shapes.append(shape)
 		for point_index in range(points.size()):
 			if first_shape and point_index == 0:
 				map_rect = Rect2(points[point_index], Vector2.ZERO)
@@ -57,5 +75,8 @@ func _draw() -> void:
 		var points := PackedVector2Array()
 		for point in shape.points:
 			points.append(origin + (point - map_rect.position) * ratio)
-		draw_colored_polygon(points, shape.color)
+		if shape.has("texture"):
+			draw_polygon(points, PackedColorArray([shape.color]), shape.uv, shape.texture)
+		else:
+			draw_colored_polygon(points, shape.color)
 	draw_rect(Rect2(origin, map_rect.size * ratio), Color("73555f"), false, 1.0)

@@ -14,6 +14,8 @@
 [ext_resource type="Script" path="res://scripts/last_stand.gd" id="33_last_stand"]
 [ext_resource type="Script" path="res://scripts/last_stand_barricade.gd" id="34_barricade"]
 [ext_resource type="Script" path="res://scripts/reinforcement_squad.gd" id="35_reinforcements"]
+[ext_resource type="Texture2D" path="res://assets/maps/mission_01_terrain.png" id="36_terrain"]
+[ext_resource type="Script" path="res://scripts/mission_terrain.gd" id="37_terrain_render"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -49,11 +51,15 @@ metadata/guard_group_combat = true
 metadata/map_size = Vector2(3000, 2000)
 
 [node name="Ground" type="Polygon2D" parent="." unique_id=1971172188]
+texture_filter = 4
 position = Vector2(1500, 1000)
-color = Color(0.28235295, 0.31764707, 0.22745098, 1)
+texture = ExtResource("36_terrain")
 polygon = PackedVector2Array(-1500, -1000, 1500, -1000, 1500, 1000, -1500, 1000)
+uv = PackedVector2Array(0, 0, 1536, 0, 1536, 1024, 0, 1024)
+script = ExtResource("37_terrain_render")
 
 [node name="GroundVariation" type="Node2D" parent="." unique_id=2013575452]
+visible = false
 
 [node name="Grass0" type="Polygon2D" parent="GroundVariation" unique_id=1260148664]
 position = Vector2(1806.704, 681.6152)
@@ -596,6 +602,7 @@ color = Color(0.3019608, 0.3372549, 0.23529412, 1)
 polygon = PackedVector2Array(-18.256516, -15.965255, 18.256516, -15.965255, 18.256516, 15.965255, -18.256516, 15.965255)
 
 [node name="Roads" type="Node2D" parent="." unique_id=1229243428]
+visible = false
 
 [node name="MainStreet0" type="Polygon2D" parent="Roads" unique_id=629158427]
 color = Color(0.44313726, 0.39607844, 0.30980393, 1)
@@ -940,6 +947,7 @@ metadata/entrance = "NavigationRegion2D/River/RiverStore"
 [node name="Environment" type="Node2D" parent="." unique_id=886551467]
 
 [node name="Garden0" type="Polygon2D" parent="Environment" unique_id=1890485783 groups=["simulation_enclosures", "simulation_fields"]]
+visible = false
 color = Color(0.3137255, 0.3137255, 0.22352941, 1)
 polygon = PackedVector2Array(488, 466, 552, 466, 549, 524, 488, 524)
 
@@ -960,6 +968,7 @@ color = Color(0.5411765, 0.5019608, 0.31764707, 1)
 polygon = PackedVector2Array(542, 524, 538, 524, 538, 466, 542, 466)
 
 [node name="Garden3" type="Polygon2D" parent="Environment" unique_id=2137195079 groups=["simulation_enclosures", "simulation_fields"]]
+visible = false
 color = Color(0.3137255, 0.3137255, 0.22352941, 1)
 polygon = PackedVector2Array(1038, 1086, 1102, 1086, 1099, 1144, 1038, 1144)
 
@@ -980,6 +989,7 @@ color = Color(0.5411765, 0.5019608, 0.31764707, 1)
 polygon = PackedVector2Array(1099.2069, 1140, 1038, 1140, 1038, 1136, 1099.4138, 1136)
 
 [node name="Garden7" type="Polygon2D" parent="Environment" unique_id=304165417 groups=["simulation_enclosures", "simulation_fields"]]
+visible = false
 color = Color(0.3137255, 0.3137255, 0.22352941, 1)
 polygon = PackedVector2Array(728, 1106, 792, 1106, 789, 1164, 728, 1164)
 
@@ -1018,6 +1028,7 @@ theme_override_font_sizes/font_size = 14
 text = "Колокол"
 
 [node name="WestField" type="Polygon2D" parent="Environment" unique_id=1126645934 groups=["simulation_enclosures", "simulation_fields"]]
+visible = false
 color = Color(0.3764706, 0.3372549, 0.22745098, 1)
 polygon = PackedVector2Array(140, 1410, 315, 1390, 345, 1660, 155, 1695)
 
@@ -1078,6 +1089,7 @@ color = Color(0.5411765, 0.5019608, 0.31764707, 1)
 polygon = PackedVector2Array(334, 1561, 334, 1662.0264, 330, 1662.7632, 330, 1525)
 
 [node name="EastField" type="Polygon2D" parent="Environment" unique_id=1083330942 groups=["simulation_fields"]]
+visible = false
 color = Color(0.3764706, 0.3372549, 0.22745098, 1)
 polygon = PackedVector2Array(830, 1450, 1000, 1430, 1065, 1660, 865, 1670)
 
@@ -1150,6 +1162,7 @@ color = Color(0.5411765, 0.5019608, 0.31764707, 1)
 polygon = PackedVector2Array(945, 1666, 864.36365, 1666, 863.7273, 1662, 1025, 1662)
 
 [node name="SouthField" type="Polygon2D" parent="Environment" unique_id=1908047307 groups=["simulation_enclosures", "simulation_fields"]]
+visible = false
 color = Color(0.3764706, 0.3372549, 0.22745098, 1)
 polygon = PackedVector2Array(850, 1810, 1040, 1802, 1045, 1860, 1108, 1870, 1130, 1940, 790, 1930)
 
@@ -1250,6 +1263,7 @@ color = Color(0.5411765, 0.5019608, 0.31764707, 1)
 polygon = PackedVector2Array(1124, 1920.909, 1124, 1939.8235, 1120, 1939.7059, 1120, 1908.1818)
 
 [node name="Vegetables" type="Polygon2D" parent="Environment" unique_id=1563679710 groups=["simulation_enclosures", "simulation_fields"]]
+visible = false
 color = Color(0.3137255, 0.3137255, 0.22352941, 1)
 polygon = PackedVector2Array(330, 1810, 670, 1810, 670, 1930, 330, 1930)
 
@@ -1295,6 +1309,7 @@ theme_override_font_sizes/font_size = 14
 text = "Поля"
 
 [node name="WorkYard" type="Polygon2D" parent="Environment" unique_id=1052033695]
+visible = false
 position = Vector2(2260, 815)
 color = Color(0.3529412, 0.33333334, 0.2627451, 1)
 polygon = PackedVector2Array(-77.5, -55, 77.5, -55, 77.5, 55, -77.5, 55)
@@ -1345,46 +1360,55 @@ theme_override_font_sizes/font_size = 14
 text = "Мост"
 
 [node name="Bush0" type="Polygon2D" parent="Environment" unique_id=1792881277]
+visible = false
 position = Vector2(250, 1785)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
 
 [node name="Bush1" type="Polygon2D" parent="Environment" unique_id=1179847893]
+visible = false
 position = Vector2(260, 1910)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
 
 [node name="Bush2" type="Polygon2D" parent="Environment" unique_id=234718044]
+visible = false
 position = Vector2(720, 1920)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
 
 [node name="Bush6" type="Polygon2D" parent="Environment" unique_id=1717783191]
+visible = false
 position = Vector2(1424, 1850)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
 
 [node name="Bush7" type="Polygon2D" parent="Environment" unique_id=1520181493]
+visible = false
 position = Vector2(1608, 1821)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
 
 [node name="Bush8" type="Polygon2D" parent="Environment" unique_id=121341235]
+visible = false
 position = Vector2(1792, 1792)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
 
 [node name="Bush9" type="Polygon2D" parent="Environment" unique_id=1386861008]
+visible = false
 position = Vector2(1976, 1850)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
 
 [node name="Bush10" type="Polygon2D" parent="Environment" unique_id=59630920]
+visible = false
 position = Vector2(2160, 1821)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
 
 [node name="Bush11" type="Polygon2D" parent="Environment" unique_id=662858731]
+visible = false
 position = Vector2(2344, 1792)
 color = Color(0.20784314, 0.28235295, 0.19215687, 1)
 polygon = PackedVector2Array(-12, -8.5, 12, -8.5, 12, 8.5, -12, 8.5)
@@ -2295,6 +2319,7 @@ color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
 
 [node name="Trees" type="Node2D" parent="NavigationRegion2D" unique_id=1165942704]
+visible = false
 
 [node name="Grove0Tree0" type="StaticBody2D" parent="NavigationRegion2D/Trees" unique_id=1395365281 groups=["simulation_solids"]]
 position = Vector2(121.089615, 252.32466)
@@ -3247,6 +3272,7 @@ polygon = PackedVector2Array(2727, 1680, 2813, 1680, 2743, 2030, 2657, 2030)
 polygon = PackedVector2Array(2727, 1680, 2813, 1680, 2743, 2030, 2657, 2030)
 
 [node name="BridgeRails" type="Node2D" parent="NavigationRegion2D/River" unique_id=346463056]
+visible = false
 
 [node name="Rail1121" type="StaticBody2D" parent="NavigationRegion2D/River/BridgeRails" unique_id=954045281 groups=["simulation_solids"]]
 position = Vector2(2740, 1121)
