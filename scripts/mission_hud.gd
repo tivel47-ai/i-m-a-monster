@@ -7,6 +7,7 @@ const INFECTION_ORB_SIZE := 92.0
 
 var mission: Node2D
 var objective_label: Label
+var victory_notice: CenterContainer
 var alert_label: Label
 var monster_button: Button
 var monster_count: Label
@@ -38,6 +39,8 @@ func _ready() -> void:
 	_build()
 	_build_developer_tools()
 	_refresh()
+	if mission.can_finish_mission():
+		show_victory_notice()
 
 
 func _panel(left: float, top: float, right: float, bottom: float) -> PanelContainer:
@@ -83,6 +86,8 @@ func _build() -> void:
 	var alert := _panel(0.32, 0.0, 0.73, 0.065)
 	alert_label = _label(alert, "", 15)
 	alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if mission.manual_victory_finish:
+		_build_victory_notice()
 
 	var gear := _panel(0.91, 0.0, 1.0, 0.075)
 	var pause_button := Button.new()
@@ -130,6 +135,38 @@ func _build() -> void:
 		global_cancel_button.pressed.connect(mission.cancel_global_order)
 		orders.add_child(global_cancel_button)
 		assault_status = _label(orders, "", 14)
+
+
+func _build_victory_notice() -> void:
+	victory_notice = CenterContainer.new()
+	victory_notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(victory_notice)
+	victory_notice.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	victory_notice.offset_top = 64
+	victory_notice.offset_bottom = 64
+	victory_notice.hide()
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("100c10ed"), DARK_THEME.ACCENT, 14, 8))
+	victory_notice.add_child(panel)
+	var text := VBoxContainer.new()
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(text)
+	var title := _label(text, "Победа! Цель миссии выполнена", 24)
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color", DARK_THEME.HEADING)
+	var hint := _label(text, "Завершить миссию можно в меню паузы")
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+
+func show_victory_notice() -> void:
+	_refresh_objective()
+	victory_notice.show()
+	var fade := create_tween()
+	fade.tween_interval(4.0)
+	fade.tween_property(victory_notice, "modulate:a", 0.0, 0.4)
+	fade.tween_callback(victory_notice.hide)
 
 
 func _build_metaprogression() -> void:
@@ -339,17 +376,23 @@ func _process(delta: float) -> void:
 
 func _refresh() -> void:
 	if not is_instance_valid(mission): return
-	var counted: int = mission.infected_residents + mission.killed_residents
-	var required: int = ceili(float(mission.total_residents * mission.TARGET_PERCENT) / 100.0)
-	objective_label.text = "Цель: %d из %d жителей\nЗаражено: %d  Убито: %d\nПрогресс: %d / %d" % [
-		required, mission.total_residents, mission.infected_residents,
-		mission.killed_residents, counted, required]
+	_refresh_objective()
 	var alert: Node = mission.get_node("VillageAlert")
 	var stages := ["Спокойствие", "Подозрение", "Тревога", "Организованная оборона"]
 	alert_label.text = "Деревня: %s" % stages[alert.level]
 	if alert.level == alert.Level.ALARM:
 		alert_label.text += "  •  Опасность %.0f / %.0f" % [alert.danger, alert.danger_threshold]
 	refresh_units()
+
+
+func _refresh_objective() -> void:
+	var counted: int = mission.infected_residents + mission.killed_residents
+	var required: int = ceili(float(mission.total_residents * mission.TARGET_PERCENT) / 100.0)
+	objective_label.text = "Цель: %d из %d жителей\nЗаражено: %d  Убито: %d\nПрогресс: %d / %d" % [
+		required, mission.total_residents, mission.infected_residents,
+		mission.killed_residents, counted, required]
+	if mission.can_finish_mission():
+		objective_label.text += "\nПобеда"
 
 
 func refresh_units() -> void:
@@ -372,7 +415,7 @@ func refresh_commands() -> void:
 	if mission.horde_commands == null:
 		return
 	var horde = mission.horde_commands
-	var active: bool = mission.mission_state == mission.MissionState.ACTIVE
+	var active: bool = mission.is_gameplay_active()
 	building_button.disabled = not active or mission.buildings.is_empty()
 	building_button.set_pressed_no_signal(mission.choosing_building)
 	global_cancel_button.disabled = not active or (

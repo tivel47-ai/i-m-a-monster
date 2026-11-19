@@ -38,8 +38,10 @@ func click(title: String) -> void:
 			return
 	check(false, "Button exists: " + title)
 
-func pointer_click(title: String) -> void:
-	for button in app.pages[app.screen].find_children("*", "Button", true, false):
+func pointer_click(title: String, parent: Control = null) -> void:
+	if parent == null:
+		parent = app.pages[app.screen]
+	for button in parent.find_children("*", "Button", true, false):
 		if button.text != title: continue
 		var point: Vector2 = button.get_global_rect().get_center()
 		var motion := InputEventMouseMotion.new()
@@ -218,10 +220,37 @@ func run() -> void:
 	var new_frozen := true
 	for i in range(app.mission.villagers.size()): new_frozen = new_frozen and app.mission.villagers[i].position == new_positions[i]
 	check(paused and new_frozen, "Mission 1 pauses all residents through existing menu")
+	check(not app.finish_mission_button.is_visible_in_tree(), "Finish Mission is hidden at the start of the attempt")
 	esc()
-	for i in range(36): app.mission._on_resident_died(app.mission.villagers[i])
+	for i in range(35): app.mission._on_resident_died(app.mission.villagers[i])
+	esc()
+	app._finish_mission()
+	check(app.screen == app.Screen.PAUSE and not app.finish_mission_button.is_visible_in_tree(),
+		"Finish Mission stays unavailable below the victory threshold")
+	esc()
+	app.mission._on_resident_died(app.mission.villagers[35])
+	esc()
 	await frames()
-	check(app.screen == app.Screen.RESULTS and "Миссия №1" in app.result_text.text and "Жителей: 44" in app.result_text.text and "Убито: 36" in app.result_text.text, "Mission 1 uses the existing 80 percent objective and results")
+	check(app.screen == app.Screen.PAUSE and app.finish_mission_button.is_visible_in_tree() and paused,
+		"Esc opens pause with Finish Mission at 36 of 44")
+	click("Продолжить")
+	check(app.screen == app.Screen.GAMEPLAY and not paused and app.mission.mission_hud.victory_notice.visible
+		and "Победа" in app.mission.mission_hud.objective_label.text, "Victory appears in the HUD and allows resuming")
+	esc()
+	click("Перезапустить миссию")
+	await frames()
+	esc()
+	check(not app.finish_mission_button.is_visible_in_tree(), "Restart clears victory and hides Finish Mission")
+	esc()
+	for i in range(37): app.mission._on_resident_died(app.mission.villagers[i])
+	pointer_click("⚙ Пауза", app.mission.mission_hud)
+	await frames()
+	check(paused and app.finish_mission_button.is_visible_in_tree(), "HUD gear exposes Finish Mission after victory")
+	pointer_click("Завершить миссию")
+	check(app.screen == app.Screen.RESULTS and "Миссия №1" in app.result_text.text and "Жителей: 44" in app.result_text.text
+		and "Убито: 37" in app.result_text.text and "Вирус за попытку:" in app.result_text.text,
+		"Finish Mission shows current victory totals and Virus summary")
+	check(app.mission.process_mode == Node.PROCESS_MODE_DISABLED and not paused, "Manual finish stops gameplay and releases tree pause")
 	click("К выбору миссии")
 	await frames()
 	check(app.mission == null and get_nodes_in_group("player_units").is_empty(), "New map cleans up fully for mission switching and restart")

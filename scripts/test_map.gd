@@ -22,6 +22,7 @@ const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
 @export var zombie_infection_enabled := false
 @export var dark_fantasy_hud := false
 @export var standalone_race_id := ""
+@export var manual_victory_finish := false
 @export_range(0.01, 5.0, 0.01, "or_greater") var assault_increment_seconds := 0.35
 var horde_commands: ZOMBIE_HORDE_COMMANDS
 var zombie_infection: ZOMBIE_INFECTION
@@ -192,7 +193,7 @@ func emit_break_in_noise(building: InteractiveBuilding, origin: Vector2, approac
 func toggle_building_order() -> void:
 	if choosing_building:
 		cancel_order_preview()
-	elif mission_state == MissionState.ACTIVE and not buildings.is_empty() and (
+	elif is_gameplay_active() and not buildings.is_empty() and (
 		horde_commands != null or not _command_units().is_empty()
 	):
 		cancel_infection_targeting()
@@ -232,7 +233,7 @@ func _pick_assault_building(world_position: Vector2) -> void:
 
 
 func cancel_global_order() -> void:
-	if horde_commands == null or mission_state != MissionState.ACTIVE:
+	if horde_commands == null or not is_gameplay_active():
 		return
 	if command_active:
 		cancel_order_preview()
@@ -279,7 +280,7 @@ func _building_at(world_position: Vector2) -> InteractiveBuilding:
 
 
 func toggle_infection_targeting() -> void:
-	if menu_paused or zombie_infection == null or zombie_infection.charges == 0 or mission_state != MissionState.ACTIVE:
+	if menu_paused or zombie_infection == null or zombie_infection.charges == 0 or not is_gameplay_active():
 		return
 	if zombie_infection.targeting:
 		cancel_infection_targeting()
@@ -302,7 +303,7 @@ func cancel_infection_targeting() -> bool:
 
 
 func _infect_at(world_position: Vector2) -> void:
-	if mission_state != MissionState.ACTIVE or not zombie_infection.targeting:
+	if not is_gameplay_active() or not zombie_infection.targeting:
 		return
 	for resident in villagers:
 		if not is_instance_valid(resident) or not resident.is_alive() or is_instance_valid(resident.interior_building):
@@ -322,7 +323,7 @@ func toggle_hunger_targeting() -> void:
 
 
 func toggle_racial_targeting(id: String) -> void:
-	if menu_paused or mission_state != MissionState.ACTIVE or mission_build == null or mission_build.uses_for(id) == 0:
+	if menu_paused or not is_gameplay_active() or mission_build == null or mission_build.uses_for(id) == 0:
 		return
 	var activate := not mission_build.targeting or mission_build.active_ability != id
 	cancel_infection_targeting()
@@ -346,7 +347,7 @@ func cancel_hunger_targeting() -> bool:
 
 
 func toggle_tactical_pause() -> void:
-	if menu_paused or mission_build == null or mission_state != MissionState.ACTIVE:
+	if menu_paused or mission_build == null or not is_gameplay_active():
 		return
 	tactical_pause = not tactical_pause
 	if not tactical_pause:
@@ -370,7 +371,7 @@ func _update_pause_state() -> void:
 
 
 func _handle_hunger_input(event: InputEvent) -> bool:
-	if mission_build == null or menu_paused or mission_state != MissionState.ACTIVE:
+	if mission_build == null or menu_paused or not is_gameplay_active():
 		return false
 	for index in mission_build.build.slots.size():
 		var id: String = mission_build.build.slots[index]
@@ -401,7 +402,7 @@ func set_developer_mode(enabled: bool) -> void:
 	if is_instance_valid(mission_hud): mission_hud.set_developer_mode(enabled)
 
 func developer_place(kind: String, world_position: Vector2) -> void:
-	if not developer_mode or mission_state != MissionState.ACTIVE: return
+	if not developer_mode or not is_gameplay_active(): return
 	var navigation_map := get_world_2d().navigation_map
 	if NavigationServer2D.map_get_iteration_id(navigation_map) == 0: return
 	var position_on_map := NavigationServer2D.map_get_closest_point(navigation_map, world_position)
@@ -499,7 +500,7 @@ func _input(event: InputEvent) -> void:
 		and event.button_index == MOUSE_BUTTON_RIGHT
 	):
 		if event.pressed:
-			command_active = mission_state == MissionState.ACTIVE and (
+			command_active = is_gameplay_active() and (
 				horde_commands != null or not _command_units().is_empty())
 			command_radius = command_initial_radius
 			command_screen_position = event.position
@@ -562,7 +563,16 @@ func _process(delta: float) -> void:
 		cancel_order_preview()
 
 
-func _emit_result() -> void:
+func is_gameplay_active() -> bool:
+	return process_mode != Node.PROCESS_MODE_DISABLED and (
+		mission_state == MissionState.ACTIVE or manual_victory_finish)
+
+
+func can_finish_mission() -> bool:
+	return manual_victory_finish and mission_state == MissionState.WON
+
+
+func finish_mission() -> void:
 	if not is_inside_tree() or mission_state != MissionState.WON:
 		return
 	mission_finished.emit("victory", {
@@ -792,7 +802,7 @@ func _on_building_exit_cleared(_reached: bool, zombie: Node) -> void:
 	if not is_instance_valid(zombie):
 		return
 	zombie.clearing_building_exit = false
-	if mission_state == MissionState.ACTIVE:
+	if is_gameplay_active():
 		horde_commands.inherit(zombie)
 	mission_hud.refresh_units()
 
@@ -822,7 +832,11 @@ func _refresh_mission_progress() -> void:
 	elif completed_residents >= required_residents:
 		mission_state = MissionState.WON
 		status_label.text = "ПОБЕДА! Цель миссии выполнена"
-		_emit_result.call_deferred()
+		if manual_victory_finish:
+			if is_instance_valid(mission_hud):
+				mission_hud.show_victory_notice()
+		else:
+			finish_mission.call_deferred()
 	else:
 		status_label.text = "Цель: заразить или уничтожить %d%% жителей (%d осталось)" % [
 			TARGET_PERCENT,

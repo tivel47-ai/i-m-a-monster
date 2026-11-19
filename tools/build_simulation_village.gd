@@ -485,6 +485,7 @@ func build() -> void:
 	village.zombie_infection_enabled = true
 	village.dark_fantasy_hud = true
 	village.standalone_race_id = "zombie"
+	village.manual_victory_finish = true
 	var packed := PackedScene.new()
 	if error == OK: error = packed.pack(village)
 	if error == OK: error = ResourceSaver.save(packed,output_path)

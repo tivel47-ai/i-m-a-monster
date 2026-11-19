@@ -348,23 +348,34 @@ func lifecycle() -> void:
 	await launch()
 	settle_residents()
 	var pending: Node2D = residents("peasant")[0]
-	var paused_by_result: Node2D = residents("peasant")[1]
+	var still_infected: Node2D = residents("peasant")[1]
 	var active_alert = mission.get_node("VillageAlert")
 	active_alert.set_debug_level(active_alert.Level.ORGANIZED_DEFENSE)
-	check(ability.infect(pending) and ability.infect(paused_by_result),
+	check(ability.infect(pending) and ability.infect(still_infected),
 		"Organized defense does not block new infections")
 	var victims: Array[Node] = mission.villagers
 	for actor in victims:
-		if actor not in [pending, paused_by_result] and mission.killed_residents < 35:
+		if actor not in [pending, still_infected] and mission.killed_residents < 35:
 			actor.take_damage(1000.0)
 	check(mission.mission_state == mission.MissionState.ACTIVE and mission.infected_residents == 0,
 		"35 outcomes and one pending infection do not meet the objective")
 	pending.take_damage(1000.0)
-	check(await until(func(): return app.screen == app.Screen.RESULTS, 5)
-		and "Победа" in app.result_text.text and "Заражено: 1" in app.result_text.text
-		and "Убито: 35" in app.result_text.text, "36th completed outcome opens the existing victory screen")
-	var remaining: float = paused_by_result.player_infection_timer.time_left
+	check(mission.mission_state == mission.MissionState.WON and mission.infected_residents == 1
+		and app.screen == app.Screen.GAMEPLAY and not paused, "36th completed outcome secures victory during gameplay")
+	var remaining: float = still_infected.player_infection_timer.time_left
 	for i in 10:
 		await frame()
-	check(is_equal_approx(remaining, paused_by_result.player_infection_timer.time_left) and mission.infected_residents == 1,
-		"Victory stops other pending infections and keeps the result counters stable")
+	check(still_infected.player_infection_timer.time_left < remaining and app.screen == app.Screen.GAMEPLAY,
+		"Pending infection timers keep running after victory")
+	choose_infection()
+	check(ability.targeting and not mission.mission_hud.building_button.disabled,
+		"Infection targeting and building orders remain available after victory")
+	mission.toggle_tactical_pause()
+	check(mission.tactical_pause and paused, "Tactical pause stays available after victory")
+	mission.toggle_tactical_pause()
+	still_infected.take_damage(1000.0)
+	app._pause()
+	app._finish_mission()
+	check(app.screen == app.Screen.RESULTS and "Победа" in app.result_text.text
+		and "Заражено: 2" in app.result_text.text and "Убито: 35" in app.result_text.text,
+		"Manual finish includes conversions completed after reaching the objective")

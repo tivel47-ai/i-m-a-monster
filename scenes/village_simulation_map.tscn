@@ -40,6 +40,7 @@ developer_guard_spawn_enabled = true
 zombie_infection_enabled = true
 dark_fantasy_hud = true
 standalone_race_id = "zombie"
+manual_victory_finish = true
 metadata/local_melee_routing = true
 metadata/guard_group_combat = true
 metadata/map_size = Vector2(3000, 2000)

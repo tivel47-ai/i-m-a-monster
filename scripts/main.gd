@@ -29,6 +29,7 @@ var start_button: Button
 var development_button: Button
 var progression: PROGRESSION
 var development: DEVELOPMENT
+var finish_mission_button: Button
 var result_text: Label
 var attempt_text: Label
 var leave_text: Label
@@ -120,6 +121,7 @@ func _show(next: Screen) -> void:
 		settings_draft = null
 	var returning_from_development := screen == Screen.DEVELOPMENT and next == Screen.RACES
 	screen = next
+	finish_mission_button.visible = screen == Screen.PAUSE and is_instance_valid(mission) and mission.can_finish_mission()
 	for key in pages:
 		pages[key].visible = key == screen
 	ui.visible = screen != Screen.GAMEPLAY
@@ -363,6 +365,7 @@ func _build_ui() -> void:
 	var pause := _page(Screen.PAUSE, "Пауза", true)
 	_button(pause, "Продолжить", func():
 		if screen == Screen.PAUSE: _resume())
+	finish_mission_button = _button(pause, "Завершить миссию", _finish_mission)
 	_button(pause, "Перезапустить миссию", _restart_mission)
 	_button(pause, "Настройки", func():
 		if screen == Screen.PAUSE: _open_settings(Screen.PAUSE))
@@ -755,6 +758,10 @@ func _restart_mission() -> void:
 	_dispose_mission()
 	_show(Screen.RACES)
 	_start_mission()
+
+func _finish_mission() -> void:
+	if screen == Screen.PAUSE and is_instance_valid(mission) and mission.can_finish_mission():
+		mission.finish_mission()
 
 func _leave_mission() -> void:
 	if screen != Screen.CONFIRM_LEAVE: return
