@@ -3,6 +3,7 @@ extends Control
 const INFECTION_ORB = preload("res://scripts/infection_orb.gdshader")
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const ZOMBIE = preload("res://scripts/zombie.gd")
 const INFECTION_ORB_SIZE := 92.0
 
 var mission: Node2D
@@ -11,6 +12,8 @@ var victory_notice: CenterContainer
 var alert_label: Label
 var monster_button: Button
 var monster_count: Label
+var _monster_roster: VBoxContainer
+var _monster_rows: Dictionary[String, Label] = {}
 var building_button: Button
 var global_cancel_button: Button
 var assault_status: Label
@@ -101,15 +104,22 @@ func _build() -> void:
 	var army := _panel(0.0, 0.86, 0.18, 1.0)
 	var army_box := VBoxContainer.new()
 	army.add_child(army_box)
-	_label(army_box, "Монстры", 18)
-	if mission.horde_commands != null:
-		monster_count = _label(army_box, "Зомби × 0")
+	if mission.horde_commands != null and mission.monster_roster_enabled:
+		army.anchor_top = 1.0
+		army.offset_top = army.offset_bottom
+		army.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_monster_roster = army_box
+		monster_count = _label(army_box, "Монстры: 0", 18)
 	else:
-		monster_button = Button.new()
-		monster_button.text = "Зомби × 0"
-		monster_button.tooltip_text = "Выбрать всех доступных зомби"
-		monster_button.pressed.connect(_select_all_zombies)
-		army_box.add_child(monster_button)
+		_label(army_box, "Монстры", 18)
+		if mission.horde_commands != null:
+			monster_count = _label(army_box, "Зомби × 0")
+		else:
+			monster_button = Button.new()
+			monster_button.text = "Зомби × 0"
+			monster_button.tooltip_text = "Выбрать всех доступных зомби"
+			monster_button.pressed.connect(_select_all_zombies)
+			army_box.add_child(monster_button)
 
 	if mission.zombie_infection != null:
 		_build_infection()
@@ -399,8 +409,10 @@ func refresh_units() -> void:
 	if not is_instance_valid(mission):
 		return
 	if mission.horde_commands != null:
-		if mission.horde_commands.assault_quantity == 0:
-			monster_count.text = "Зомби × %d" % mission._owned_zombie_count()
+		if _monster_roster != null:
+			_refresh_monster_roster(mission._owned_zombies())
+		elif mission.horde_commands.assault_quantity == 0:
+			monster_count.text = "Зомби × %d" % mission._owned_zombies().size()
 		refresh_commands()
 		return
 	var units := _available_zombies()
@@ -409,6 +421,41 @@ func refresh_units() -> void:
 	monster_button.set_pressed_no_signal(not units.is_empty() and units.all(func(unit): return unit.is_selected))
 	building_button.text = "Укажите здание" if mission.choosing_building else "Штурм здания"
 	building_button.disabled = mission.buildings.is_empty() or mission._command_units().is_empty()
+
+
+func _refresh_monster_roster(units: Array[Node]) -> void:
+	var counts: Dictionary[String, int] = {}
+	for unit in units:
+		var form: String = unit.zombie_form
+		counts[form] = counts.get(form, 0) + 1
+		if not _monster_rows.has(form):
+			_add_monster_row(form, unit.get_node("Polygon2D"))
+	monster_count.text = "Монстры: %d" % units.size()
+	for form in _monster_rows:
+		_monster_rows[form].text = "× %d" % counts.get(form, 0)
+
+
+func _add_monster_row(form: String, body: Polygon2D) -> void:
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_monster_roster.add_child(row)
+	var icon := Control.new()
+	icon.custom_minimum_size = Vector2(22, 22)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+	var polygon := body.polygon
+	var color := body.color
+	icon.draw.connect(func():
+		icon.draw_set_transform(icon.size * 0.5, 0.0, Vector2.ONE * 1.15)
+		ZOMBIE.draw_form_marker(icon, form)
+		icon.draw_colored_polygon(polygon, color))
+	var title: String = "Зомби" if form.is_empty() else PROGRESSION.NODES[form].title
+	var name_label := _label(row, title)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var count := _label(row, "× 0")
+	count.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_monster_rows[form] = count
 
 
 func refresh_commands() -> void:

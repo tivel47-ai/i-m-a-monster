@@ -21,6 +21,7 @@ const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
 @export var developer_guard_spawn_enabled := false
 @export var zombie_infection_enabled := false
 @export var dark_fantasy_hud := false
+@export var monster_roster_enabled := false
 @export var standalone_race_id := ""
 @export var manual_victory_finish := false
 @export_range(0.01, 5.0, 0.01, "or_greater") var assault_increment_seconds := 0.35
@@ -417,6 +418,8 @@ func developer_place(kind: String, world_position: Vector2) -> void:
 		add_child(zombie)
 		if horde_commands != null:
 			horde_commands.inherit(zombie)
+		if monster_roster_enabled:
+			mission_hud.refresh_units()
 	elif kind == "resident" or (kind == "guard" and developer_guard_spawn_enabled):
 		var resident := VILLAGER_SCENE.instantiate()
 		if kind == "guard":
@@ -859,12 +862,12 @@ func _available_command_units() -> Array[Node]:
 	return result
 
 
-func _owned_zombie_count() -> int:
-	var count := 0
+func _owned_zombies() -> Array[Node]:
+	var result: Array[Node] = []
 	for unit in get_tree().get_nodes_in_group("player_units"):
 		if is_ancestor_of(unit) and not unit.is_queued_for_deletion() and unit.is_alive():
-			count += 1
-	return count
+			result.append(unit)
+	return result
 
 
 func _command_targets(center: Vector2, radius: float) -> Array[Node2D]:

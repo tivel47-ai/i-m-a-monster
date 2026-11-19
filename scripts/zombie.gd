@@ -177,19 +177,23 @@ func set_selected(value: bool) -> void:
 	queue_redraw()
 
 
+static func draw_form_marker(canvas: CanvasItem, form: String) -> void:
+	if form == PROGRESSION.BRUTE:
+		# Temporary shoulders identify the form without changing inherited infection color.
+		canvas.draw_rect(Rect2(-6.5, -5.5, 13.0, 4.0), Color("db9d55"))
+	elif form == PROGRESSION.HOUND:
+		canvas.draw_polyline(PackedVector2Array([Vector2(-6, 5), Vector2(-2, -7), Vector2(3, -4), Vector2(6, 6)]), Color("c3bc91"), 2.0)
+	elif form == PROGRESSION.CARRIER:
+		canvas.draw_circle(Vector2(0, 1), 6.0, Color("718c3e"))
+		canvas.draw_circle(Vector2(3, -2), 2.0, Color("c1b36e"))
+
+
 func _draw() -> void:
 	if is_dead:
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
-	if is_brute:
-		# Temporary shoulders identify the form without changing inherited infection color.
-		draw_rect(Rect2(-6.5, -5.5, 13.0, 4.0), Color("db9d55"))
-	elif zombie_form == PROGRESSION.HOUND:
-		draw_polyline(PackedVector2Array([Vector2(-6, 5), Vector2(-2, -7), Vector2(3, -4), Vector2(6, 6)]), Color("c3bc91"), 2.0)
-	elif zombie_form == PROGRESSION.CARRIER:
-		draw_circle(Vector2(0, 1), 6.0, Color("718c3e"))
-		draw_circle(Vector2(3, -2), 2.0, Color("c1b36e"))
+	draw_form_marker(self, PROGRESSION.BRUTE if is_brute else zombie_form)
 	if damage_reduction > 0.0:
 		draw_arc(Vector2.ZERO, 10.0, 0.0, TAU, 24, Color("b4c4a3"), 1.0)
 	if attack_frequency_bonus > 0.0:

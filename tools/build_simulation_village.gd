@@ -484,6 +484,7 @@ func build() -> void:
 	village.set_script(load("res://scripts/test_map.gd"))
 	village.zombie_infection_enabled = true
 	village.dark_fantasy_hud = true
+	village.monster_roster_enabled = true
 	village.standalone_race_id = "zombie"
 	village.manual_victory_finish = true
 	var packed := PackedScene.new()

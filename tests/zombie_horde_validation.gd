@@ -340,7 +340,7 @@ func building_exit() -> void:
 	check(await until(func(): return unit.interior_building == house, 360) and house.battle_active,
 		"Zombie enters physically and participates in the existing battle")
 	mission.mission_hud.refresh_units()
-	check(mission.mission_hud.monster_count.text == "Зомби × 2" and mission._available_command_units() == [autonomous],
+	check(mission.mission_hud.monster_count.text == "Монстры: 2" and mission._available_command_units() == [autonomous],
 		"HUD counts the zombie inside the building while orders only reach the exterior zombie")
 	mission._issue_area_move_order(Vector2(240, 530), 48.0)
 	check(not unit.can_receive_player_orders() and unit.building_task == house and not unit.follows_horde_order,
@@ -359,7 +359,7 @@ func building_exit() -> void:
 		"Zombie reaches the clearance point before inheriting the latest movement")
 	unit.take_damage(1000.0)
 	mission.mission_hud.refresh_units()
-	check(mission.mission_hud.monster_count.text == "Зомби × 1", "A zombie death reduces the total count")
+	check(mission.mission_hud.monster_count.text == "Монстры: 1", "A zombie death reduces the total count")
 
 
 func horde_placement() -> void:
