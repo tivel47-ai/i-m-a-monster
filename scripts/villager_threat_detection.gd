@@ -156,4 +156,4 @@ func _draw() -> void:
 	if not debug_enabled or awareness == Awareness.UNAWARE:
 		return
 	var color := Color.YELLOW if awareness == Awareness.RECOGNIZING else Color.RED
-	draw_circle(Vector2(0, -22), 2.0, color)
+	draw_circle(Vector2(0, -22 + villager.visual_ui_offset_y), 2.0, color)

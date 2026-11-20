@@ -325,8 +325,7 @@ func _infect_at(world_position: Vector2) -> void:
 	for resident in combat_residents():
 		if not is_instance_valid(resident) or not resident.is_alive() or is_instance_valid(resident.interior_building):
 			continue
-		var visual: Polygon2D = resident.polygon
-		if visual.is_visible_in_tree() and Geometry2D.is_point_in_polygon(visual.to_local(world_position) - visual.offset, visual.polygon):
+		if resident.contains_visual_point(world_position):
 			if zombie_infection.infect(resident):
 				mission_hud.refresh_infection()
 			return

@@ -1,9 +1,14 @@
 extends CharacterBody2D
 
 const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
+const PEASANT_VISUAL = preload("res://scripts/peasant_visual.gd")
 var melee_route: LOCAL_MELEE_ROUTE
+var _peasant_visual: PEASANT_VISUAL
 
 const MOVEMENT_STALL_TIMEOUT := 3.0
+const HEALTH_BAR_Y := -16.25
+
+var visual_ui_offset_y := 0.0
 
 signal converted(villager: Node)
 signal died(villager: Node)
@@ -136,8 +141,31 @@ func _ready() -> void:
 	encounter_attack_timer.wait_time = maxf(attack_interval, 0.01)
 	encounter_attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(encounter_attack_timer)
+	_setup_peasant_visual()
 	if current_health == 0.0:
 		_die()
+
+
+func _setup_peasant_visual() -> void:
+	if civilian_profile != "Peasant":
+		return
+	var ancestor := get_parent()
+	while ancestor != null and not ancestor.get_meta("peasant_sprites", false):
+		ancestor = ancestor.get_parent()
+	if ancestor != null:
+		_peasant_visual = PEASANT_VISUAL.new()
+		_peasant_visual.name = "PeasantVisual"
+		add_child(_peasant_visual)
+		polygon.hide()
+		visual_ui_offset_y = PEASANT_VISUAL.HEALTH_BAR_Y - HEALTH_BAR_Y
+
+
+func contains_visual_point(world_position: Vector2) -> bool:
+	var sprite_visible := _peasant_visual != null and _peasant_visual.is_visible_in_tree()
+	if sprite_visible and _peasant_visual.is_pixel_opaque(_peasant_visual.to_local(world_position)):
+		return true
+	return (sprite_visible or polygon.is_visible_in_tree()) and Geometry2D.is_point_in_polygon(
+		polygon.to_local(world_position) - polygon.offset, polygon.polygon)
 
 
 func _physics_process(delta: float) -> void:
@@ -660,6 +688,10 @@ func _die(attacker: Node = null) -> void:
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
+	if _peasant_visual != null:
+		_peasant_visual.hide()
+		_peasant_visual.set_physics_process(false)
+		polygon.show()
 	death_marker_a.show()
 	death_marker_b.show()
 	queue_redraw()
@@ -783,6 +815,9 @@ func _complete_conversion() -> void:
 	$CollisionShape2D.set_deferred("disabled", true)
 	if infection_source == InfectionSource.ZOMBIE_COMBAT:
 		polygon.color = converted_color
+	if _peasant_visual != null:
+		_peasant_visual.hide()
+		_peasant_visual.set_physics_process(false)
 	queue_redraw()
 	converted.emit(self)
 
@@ -792,7 +827,8 @@ func _draw() -> void:
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
-	var health_rect := Rect2(-5.85, -16.25, 11.7, 2.6)
+	var health_y := HEALTH_BAR_Y + visual_ui_offset_y
+	var health_rect := Rect2(-5.85, health_y, 11.7, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
 		Rect2(health_rect.position + Vector2(0.65, 0.65), Vector2(10.4 * health_ratio, 1.3)),
@@ -801,7 +837,11 @@ func _draw() -> void:
 	)
 	draw_rect(health_rect, Color(0.05, 0.05, 0.05), false, 0.65)
 	if has_player_infection() and not is_instance_valid(interior_building):
+		var marker_y := health_y - (10.75 if _peasant_visual != null else 4.75)
 		draw_colored_polygon(
-			PackedVector2Array([Vector2(0, -24), Vector2(3, -21), Vector2(0, -18), Vector2(-3, -21)]),
+			PackedVector2Array([
+				Vector2(0, marker_y - 3), Vector2(3, marker_y),
+				Vector2(0, marker_y + 3), Vector2(-3, marker_y),
+			]),
 			Color("b8dc79")
 		)

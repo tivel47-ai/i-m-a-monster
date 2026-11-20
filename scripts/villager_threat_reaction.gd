@@ -587,4 +587,5 @@ func _draw() -> void:
 		return
 	var labels := ["", "F", "S", "W", "Z"]
 	var colors := [Color.WHITE, Color.CYAN, Color.CORNFLOWER_BLUE, Color.ORANGE, Color.MEDIUM_PURPLE]
-	draw_string(ThemeDB.fallback_font, Vector2(6, -20), labels[reaction_state], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, colors[reaction_state])
+	draw_string(ThemeDB.fallback_font, Vector2(6, -20 + villager.visual_ui_offset_y),
+		labels[reaction_state], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, colors[reaction_state])

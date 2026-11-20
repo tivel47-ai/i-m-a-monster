@@ -208,6 +208,7 @@ func clear_report() -> void:
 func _draw() -> void:
 	if is_instance_valid(villager.interior_building): return
 	if villager.escort != null and villager.escort.reporter.goal.is_finite() and villager.escort.reporter.has_live_report() and (debug_enabled or sensor.debug_enabled):
-		draw_string(ThemeDB.fallback_font, Vector2(6, -32), "R", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.ORANGE)
+		draw_string(ThemeDB.fallback_font, Vector2(6, -32 + villager.visual_ui_offset_y),
+			"R", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.ORANGE)
 	if has_report() and (debug_enabled or sensor.debug_enabled):
-		draw_rect(Rect2(-10, -24, 4, 4), Color.ORANGE, false, 1.0)
+		draw_rect(Rect2(-10, -24 + villager.visual_ui_offset_y, 4, 4), Color.ORANGE, false, 1.0)

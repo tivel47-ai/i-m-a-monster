@@ -82,6 +82,18 @@ func choose_infection() -> void:
 	tap_screen(mission.mission_hud.infection_button.get_global_rect().get_center())
 
 
+func sprite_head_point(sprite: Sprite2D) -> Vector2:
+	var frame := Rect2i(sprite.region_rect)
+	var image := sprite.texture.get_image()
+	for y in floori(frame.size.y / 3.0):
+		for x in frame.size.x:
+			if image.get_pixelv(frame.position + Vector2i(x, y)).a > 0.95:
+				var column := frame.size.x - 1 - x if sprite.flip_h else x
+				var local_point := sprite.get_rect().position + Vector2(column + 0.5, y + 0.5)
+				return sprite.to_global(local_point)
+	return Vector2.INF
+
+
 func spawn_zombie(point: Vector2) -> Node2D:
 	var zombie := ZOMBIE.instantiate() as CharacterBody2D
 	zombie.position = mission.to_local(point)
@@ -148,11 +160,24 @@ func outdoors_and_recovery() -> void:
 	tap_world(Vector2(1500, 920))
 	check(ability.charges == 3 and not guard.has_player_infection() and not priest.has_player_infection(),
 		"Guard, priest and empty ground consume no charges")
-	tap_world(peasant.global_position)
+	var peasant_sprite := peasant.get_node_or_null("PeasantVisual") as Sprite2D
+	if peasant_sprite != null:
+		peasant_sprite.flip_h = true
+		var transparent_corner := peasant_sprite.get_rect().position + Vector2(2.0, 2.0)
+		tap_world(peasant_sprite.to_global(transparent_corner))
+		check(ability.charges == 3, "Transparent sprite padding does not count as an infection target")
+	var aim := sprite_head_point(peasant_sprite) if peasant_sprite != null else Vector2.INF
+	var placeholder: Polygon2D = peasant.polygon
+	var hits_sprite_only := aim.is_finite() and not Geometry2D.is_point_in_polygon(
+		placeholder.to_local(aim) - placeholder.offset, placeholder.polygon)
+	check(hits_sprite_only and not placeholder.is_visible_in_tree(),
+		"Mirrored peasant head is visible outside the hidden graybox body")
+	if hits_sprite_only:
+		tap_world(aim)
 	check(peasant.has_player_infection() and ability.targeting and ability.charges == 2
 		and peasant.infection_source == peasant.InfectionSource.PLAYER_ABILITY
 		and is_equal_approx(peasant.player_infection_timer.wait_time, 10.0),
-		"Outdoor click starts guaranteed ten-second infection and leaves targeting active")
+		"Click on the mirrored head starts ten-second infection and leaves targeting active")
 	tap_world(peasant.global_position)
 	check(ability.charges == 2, "Same resident cannot be infected again")
 	var after_cast := peasant.position
