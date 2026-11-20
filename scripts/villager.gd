@@ -5,6 +5,7 @@ const PEASANT_VISUAL = preload("res://scripts/peasant_visual.gd")
 const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 var melee_route: LOCAL_MELEE_ROUTE
 var _body_sprite: Sprite2D
+var _peasant_visual: PEASANT_VISUAL
 var _guard_visual: GUARD_VISUAL
 var _bell_pose: Sprite2D
 
@@ -165,9 +166,10 @@ func _setup_body_sprite() -> void:
 		_body_sprite = _guard_visual
 		visual_ui_offset_y = _guard_visual.health_bar_y() - HEALTH_BAR_Y
 	elif civilian_profile == "Peasant" and _sprite_map(&"peasant_sprites") != null:
-		_body_sprite = PEASANT_VISUAL.new()
-		_body_sprite.name = "PeasantVisual"
-		visual_ui_offset_y = PEASANT_VISUAL.HEALTH_BAR_Y - HEALTH_BAR_Y
+		_peasant_visual = PEASANT_VISUAL.new()
+		_peasant_visual.name = "PeasantVisual"
+		_body_sprite = _peasant_visual
+		visual_ui_offset_y = PEASANT_VISUAL.COMBAT_HEALTH_BAR_Y - HEALTH_BAR_Y
 	else:
 		return
 	add_child(_body_sprite)
@@ -221,7 +223,7 @@ func clear_bell_pose() -> void:
 	if _bell_pose == null or not _bell_pose.visible: return
 	_bell_pose.hide()
 	if infection_state == InfectionState.CONVERTED: return
-	if _body_sprite == null or (infection_state == InfectionState.DEAD and _guard_visual == null):
+	if _body_sprite == null:
 		polygon.show()
 	else:
 		_body_sprite.show()
@@ -677,6 +679,8 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 	current_health = maxf(current_health - amount, 0.0)
 	queue_redraw()
 	if current_health > 0.0:
+		if _peasant_visual != null:
+			_peasant_visual.play_hurt()
 		return
 
 	if infection_state == InfectionState.TRANSFORMING:
@@ -752,11 +756,10 @@ func _die(attacker: Node = null) -> void:
 	$CollisionShape2D.set_deferred("disabled", true)
 	if _guard_visual != null:
 		_guard_visual.play_death()
+	elif _peasant_visual != null:
+		clear_bell_pose()
+		_peasant_visual.play_death()
 	else:
-		if _body_sprite != null:
-			_body_sprite.hide()
-			_body_sprite.set_physics_process(false)
-			polygon.show()
 		death_marker_a.show()
 		death_marker_b.show()
 	queue_redraw()
@@ -840,6 +843,8 @@ func _on_encounter_attack_timer_timeout() -> void:
 		return
 	if _guard_visual != null:
 		_guard_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
+	elif _peasant_visual != null:
+		_peasant_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	participant.call("take_damage", attack_damage)
 
 
