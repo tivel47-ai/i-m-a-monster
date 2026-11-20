@@ -13,6 +13,7 @@ const MOVEMENT_STALL_TIMEOUT := 3.0
 const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ORDINARY_VISUAL = preload("res://scripts/ordinary_zombie_visual.gd")
+const BRUTE_VISUAL = preload("res://scripts/brute_visual.gd")
 
 @export var move_speed: float = 100.0
 @export var max_health: float = 120.0
@@ -51,6 +52,7 @@ var is_dead: bool = false
 var is_brute := false
 var zombie_form := ""
 var _ordinary_visual: ORDINARY_VISUAL
+var _brute_visual: BRUTE_VISUAL
 var entrance_damage_bonus := 0.0
 var damage_reduction := 0.0
 var attack_frequency_bonus := 0.0
@@ -99,26 +101,40 @@ func _ready() -> void:
 	attack_timer.wait_time = maxf(attack_interval, 0.01)
 	attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(attack_timer)
-	_setup_ordinary_visual()
+	_setup_form_visual()
 	if current_health == 0.0:
 		_die()
 
 
-func _setup_ordinary_visual() -> void:
-	if is_brute or not zombie_form.is_empty():
+func _setup_form_visual() -> void:
+	if is_brute:
+		if _uses_form_sprites(&"brute_sprites"):
+			_brute_visual = BRUTE_VISUAL.new()
+			_brute_visual.name = "BruteVisual"
+			add_child(_brute_visual)
+			zombie_visual.hide()
 		return
-	var ancestor := get_parent()
-	while ancestor != null and not ancestor.get_meta("ordinary_zombie_sprites", false):
-		ancestor = ancestor.get_parent()
-	if ancestor != null:
+	if zombie_form.is_empty() and _uses_form_sprites(&"ordinary_zombie_sprites"):
 		_ordinary_visual = ORDINARY_VISUAL.new()
 		_ordinary_visual.name = "OrdinaryZombieVisual"
 		add_child(_ordinary_visual)
 		zombie_visual.hide()
 
 
+func _uses_form_sprites(flag: StringName) -> bool:
+	var ancestor := get_parent()
+	while ancestor != null:
+		if ancestor.get_meta(flag, false):
+			return true
+		ancestor = ancestor.get_parent()
+	return false
+
+
 func play_attack_visual(world_point: Vector2, at_impact := false) -> void:
-	if _ordinary_visual != null:
+	if _brute_visual != null:
+		# Every caller reports a resolved hit. Only the encounter timer offers a windup.
+		_brute_visual.play_attack(world_point - global_position, effective_attack_interval())
+	elif _ordinary_visual != null:
 		_ordinary_visual.play_attack(world_point - global_position, effective_attack_interval(), at_impact)
 
 
@@ -218,12 +234,15 @@ func _draw() -> void:
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
-	draw_form_marker(self, PROGRESSION.BRUTE if is_brute else zombie_form)
+	if _brute_visual == null:
+		draw_form_marker(self, PROGRESSION.BRUTE if is_brute else zombie_form)
 	if damage_reduction > 0.0:
 		draw_arc(Vector2.ZERO, 10.0, 0.0, TAU, 24, Color("b4c4a3"), 1.0)
 	if attack_frequency_bonus > 0.0:
 		draw_arc(Vector2.ZERO, 8.5, 0.0, PI, 12, Color("b96e54"), 1.5)
 	var health_y := ORDINARY_VISUAL.HEALTH_BAR_Y if _ordinary_visual != null else -16.25
+	if _brute_visual != null:
+		health_y = BRUTE_VISUAL.HEALTH_BAR_Y
 	var health_rect := Rect2(-5.85, health_y, 11.7, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
@@ -266,10 +285,13 @@ func take_damage(amount: float) -> void:
 	if is_dead or amount <= 0.0:
 		return
 
+	var previous_health := current_health
 	current_health = maxf(current_health - amount * (1.0 - damage_reduction), 0.0)
 	queue_redraw()
 	if current_health == 0.0:
 		_die()
+	elif _brute_visual != null and current_health < previous_health:
+		_brute_visual.play_hurt()
 
 
 func _die() -> void:
@@ -313,7 +335,9 @@ func _die() -> void:
 	navigation_agent.velocity = Vector2.ZERO
 	navigation_agent.avoidance_enabled = false
 	z_index = 0
-	if _ordinary_visual != null:
+	if _brute_visual != null:
+		_brute_visual.play_death()
+	elif _ordinary_visual != null:
 		_ordinary_visual.play_death()
 	else:
 		death_marker_a.show()
@@ -485,6 +509,7 @@ func _brute_hit(primary: Node2D) -> void:
 			continue
 		if center.distance_squared_to(resident.global_position) <= radius_squared and _has_line_of_sight(resident, true):
 			splash_targets.append(resident)
+	play_attack_visual(center, true)
 	primary.receive_knockback(global_position.direction_to(center) * width * stats.knockback)
 	primary.receive_zombie_attack(attack_damage, infection_chance, self)
 	for resident in splash_targets:

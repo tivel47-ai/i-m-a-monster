@@ -48,6 +48,7 @@ standalone_race_id = "zombie"
 manual_victory_finish = true
 metadata/local_melee_routing = true
 metadata/ordinary_zombie_sprites = true
+metadata/brute_sprites = true
 metadata/peasant_sprites = true
 metadata/guard_sprites = true
 metadata/guard_group_combat = true
