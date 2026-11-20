@@ -54,6 +54,7 @@ var last_seen_time: float = -1.0
 var pursuit_started: float = 0.0
 var pursuit_origin: Vector2
 var pursuit_target: int = 0
+var pursuit_started_outside_territory := false
 var retreat_until: float = 0.0
 var danger_changed_at := -INF
 var danger_sample := false
@@ -379,7 +380,52 @@ func move_to(point: Vector2, delta: float, pace := -1.0) -> int:
 	return actor._advance_navigation(point, movement_speed(), delta)
 
 
-func engage_target(enemy: Node2D, delta: float, origin: Vector2, limit: float) -> void:
+func _select_combat_target() -> Node2D:
+	var enemy := visible_enemies[0]
+	if not actor.defense.guard_group_combat:
+		return enemy
+	var current := instance_from_id(pursuit_target) as Node2D
+	if is_instance_valid(current) and visible_enemies.has(current) and actor.threat_detection._is_visible_target(current):
+		return current
+	var closest: float = actor.global_position.distance_squared_to(enemy.global_position)
+	for candidate in visible_enemies:
+		var distance: float = actor.global_position.distance_squared_to(candidate.global_position)
+		if distance < closest and actor.threat_detection._is_visible_target(candidate):
+			enemy = candidate
+			closest = distance
+	return enemy
+
+
+func _can_pursue(enemy: Node2D) -> bool:
+	var point := enemy.global_position
+	var local_inspection: bool = (
+		investigation.phase != investigation.Phase.NONE
+		and point.distance_to(investigation.origin) <= search_radius * 2.0
+		and now() - investigation.started <= investigation_seconds
+	)
+	var local_assault: bool = enemy.is_assaulting_building() and actor.global_position.distance_to(point) <= search_radius
+	return (
+		(now() - pursuit_started <= pursuit_seconds or local_inspection or local_assault)
+		and pursuit_origin.distance_to(point) <= pursuit_distance
+		and (pursuit_started_outside_territory or local_inspection or territory_distance(point) <= territory_margin)
+	)
+
+
+func _try_other_combat_target(enemy: Node2D, delta: float) -> bool:
+	var alternatives := visible_enemies.filter(func(candidate: Node2D) -> bool:
+		return candidate != enemy and actor.threat_detection._is_visible_target(candidate)
+	)
+	alternatives.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		return actor.global_position.distance_squared_to(a.global_position) < actor.global_position.distance_squared_to(b.global_position)
+	)
+	for candidate in alternatives.slice(0, 3):
+		if _can_pursue(candidate) and engage_target(candidate, delta, pursuit_origin, pursuit_distance):
+			pursuit_target = candidate.get_instance_id()
+			return true
+	return false
+
+
+func engage_target(enemy: Node2D, delta: float, origin: Vector2, limit: float) -> bool:
 	set_state(State.COMBAT)
 	var distance: float = actor.global_position.distance_to(enemy.global_position)
 	if actor.defense_ranged_weapon and distance <= actor.defense_weapon_range:
@@ -394,12 +440,17 @@ func engage_target(enemy: Node2D, delta: float, origin: Vector2, limit: float) -
 			bolt.remaining = actor.defense_weapon_range
 			actor.defense.get_parent().add_child(bolt)
 	elif distance <= enemy.INFECTION_DISTANCE:
-		enemy.engage_defender(actor)
+		return enemy.engage_defender(actor)
 	elif actor._uses_local_melee_route(enemy):
 		if not actor._advance_melee_route(enemy, movement_speed(), delta, origin, limit):
 			halt()
+			return false
 	else:
-		move_to(actor.defense.combat_approach(actor, enemy, movement_goal), delta)
+		var result := move_to(actor.defense.combat_approach(actor, enemy, movement_goal), delta)
+		if result != actor.NavigationResult.MOVING:
+			halt()
+			return false
+	return true
 
 func finish(status: String, reason: String) -> void:
 	memory.finish(active, status, reason)
@@ -821,19 +872,26 @@ func update_ai(delta: float) -> bool:
 		if visible_enemies.is_empty():
 			halt()
 			return true
-		var enemy: Node2D = visible_enemies[0]
+		var enemy := _select_combat_target()
 		if pursuit_target != enemy.get_instance_id():
 			pursuit_target = enemy.get_instance_id()
 			pursuit_started = now()
 			pursuit_origin = actor.global_position
-		var local_inspection = investigation.phase != investigation.Phase.NONE and enemy.global_position.distance_to(investigation.origin) <= search_radius * 2.0 and now() - investigation.started <= investigation_seconds
-		var local_assault: bool = enemy.is_assaulting_building() and actor.global_position.distance_to(enemy.global_position) <= search_radius
-		if (now() - pursuit_started > pursuit_seconds and not local_inspection and not local_assault) or pursuit_origin.distance_to(enemy.global_position) > pursuit_distance or (territory_distance(enemy.global_position) > territory_margin and not local_inspection):
+			# A guard already off patrol territory can fight where it is.
+			# The same time and distance limits still bound the pursuit.
+			pursuit_started_outside_territory = (
+				actor.defense.guard_group_combat and territory_distance(pursuit_origin) > territory_margin
+			)
+		var can_switch_target: bool = decision and actor.defense.guard_group_combat
+		if not _can_pursue(enemy):
+			if can_switch_target and _try_other_combat_target(enemy, delta):
+				return true
 			set_state(State.ALERT_PATROL)
 			actor._stop_movement()
 			halt() # cautious observation at pursuit boundary, not an endless chase
 			return true
-		engage_target(enemy, delta, pursuit_origin, pursuit_distance)
+		if not engage_target(enemy, delta, pursuit_origin, pursuit_distance) and can_switch_target:
+			_try_other_combat_target(enemy, delta)
 		return true
 	if investigation.update(delta): return true
 	if decision: choose_task()

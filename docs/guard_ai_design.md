@@ -111,6 +111,8 @@ Choose a destination dynamically from accessible navigation paths, relative safe
 
 Pursue a known opponent only within reasonable distance, time, risk, and territorial limits. Never chase one zombie endlessly across the entire map. Losing contact stops live coordinate knowledge.
 
+**Миссия №1, исправлено 20.11.2026.** Стражник, который уже находится за границей своего патрульного района, может сблизиться с лично видимым противником поблизости. Действуют ограничения на длительность преследования и расстояние от точки его начала. При начале преследования внутри района действует и граница патруля. При первом сближении или потере текущей цели стражник выбирает ближайшего распознанного противника в поле зрения. Отход по B2 имеет приоритет.
+
 Remember the **last genuinely known location** and form a temporary search area around it. Dynamically choose approximately two or three useful, accessible points using terrain, navigation, obstacles and opportunities to see the area. These are not permanently preplaced search markers. Use fewer if fewer valid points exist; points behind unreachable walls or blocked paths are invalid. Inspect through ordinary movement and perception, not automatic discovery.
 
 For the first prototype, at most one temporary search area is active per guard. Search ends when relevant accessible points are checked, its period expires, information becomes irrelevant, a higher-priority event interrupts it, or the enemy is seen again. Preserve the distinction between a completed search and an interrupted one. Reacquisition updates the genuinely known position and triggers a new tactical assessment; it is not evidence that every other threat has been resolved.
