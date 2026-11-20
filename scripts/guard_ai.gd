@@ -879,13 +879,13 @@ func update_ai(delta: float) -> bool:
 			alarm_point = actor.defense.alarm_point(actor)
 		if alarm_point.is_finite():
 			set_state(State.RAISE_ALARM)
-			if actor.global_position.distance_to(actor.defense.bell.global_position) <= actor.defense.bell_reach and actor.defense.bell_visible(actor):
+			if actor.defense.at_bell(actor):
 				halt()
-				bell_elapsed += delta
+				bell_elapsed = actor.defense.advance_bell_pull(actor, delta, bell_elapsed)
 				if bell_elapsed >= actor.defense.bell_interaction_seconds: actor.defense.ring(actor)
 			else:
 				bell_elapsed = 0.0
-				move_to(alarm_point, delta)
+				actor.defense.move_to_bell(actor, alarm_point, delta, move_to)
 		else:
 			set_state(State.RETREAT)
 			if retreat_point.is_finite():
@@ -950,15 +950,15 @@ func update_ai(delta: float) -> bool:
 						if active.progress >= active.points.size(): finish("completed", "accessible search checked; threat unresolved")
 		elif active.kind == State.RAISE_ALARM:
 			if actor.defense.alert.level >= actor.defense.alert.Level.ALARM: finish("canceled", "bell already sounded")
-			elif actor.global_position.distance_to(actor.defense.bell.global_position) <= actor.defense.bell_reach and actor.defense.bell_visible(actor):
+			elif actor.defense.at_bell(actor):
 				halt()
-				bell_elapsed += delta
+				bell_elapsed = actor.defense.advance_bell_pull(actor, delta, bell_elapsed)
 				if bell_elapsed >= actor.defense.bell_interaction_seconds:
 					if actor.defense.ring(actor): finish("completed", "physical bell interaction")
 					else: finish("infeasible", "bell interaction blocked")
 			else:
 				bell_elapsed = 0.0
-				var result := move_to(active.point, delta)
+				var result: int = actor.defense.move_to_bell(actor, active.point, delta, move_to)
 				if result == actor.NavigationResult.FAILED:
 					finish("infeasible", "bell unreachable")
 				elif result == actor.NavigationResult.ARRIVED and not actor.defense.bell_path.is_empty():

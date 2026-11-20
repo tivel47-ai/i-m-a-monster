@@ -108,10 +108,12 @@ func run() -> void:
 		and alert.registered_civilian_corpses == 1,
 		"Civilian remains registered once with a single chance to raise the alarm")
 
-	helper.global_position = helper.guard_ai.active.point
-	helper.guard_ai.update_ai(defense.bell_interaction_seconds + 0.1)
-	check(alert.level == alert.Level.ALARM and helper.global_position.distance_to(defense.bell.global_position) <= defense.bell_reach,
-		"Replacement raises ALARM through actual interaction in bell range")
+	helper.set_physics_process(true)
+	for step in 420:
+		await physics_frame
+		if alert.bell_source == alert.BellSource.SQUARE: break
+	check(alert.level == alert.Level.ALARM and defense.at_bell(helper),
+		"Replacement walks to the rope and raises ALARM through the physical pull")
 	observe_corpses(busy)
 	check(is_zero_approx(alert.danger), "Previously registered bodies still add no danger after the bell")
 	mission.queue_free()

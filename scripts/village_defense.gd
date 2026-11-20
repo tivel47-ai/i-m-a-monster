@@ -4,6 +4,7 @@ const CORPSE = preload("res://scripts/corpse_perception.gd")
 const GUARD = preload("res://scripts/guard_ai.gd")
 const ESCORT = preload("res://scripts/civilian_escort.gd")
 const PRIEST = preload("res://scripts/priest_ai.gd")
+const SQUARE_BELL = preload("res://scripts/square_alarm_bell.gd")
 @export var bell_reach: float = 24.0
 @export var bell_interaction_seconds: float = 1.0
 @export var bell_path: NodePath
@@ -15,6 +16,7 @@ var guard_posts: Array[Vector2] = []
 var elapsed: float = 0.0
 var alert: Node
 var bell: Node2D
+var square_bell: SQUARE_BELL
 var organized: Node
 var priest_ai: Node
 var last_stand: Node
@@ -28,6 +30,7 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 	if bell == null: bell = get_parent().get_node_or_null("VillagePointsOfInterest/Bell")
 	if bell == null: bell = get_parent().get_node_or_null("PointsOfInterest/Bell")
 	if bell == null: bell = get_parent().get_node_or_null("NavigationRegion2D/Solids/Bell")
+	square_bell = bell as SQUARE_BELL
 	for actor in residents:
 		register_resident(actor)
 	organized = get_node_or_null("OrganizedDefense")
@@ -232,7 +235,32 @@ func ring(actor: Node2D) -> bool:
 	if not can_process() or not is_instance_valid(bell) or not actor.is_available_for_infection() or actor.global_position.distance_to(bell.global_position) > bell_reach:
 		return false
 	if not bell_visible(actor): return false
-	return alert.activate_bell(actor)
+	if not alert.activate_bell(actor): return false
+	if is_instance_valid(square_bell): square_bell.strike(actor, alert.bell_audio)
+	return true
+
+
+func at_bell(actor: Node2D, legacy_point := Vector2.INF) -> bool:
+	if not is_instance_valid(bell): return false
+	if is_instance_valid(square_bell) and not square_bell.at_rope(actor): return false
+	if bell_path.is_empty() and legacy_point.is_finite():
+		return actor.global_position.distance_to(legacy_point) <= bell_reach
+	return actor.global_position.distance_to(bell.global_position) <= bell_reach and bell_visible(actor)
+
+
+func advance_bell_pull(actor: Node2D, delta: float, previous_elapsed: float) -> float:
+	if not is_instance_valid(square_bell): return previous_elapsed + delta
+	return square_bell.pull(actor, delta, bell_interaction_seconds)
+
+
+func move_to_bell(actor: Node2D, point: Vector2, delta: float, mover: Callable, speed := -1.0) -> int:
+	if is_instance_valid(square_bell) and square_bell.on_final_approach(actor):
+		return square_bell.step_to_rope(actor, delta)
+	return mover.call(point, delta, speed)
+
+
+func operating_bell(actor: Node2D) -> bool:
+	return is_instance_valid(square_bell) and square_bell.is_operating(actor)
 
 func bell_visible(actor: Node2D) -> bool:
 	return _bell_visible_from(actor, actor.global_position)
@@ -246,6 +274,13 @@ func _bell_visible_from(actor: Node2D, point: Vector2) -> bool:
 
 func alarm_point(actor: Node2D) -> Vector2:
 	if not is_instance_valid(bell): return Vector2.INF
+	if is_instance_valid(square_bell):
+		var stance := square_bell.approach_position()
+		if stance.distance_to(bell.global_position) > bell_reach or not _bell_visible_from(actor, stance):
+			return Vector2.INF
+		var point := square_bell.navigation_entry()
+		if actor.has_destination and actor.destination.is_equal_approx(point): return point
+		return point if reachable(actor, point) else Vector2.INF
 	if not bell_path.is_empty():
 		if actor.global_position.distance_to(bell.global_position) <= bell_reach and bell_visible(actor):
 			return actor.global_position

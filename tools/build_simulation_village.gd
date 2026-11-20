@@ -5,6 +5,7 @@ extends SceneTree
 const OUTPUT := "res://scenes/village_simulation_map.tscn"
 const NAVIGATION := "res://scenes/village_simulation_navigation.tres"
 const TERRAIN := preload("res://assets/maps/mission_01_terrain.png")
+const SQUARE_ALARM_BELL := preload("res://scenes/square_alarm_bell.tscn")
 const ROAD := Color("71654f")
 const PATH := Color("645d47")
 const TAVERN_ANGLE := 1.7139033
@@ -347,10 +348,9 @@ func build() -> void:
 	var well := solid(public_buildings,"Well",Vector2(1430,868),rectangle(Vector2(42,40)),Color("929280"))
 	patch(well,"Water",Vector2.ZERO,Vector2(26,24),Color("2c4245"))
 	stroke(well,"Beam",PackedVector2Array([Vector2(-22,-5),Vector2(22,-5)]),Color("534731"),6)
-	var bell := solid(public_buildings,"AlarmBell",Vector2(1620,850),rectangle(Vector2(32,42)),Color("534a38"))
-	patch(bell,"LeftPost",Vector2(-12,0),Vector2(6,38),Color("a08e68"))
-	patch(bell,"RightPost",Vector2(12,0),Vector2(6,38),Color("a08e68"))
-	polygon(bell,"Bell",PackedVector2Array([Vector2(-7,-10),Vector2(7,-10),Vector2(11,8),Vector2(-11,8)]),Color("b0a070"))
+	var bell := SQUARE_ALARM_BELL.instantiate() as StaticBody2D
+	bell.position = Vector2(1620,850)
+	attach(public_buildings, bell, "AlarmBell")
 	label_at(details,"BellLabel","Колокол",Vector2(1590,805))
 	marker("Square",Vector2(1520,947),true)
 	marker("Well",Vector2(1410,940),true)

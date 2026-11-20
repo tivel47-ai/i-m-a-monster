@@ -6,6 +6,7 @@ const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 var melee_route: LOCAL_MELEE_ROUTE
 var _body_sprite: Sprite2D
 var _guard_visual: GUARD_VISUAL
+var _bell_pose: Sprite2D
 
 const MOVEMENT_STALL_TIMEOUT := 3.0
 const HEALTH_BAR_Y := -16.25
@@ -181,15 +182,56 @@ func _sprite_map(flag: StringName) -> Node:
 
 
 func contains_visual_point(world_position: Vector2) -> bool:
-	var sprite_visible := _body_sprite != null and _body_sprite.is_visible_in_tree()
-	if sprite_visible and _body_sprite.is_pixel_opaque(_body_sprite.to_local(world_position)):
+	var sprite := _bell_pose if _bell_pose != null and _bell_pose.visible else _body_sprite
+	var sprite_visible := sprite != null and sprite.is_visible_in_tree()
+	if sprite_visible and sprite.is_pixel_opaque(sprite.to_local(world_position)):
 		return true
 	return (sprite_visible or polygon.is_visible_in_tree()) and Geometry2D.is_point_in_polygon(
 		polygon.to_local(world_position) - polygon.offset, polygon.polygon)
 
 
+func bell_pose_role() -> StringName:
+	if _guard_visual != null:
+		return _guard_visual.appearance
+	return StringName(get_meta("village_role", "peasant"))
+
+
+func show_bell_pose(atlas: Texture2D, frame: Rect2, feet: Vector2) -> void:
+	if _bell_pose == null:
+		_bell_pose = Sprite2D.new()
+		_bell_pose.name = "BellPullPose"
+		_bell_pose.centered = false
+		_bell_pose.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+		_bell_pose.region_enabled = true
+		_bell_pose.region_filter_clip_enabled = true
+		_bell_pose.scale = Vector2.ONE * (PEASANT_VISUAL.WORLD_HEIGHT / PEASANT_VISUAL.FRAME_HEIGHT)
+		_bell_pose.position.y = PEASANT_VISUAL.FEET_Y
+		add_child(_bell_pose)
+	_bell_pose.texture = atlas
+	_bell_pose.region_rect = frame
+	_bell_pose.offset = -feet
+	if _body_sprite != null:
+		_body_sprite.hide()
+	else:
+		polygon.hide()
+	_bell_pose.show()
+
+
+func clear_bell_pose() -> void:
+	if _bell_pose == null or not _bell_pose.visible: return
+	_bell_pose.hide()
+	if infection_state == InfectionState.CONVERTED: return
+	if _body_sprite == null or (infection_state == InfectionState.DEAD and _guard_visual == null):
+		polygon.show()
+	else:
+		_body_sprite.show()
+
+
 func _physics_process(delta: float) -> void:
 	if is_instance_valid(building_task):
+		return
+	if is_instance_valid(defense) and defense.operating_bell(self):
+		_stop_movement()
 		return
 	if (is_instance_valid(defense) and is_instance_valid(defense.last_stand)
 		and defense.last_stand.operator == self and not defense.last_stand.beacon_lit

@@ -409,16 +409,13 @@ func update_escort(delta: float) -> bool:
 		var point: Vector2 = actor.defense.alarm_point(actor)
 		if not actor.defense.reachable(actor, point): return false
 		actor.threat_reaction.cancel_response()
-		var can_ring: bool = actor.global_position.distance_to(point) <= actor.defense.bell_reach
-		if not actor.defense.bell_path.is_empty():
-			can_ring = actor.global_position.distance_to(actor.defense.bell.global_position) <= actor.defense.bell_reach and actor.defense.bell_visible(actor)
-			if can_ring: actor._stop_movement()
-		if can_ring:
-			bell_elapsed += delta
+		if actor.defense.at_bell(actor, point):
+			if not actor.defense.bell_path.is_empty(): actor._stop_movement()
+			bell_elapsed = actor.defense.advance_bell_pull(actor, delta, bell_elapsed)
 			if bell_elapsed >= actor.defense.bell_interaction_seconds: actor.defense.ring(actor)
 		else:
 			bell_elapsed = 0.0
-			move_to(point, delta)
+			actor.defense.move_to_bell(actor, point, delta, move_to)
 		return true
 	if decision: observe_site_danger()
 	# A witness/warned civilian keeps their own refuge plan even after the short
@@ -489,14 +486,14 @@ func update_rare_bell(delta: float) -> bool:
 		actor.threat_reaction.seeking_home = true
 		return false
 	reporter.cancel()
-	if actor.global_position.distance_to(actor.defense.bell.global_position) <= actor.defense.bell_reach and actor.defense.bell_visible(actor):
+	if actor.defense.at_bell(actor):
 		actor._stop_movement()
-		bell_elapsed += delta
+		bell_elapsed = actor.defense.advance_bell_pull(actor, delta, bell_elapsed)
 		if bell_elapsed >= actor.defense.bell_interaction_seconds:
 			actor.defense.ring(actor)
 	else:
 		bell_elapsed = 0.0
-		if move_to(point, delta, actor.threat_reaction.fleeing_speed) == actor.NavigationResult.FAILED:
+		if actor.defense.move_to_bell(actor, point, delta, move_to, actor.threat_reaction.fleeing_speed) == actor.NavigationResult.FAILED:
 			cancel_rare_bell()
 			actor.threat_reaction.seeking_home = true
 	return true

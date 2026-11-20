@@ -203,13 +203,13 @@ func update(delta: float) -> bool:
 		if not point.is_finite():
 			end("infeasible", "bell inaccessible")
 			return true
-		if guard.actor.global_position.distance_to(guard.actor.defense.bell.global_position) <= guard.actor.defense.bell_reach and guard.actor.defense.bell_visible(guard.actor):
+		if guard.actor.defense.at_bell(guard.actor):
 			guard.halt()
-			guard.bell_elapsed += delta
+			guard.bell_elapsed = guard.actor.defense.advance_bell_pull(guard.actor, delta, guard.bell_elapsed)
 			if guard.bell_elapsed >= guard.actor.defense.bell_interaction_seconds: guard.actor.defense.ring(guard.actor)
 		else:
 			guard.bell_elapsed = 0.0
-			if guard.move_to(point, delta) == guard.actor.NavigationResult.FAILED:
+			if guard.actor.defense.move_to_bell(guard.actor, point, delta, guard.move_to) == guard.actor.NavigationResult.FAILED:
 				end("infeasible", "bell path blocked")
 		return true
 	if phase == Phase.CONTACT:

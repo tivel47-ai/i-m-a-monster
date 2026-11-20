@@ -22,6 +22,7 @@
 [ext_resource type="SpriteFrames" path="res://assets/sprites/buildings/church/beacon_fire_frames.tres" id="41_church_fire"]
 [ext_resource type="Shader" path="res://assets/sprites/buildings/church/door.gdshader" id="42_church_door_shader"]
 [ext_resource type="Script" path="res://scripts/church_door_visual.gd" id="43_church_door_visual"]
+[ext_resource type="PackedScene" path="res://scenes/square_alarm_bell.tscn" id="44_square_alarm_bell"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -1980,30 +1981,8 @@ points = PackedVector2Array(-22, -5, 22, -5)
 width = 6.0
 default_color = Color(0.3254902, 0.2784314, 0.19215687, 1)
 
-[node name="AlarmBell" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=1376947056 groups=["simulation_solids"]]
+[node name="AlarmBell" parent="NavigationRegion2D/Buildings/Public" unique_id=1376947056 instance=ExtResource("44_square_alarm_bell")]
 position = Vector2(1620, 850)
-collision_mask = 0
-
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/AlarmBell" unique_id=876334057]
-color = Color(0.3254902, 0.2901961, 0.21960784, 1)
-polygon = PackedVector2Array(-16, -21, 16, -21, 16, 21, -16, 21)
-
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/AlarmBell" unique_id=675902177]
-polygon = PackedVector2Array(-16, -21, 16, -21, 16, 21, -16, 21)
-
-[node name="LeftPost" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/AlarmBell" unique_id=1341187532]
-position = Vector2(-12, 0)
-color = Color(0.627451, 0.5568628, 0.40784314, 1)
-polygon = PackedVector2Array(-3, -19, 3, -19, 3, 19, -3, 19)
-
-[node name="RightPost" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/AlarmBell" unique_id=1344680869]
-position = Vector2(12, 0)
-color = Color(0.627451, 0.5568628, 0.40784314, 1)
-polygon = PackedVector2Array(-3, -19, 3, -19, 3, 19, -3, 19)
-
-[node name="Bell" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/AlarmBell" unique_id=2056401339]
-color = Color(0.6901961, 0.627451, 0.4392157, 1)
-polygon = PackedVector2Array(-7, -10, 7, -10, 11, 8, -11, 8)
 
 [node name="Tavern" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=1784415062 groups=["simulation_solids"]]
 position = Vector2(1926, 1458)

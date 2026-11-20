@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/square_alarm_bell.gd" id="1_bell"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/square_alarm_bell/frame.png" id="2_frame"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/church/bell.png" id="3_bronze"]
+
+[node name="AlarmBell" type="StaticBody2D" groups=["simulation_solids"]]
+collision_mask = 0
+script = ExtResource("1_bell")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(-16, -21, 16, -21, 16, 21, -16, 21)
+
+[node name="Frame" type="Sprite2D" parent="."]
+position = Vector2(0, -4)
+scale = Vector2(0.17, 0.17)
+texture_filter = 4
+texture = ExtResource("2_frame")
+
+[node name="Swing" type="Node2D" parent="."]
+position = Vector2(0, -13.7)
+
+[node name="Clapper" type="Node2D" parent="Swing"]
+position = Vector2(0, 12.6)
+
+[node name="Bronze" type="Sprite2D" parent="Swing"]
+position = Vector2(0, 6.5125)
+scale = Vector2(0.255, 0.235)
+texture_filter = 2
+texture = ExtResource("3_bronze")
+region_enabled = true
+region_filter_clip_enabled = true
+region_rect = Rect2(0, 0, 54, 61)
+
+[node name="Hardware" type="Node2D" parent="."]
