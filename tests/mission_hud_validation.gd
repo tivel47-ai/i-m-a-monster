@@ -2,6 +2,7 @@
 extends SceneTree
 
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const ZOMBIE_PREVIEW = preload("res://scripts/zombie_race_preview.gd")
 
 var failures := 0
 var app: Node
@@ -35,6 +36,19 @@ func run() -> void:
 	check(race_labels.any(func(label): return "всей орде" in label.text)
 		and not race_labels.any(func(label): return "рамка" in label.text),
 		"Zombie race screen describes horde movement without a selection hint")
+	var preview := app.race_preview.find_children("*", "Sprite2D", true, false)[0] as ZOMBIE_PREVIEW
+	var idle := preview.region_rect
+	var start_x := preview.position.x
+	preview._process(ZOMBIE_PREVIEW.IDLE_TIME + 0.4)
+	var walk := preview.region_rect
+	check(walk != idle and preview.position.x > start_x and get_nodes_in_group("player_units").is_empty(),
+		"Race preview walks using the ordinary zombie atlas without spawning a unit")
+	preview._process(ZOMBIE_PREVIEW.WALK_TIME - 0.4 + 0.16)
+	check(preview.region_rect != walk and preview.region_rect != idle,
+		"Race preview advances from walking to attack frames")
+	preview._process(ZOMBIE_PREVIEW.PASS_TIME * 2.0 - preview._elapsed + 0.01)
+	check(preview.region_rect == idle and is_equal_approx(preview.position.x, start_x),
+		"Race preview loops back to the starting pose")
 	app._start_mission()
 	await frames()
 	var first: Node = app.mission
@@ -107,8 +121,17 @@ func check_monster_roster() -> void:
 		return
 	var rows := {}
 	for row in roster.get_children().slice(1):
-		check(row.get_child(0).draw.get_connections().size() == 1, "Creature row draws an icon")
-		rows[row.get_child(1).text] = row.get_child(2).text
+		var name: String = row.get_child(1).text
+		var icon: TextureRect = row.get_child(0)
+		if name in ["Зомби", "Громила"]:
+			var visual: Sprite2D = units[0].get_node("OrdinaryZombieVisual") if name == "Зомби" else units[2].get_node("BruteVisual")
+			var portrait := icon.texture as AtlasTexture
+			check(portrait != null and portrait.atlas == visual.texture and portrait.region.has_area(),
+				"Sprite portrait reuses the mission unit's atlas: " + name)
+		else:
+			check(icon.texture == null and icon.draw.get_connections().size() == 1,
+				"Creature without sprites draws a fallback icon: " + name)
+		rows[name] = row.get_child(2).text
 	check(rows == {"Зомби": "× 2", "Громила": "× 1", "Гончий": "× 1", "Носитель": "× 1"},
 		"Roster groups living monsters by form")
 	await frames()
@@ -132,3 +155,37 @@ func check_monster_roster() -> void:
 	hud = app.mission.mission_hud
 	check(hud.monster_count.text == "Монстры: 0" and hud.monster_count.get_parent().get_child_count() == 1,
 		"Restart clears discovered rows for the new attempt")
+	await check_developer_humans()
+
+
+func check_developer_humans() -> void:
+	var mission: Node = app.mission
+	mission.set_developer_mode(true)
+	for frame in 6:
+		await physics_frame
+	var menu: PopupMenu
+	for button in mission.mission_hud.developer_panel.find_children("*", "MenuButton", true, false):
+		if button.text == "Создать человека":
+			menu = button.get_popup()
+			break
+	check(menu != null, "Developer HUD has the human placement menu")
+	if menu == null:
+		return
+	var roles := {
+		"Крестьянин": "peasant", "Ремесленник": "artisan", "Стражник": "guard",
+		"Священник": "priest", "Охранник священника": "priest_guard",
+	}
+	var labels: Array[String] = []
+	for index in menu.item_count:
+		labels.append(menu.get_item_text(index))
+	check(labels == roles.keys(), "Developer menu offers exactly the five human roles")
+	var point := Vector2(350, 1000)
+	var total: int = mission.total_residents
+	check(not mission.developer_place("resident", point) and mission.total_residents == total,
+		"Legacy generic resident no longer spawns or affects population")
+	for index in menu.item_count:
+		var role: String = roles.get(menu.get_item_text(index), "")
+		menu.id_pressed.emit(menu.get_item_id(index))
+		var placed: bool = mission.developer_place(mission.developer_spawn, point + Vector2(26 * index, 0))
+		check(placed and mission.villagers.back().get_meta("village_role", "") == role,
+			"Developer menu places the selected human role: " + role)

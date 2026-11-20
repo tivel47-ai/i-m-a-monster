@@ -53,6 +53,8 @@ var is_brute := false
 var zombie_form := ""
 var _ordinary_visual: ORDINARY_VISUAL
 var _brute_visual: BRUTE_VISUAL
+var _portrait_atlas: Texture2D
+var _portrait_region: Rect2
 var entrance_damage_bonus := 0.0
 var damage_reduction := 0.0
 var attack_frequency_bonus := 0.0
@@ -111,14 +113,36 @@ func _setup_form_visual() -> void:
 		if _uses_form_sprites(&"brute_sprites"):
 			_brute_visual = BRUTE_VISUAL.new()
 			_brute_visual.name = "BruteVisual"
-			add_child(_brute_visual)
-			zombie_visual.hide()
+			_attach_form_visual(_brute_visual)
 		return
 	if zombie_form.is_empty() and _uses_form_sprites(&"ordinary_zombie_sprites"):
 		_ordinary_visual = ORDINARY_VISUAL.new()
 		_ordinary_visual.name = "OrdinaryZombieVisual"
-		add_child(_ordinary_visual)
-		zombie_visual.hide()
+		_attach_form_visual(_ordinary_visual)
+
+
+func _attach_form_visual(visual: Sprite2D) -> void:
+	add_child(visual)
+	zombie_visual.hide()
+	# Keep the starting pose even if the roster first sees this unit mid-animation.
+	_portrait_atlas = visual.texture
+	_portrait_region = visual.region_rect
+
+
+func get_roster_portrait() -> Texture2D:
+	if _portrait_atlas == null or not _portrait_region.has_area():
+		return _portrait_atlas
+	var portrait := AtlasTexture.new()
+	portrait.atlas = _portrait_atlas
+	portrait.region = _portrait_region
+	portrait.filter_clip = true
+	# Remove empty atlas padding so the whole figure stays readable at HUD size.
+	var image := _portrait_atlas.get_image()
+	if image != null and not image.is_empty() and not image.is_compressed():
+		var bounds := image.get_region(Rect2i(_portrait_region)).get_used_rect()
+		if bounds.has_area():
+			portrait.region = Rect2(_portrait_region.position + Vector2(bounds.position), Vector2(bounds.size))
+	return portrait
 
 
 func _uses_form_sprites(flag: StringName) -> bool:

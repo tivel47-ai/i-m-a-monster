@@ -440,7 +440,8 @@ func build() -> void:
 	build_fences()
 	var bounds := container(region,"Boundaries")
 	for entry in [[Vector2(1500,6),Vector2(3000,12)],[Vector2(1500,1994),Vector2(3000,12)],[Vector2(6,1000),Vector2(12,1976)],[Vector2(2994,1000),Vector2(12,1976)]]:
-		solid(bounds,"Edge"+str(bounds.get_child_count()),entry[0],rectangle(entry[1]),Color("323d30"))
+		var edge := solid(bounds,"Edge"+str(bounds.get_child_count()),entry[0],rectangle(entry[1]),Color("323d30"))
+		edge.get_node("Footprint").hide()
 	# Keep existing authored road edits while changing guard assignments.
 	for title in road_preferences:
 		var surface:=roads.get_node_or_null(title)

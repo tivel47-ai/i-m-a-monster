@@ -35,6 +35,7 @@ func _export_preview() -> void:
 	for child in mission.get_children():
 		if child.name != &"Ground" and child is CanvasItem:
 			child.hide()
+	mission.get_node("Ground/BoundaryFog").hide()
 	for layer in mission.find_children("*", "CanvasLayer", true, false):
 		layer.hide()
 	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE

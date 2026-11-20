@@ -4453,6 +4453,7 @@ position = Vector2(1500, 6)
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Boundaries/Edge0" unique_id=1657830162]
+visible = false
 color = Color(0.19607843, 0.23921569, 0.1882353, 1)
 polygon = PackedVector2Array(-1500, -6, 1500, -6, 1500, 6, -1500, 6)
 
@@ -4464,6 +4465,7 @@ position = Vector2(1500, 1994)
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Boundaries/Edge1" unique_id=796551986]
+visible = false
 color = Color(0.19607843, 0.23921569, 0.1882353, 1)
 polygon = PackedVector2Array(-1500, -6, 1500, -6, 1500, 6, -1500, 6)
 
@@ -4475,6 +4477,7 @@ position = Vector2(6, 1000)
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Boundaries/Edge2" unique_id=1516467814]
+visible = false
 color = Color(0.19607843, 0.23921569, 0.1882353, 1)
 polygon = PackedVector2Array(-6, -988, 6, -988, 6, 988, -6, 988)
 
@@ -4486,6 +4489,7 @@ position = Vector2(2994, 1000)
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Boundaries/Edge3" unique_id=447754628]
+visible = false
 color = Color(0.19607843, 0.23921569, 0.1882353, 1)
 polygon = PackedVector2Array(-6, -988, 6, -988, 6, 988, -6, 988)
 

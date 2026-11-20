@@ -665,10 +665,6 @@ func _update_preview() -> void:
 		_text(race_details, "Здесь появятся описание, сильные и слабые стороны выбранной расы.", 18)
 		return
 	var race: Dictionary = CATALOG.RACES[selected_race]
-	# Render the current scene's polygon, without running unit AI in the menu.
-	var source: Node2D = load(race.preview).instantiate()
-	var visual := source.get_node("Polygon2D").duplicate() as Polygon2D
-	source.free()
 	var preview := PanelContainer.new()
 	preview.custom_minimum_size.y = 200
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -676,12 +672,14 @@ func _update_preview() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview.add_child(center)
 	var portrait := Control.new()
-	portrait.custom_minimum_size = Vector2(100, 150)
+	portrait.custom_minimum_size = Vector2(180, 170)
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(portrait)
-	portrait.add_child(visual)
-	visual.position = Vector2(50, 100)
-	visual.scale = Vector2.ONE * 4
+	var stage := Node2D.new()
+	stage.position = Vector2(90, 121)
+	stage.scale = Vector2.ONE * 5.1
+	portrait.add_child(stage)
+	stage.add_child(race.preview.new())
 	race_preview.add_child(preview)
 	_text(race_preview, "Как играется", 24)
 	_text(race_preview, race.gameplay, 18)

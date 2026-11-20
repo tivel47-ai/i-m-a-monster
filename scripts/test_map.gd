@@ -497,7 +497,7 @@ func developer_place(kind: String, world_position: Vector2) -> bool:
 
 func _developer_place_human(kind: String, point: Vector2) -> void:
 	var resident := (PRIEST_GUARD_SCENE if kind == "priest_guard" else VILLAGER_SCENE).instantiate()
-	resident.set_meta("village_role", "peasant" if kind == "resident" else kind)
+	resident.set_meta("village_role", kind)
 	resident.points_of_interest_path = NodePath("../VillagePointsOfInterest")
 	if kind == "priest_guard":
 		_setup_developer_priest_guard(resident, point)

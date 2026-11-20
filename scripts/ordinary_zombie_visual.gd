@@ -27,12 +27,16 @@ func _ready() -> void:
 	_actor = get_parent() as Node2D
 	_encounter_timer = _actor.get_node("EncounterAttackTimer") as Timer
 	_last_position = _actor.global_position
+	_setup_sprite()
+	_display(ART.BASE, ART.TURN[_direction], ART.TURN_HEIGHT, false)
+
+
+func _setup_sprite() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	centered = false
 	region_enabled = true
 	region_filter_clip_enabled = true
 	position.y = FEET_Y
-	_display(ART.BASE, ART.TURN[_direction], ART.TURN_HEIGHT, false)
 
 
 func _physics_process(delta: float) -> void:

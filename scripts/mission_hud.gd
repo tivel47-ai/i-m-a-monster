@@ -517,26 +517,31 @@ func _refresh_monster_roster(units: Array[Node]) -> void:
 		var form: String = unit.zombie_form
 		counts[form] = counts.get(form, 0) + 1
 		if not _monster_rows.has(form):
-			_add_monster_row(form, unit.get_node("Polygon2D"))
+			_add_monster_row(form, unit)
 	monster_count.text = "Монстры: %d" % units.size()
 	for form in _monster_rows:
 		_monster_rows[form].text = "× %d" % counts.get(form, 0)
 
 
-func _add_monster_row(form: String, body: Polygon2D) -> void:
+func _add_monster_row(form: String, unit: ZOMBIE) -> void:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_monster_roster.add_child(row)
-	var icon := Control.new()
-	icon.custom_minimum_size = Vector2(22, 22)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(27, 27)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	icon.texture = unit.get_roster_portrait()
 	row.add_child(icon)
-	var polygon := body.polygon
-	var color := body.color
-	icon.draw.connect(func():
-		icon.draw_set_transform(icon.size * 0.5, 0.0, Vector2.ONE * 1.15)
-		ZOMBIE.draw_form_marker(icon, form)
-		icon.draw_colored_polygon(polygon, color))
+	if icon.texture == null:
+		var polygon := unit.zombie_visual.polygon
+		var color := unit.zombie_visual.color
+		icon.draw.connect(func():
+			icon.draw_set_transform(icon.size * 0.5, 0.0, Vector2.ONE * 1.15)
+			ZOMBIE.draw_form_marker(icon, form)
+			icon.draw_colored_polygon(polygon, color))
 	var title: String = "Зомби" if form.is_empty() else PROGRESSION.NODES[form].title
 	var name_label := _label(row, title)
 	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF

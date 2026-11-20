@@ -2,6 +2,7 @@ extends Polygon2D
 
 const SURFACE := preload("res://scripts/mission_terrain_surface.gdshader")
 const WIND := preload("res://scripts/mission_terrain_wind.gdshader")
+const BOUNDARY_FOG := preload("res://scripts/mission_boundary_fog.gdshader")
 const TERRAIN_DISTANCE := preload("res://scripts/mission_terrain_distance.gd")
 const MEADOW := preload("res://assets/maps/mission_01/meadow.png")
 const DIRT := preload("res://assets/maps/mission_01/dirt.png")
@@ -11,6 +12,7 @@ const GRASS := preload("res://assets/maps/mission_01/grass_tuft.png")
 const TREES := preload("res://assets/maps/mission_01/trees.png")
 const GROUND_DETAILS := preload("res://assets/maps/mission_01/ground_details.png")
 const MEADOW_DETAILS := preload("res://assets/maps/mission_01/meadow_details.png")
+const BOUNDARY_FOG_WIDTH := 156.0
 
 enum Kind { MEADOW, ROAD, FIELD, WATER, DECK, BANK, RAIL, RUT }
 enum Detail { STONE, BUSH, PUDDLE, THICKET, WILD_GROWTH, GROUND_SCATTER }
@@ -61,6 +63,7 @@ var _water: ShaderMaterial
 var _grass_wind: ShaderMaterial
 var _tree_wind: ShaderMaterial
 var _bush_wind: ShaderMaterial
+var _boundary_fog: ShaderMaterial
 var _edge_fade: GradientTexture2D
 var _tree_shadow: GradientTexture2D
 var _blocked_ground: Array[Dictionary] = []
@@ -88,6 +91,7 @@ func _ready() -> void:
 	_add_fields(environment)
 	var water_outline := _add_river(roads, region.get_node("River"), map_bounds)
 	_add_vegetation(region, map_bounds, water_outline)
+	_add_boundary_fog(map_bounds)
 
 
 func _process(delta: float) -> void:
@@ -96,6 +100,34 @@ func _process(delta: float) -> void:
 	_grass_wind.set_shader_parameter("motion_time", _motion_time)
 	_tree_wind.set_shader_parameter("motion_time", _motion_time)
 	_bush_wind.set_shader_parameter("motion_time", _motion_time)
+	_boundary_fog.set_shader_parameter("motion_time", _motion_time)
+
+
+func _add_boundary_fog(bounds: Rect2) -> void:
+	var fog_width := minf(BOUNDARY_FOG_WIDTH, minf(bounds.size.x, bounds.size.y) * 0.25)
+	var inner := bounds.grow(-fog_width)
+	_boundary_fog = ShaderMaterial.new()
+	_boundary_fog.shader = BOUNDARY_FOG
+	_boundary_fog.set_shader_parameter("map_start", bounds.position)
+	_boundary_fog.set_shader_parameter("map_end", bounds.end)
+	_boundary_fog.set_shader_parameter("fog_width", fog_width)
+
+	var fog := Polygon2D.new()
+	fog.name = &"BoundaryFog"
+	fog.z_index = 8
+	fog.material = _boundary_fog
+	# Join the four sides in one mesh so the fog does not overlap at corners.
+	fog.polygon = PackedVector2Array([
+		bounds.position, Vector2(bounds.end.x, bounds.position.y),
+		bounds.end, Vector2(bounds.position.x, bounds.end.y),
+		inner.position, Vector2(inner.end.x, inner.position.y),
+		inner.end, Vector2(inner.position.x, inner.end.y),
+	])
+	fog.polygons = [
+		PackedInt32Array([0, 1, 5, 4]), PackedInt32Array([1, 2, 6, 5]),
+		PackedInt32Array([2, 3, 7, 6]), PackedInt32Array([3, 0, 4, 7]),
+	]
+	add_child(fog)
 
 
 func _surface(kind: Kind, detail: Texture2D, tile_size: Vector2) -> ShaderMaterial:

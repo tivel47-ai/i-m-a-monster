@@ -3,7 +3,6 @@ extends RefCounted
 const ZOMBIE_PROGRESSION = preload("res://scripts/zombie_progression.gd")
 
 const HUMAN_TYPES := {
-	"resident": "Житель",
 	"peasant": "Крестьянин",
 	"artisan": "Ремесленник",
 	"guard": "Стражник",
@@ -36,7 +35,7 @@ const RACES := {
 		"gameplay": "Удерживайте ПКМ, чтобы задать область движения или атаки всей орде. Для штурма здания задайте число зомби отдельной командой. Успешное заражение пополняет орду.",
 		"strengths": "Заражённый житель превращается в управляемого зомби.",
 		"weaknesses": "Зомби получают ответный урон в ближнем бою и могут погибнуть.",
-		"preview": "res://scenes/zombie.tscn",
+		"preview": preload("res://scripts/zombie_race_preview.gd"),
 		"active_perks": [ZOMBIE_PROGRESSION.HUNGER,
 			ZOMBIE_PROGRESSION.FORTITUDE, ZOMBIE_PROGRESSION.SPASM],
 		"cursor": {
