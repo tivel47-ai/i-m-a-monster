@@ -54,6 +54,7 @@ var calm_home: bool = false
 ## Surviving an encounter changes the civilian's plan for the rest of this mission.
 ## Cancelling a movement/combat response must not erase this personal decision.
 var seeking_home: bool = false
+var shelter_after_sighting: bool = false
 var sheltered_at_home: bool = false
 var home_destination: Vector2 = Vector2.INF
 var home_retry_remaining: float = 0.0
@@ -79,6 +80,7 @@ func recognize_threat(target: Node2D) -> void:
 	if report_based:
 		cancel_response()
 	seeking_home = true
+	shelter_after_sighting = true
 	sheltered_at_home = false
 	if episode_active:
 		episode_targets[target.get_instance_id()] = true
@@ -529,6 +531,7 @@ func cancel_response() -> void:
 	if villager.defense != null and seeking_home: villager.defense.release_safety(villager)
 	if not villager.is_alive() or villager.infection_state == villager.InfectionState.TRANSFORMING:
 		seeking_home = false
+		shelter_after_sighting = false
 	home_destination = Vector2.INF
 	sheltered_at_home = false
 	home_retry_remaining = 0.0
@@ -566,6 +569,7 @@ func complete_investigation(incident: int, resolved: Array = []) -> bool:
 	villager.local_warning.firsthand_report.clear()
 	cancel_response()
 	seeking_home = false
+	shelter_after_sighting = false
 	handled_targets.clear()
 	cooldown_remaining = 0.0
 	villager._stop_movement()

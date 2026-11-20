@@ -7,6 +7,7 @@ const REPATH_SECONDS := 0.35
 const SIGNAL_DOOR_MULTIPLIER := 5.0
 
 signal signal_operator_entered(actor: Node2D)
+signal resident_sheltered(actor: Node2D, after_sighting: bool)
 
 var rules: BuildingRules
 var layout: BuildingInterior
@@ -110,9 +111,9 @@ func request_shelter(resident: CharacterBody2D) -> bool:
 
 
 func request_signal_entry(actor: CharacterBody2D) -> bool:
-	if actor.interior_building == self and residents.has(actor) and not signal_sealed and not is_instance_valid(_crossing):
-		_seal_for_signal(actor)
-		_refresh_entrance()
+	if actor.interior_building == self and residents.has(actor) and not is_instance_valid(_crossing):
+		seal_entrance()
+		signal_operator_entered.emit(actor)
 		return true
 	if not actor.is_available_for_infection() or (signal_sealed and door_hp > 0.0):
 		return false
@@ -126,28 +127,32 @@ func request_signal_entry(actor: CharacterBody2D) -> bool:
 	return true
 
 
-func _seal_for_signal(actor: Node2D) -> void:
-	if not signal_sealed:
-		signal_sealed = true
-		signal_door_max_hp = rules.barricade_health * SIGNAL_DOOR_MULTIPLIER
-		door_hp = signal_door_max_hp
-		door_closed = true
-		restoration_allowed = false
-		reinforcement = 0.0
-		reinforcement_hp = 0.0
-		barricade_hp = 0.0
-		for waiting in shelter_queue:
-			if is_instance_valid(waiting):
-				waiting.building_task = null
-				_clear_actor(waiting)
-		shelter_queue.clear()
-		departing.clear()
-	signal_operator = null
-	signal_operator_entered.emit(actor)
+func seal_entrance() -> bool:
+	if signal_sealed:
+		return false
+	signal_sealed = true
+	signal_door_max_hp = rules.barricade_health * SIGNAL_DOOR_MULTIPLIER
+	door_hp = signal_door_max_hp
+	door_closed = true
+	restoration_allowed = false
+	reinforcement = 0.0
+	reinforcement_hp = 0.0
+	barricade_hp = 0.0
+	for waiting in shelter_queue:
+		if is_instance_valid(waiting):
+			waiting.building_task = null
+			_clear_actor(waiting)
+	shelter_queue.clear()
+	departing.clear()
+	_refresh_entrance()
+	return true
 
 
 func request_resident_exit(resident: Node2D) -> void:
 	if signal_sealed and door_hp > 0.0:
+		return
+	var last_stand: Node = resident.defense.last_stand if is_instance_valid(resident.defense) else null
+	if is_instance_valid(last_stand) and last_stand.keeps_sheltered_priest_inside(resident):
 		return
 	if not battle_active and not restoration_allowed and residents.has(resident) and not departing.has(resident):
 		departing.append(resident)
@@ -455,17 +460,24 @@ func _advance_crossing(delta: float) -> void:
 			_attack_stations.erase(actor)
 			_blocked_lane.erase(actor)
 			_enter_monster(actor)
+			_end_crossing()
 		else:
 			shelter_queue.erase(actor)
 			residents.append(actor)
 			actor.interior_building = self
+			var after_sighting: bool = actor.threat_reaction.shelter_after_sighting
+			actor.threat_reaction.shelter_after_sighting = false
 			actor.threat_reaction.cancel_response()
 			actor.threat_detection.reset_awareness()
 			door_closed = door_hp > 0.0
 			_assign_rest(actor)
+			_end_crossing()
 			if actor == signal_operator:
-				_seal_for_signal(actor)
-		_end_crossing()
+				signal_operator = null
+				seal_entrance()
+				signal_operator_entered.emit(actor)
+			else:
+				resident_sheltered.emit(actor, after_sighting)
 	elif _crossing_stalled >= 0.6 and zombie:
 		_blocked_lane[actor] = {"side": _crossing_lane, "until": _elapsed + 2.0}
 		if not _crossing_out and _displace_outside(actor):

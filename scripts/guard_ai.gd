@@ -1,7 +1,7 @@
 extends Node
 const PROJECTILE = preload("res://scripts/defender_projectile.gd")
 ## Reasonable Defender. All tactical evidence is local; peaceful patrol stays separate.
-enum State { PATROL, ALERT_PATROL, INVESTIGATE, SEARCH, COMBAT, RETREAT, ASSIST, GROUP_PATROL, RAISE_ALARM }
+enum State { PATROL, ALERT_PATROL, INVESTIGATE, SEARCH, COMBAT, RETREAT, ASSIST, GROUP_PATROL, RAISE_ALARM, CHURCH_INSPECTION }
 const MEMORY = preload("res://scripts/guard_memory.gd")
 const INVESTIGATION = preload("res://scripts/guard_investigation.gd")
 const DANGER_CONFIRM_SECONDS := 0.35
@@ -65,6 +65,10 @@ var next_decision: float = 0.0
 var next_recruitment: float = 0.0
 var recruitment_point: Vector2 = Vector2.INF
 var recruitment_until: float = 0.0
+var church_inspection_until := -1.0
+var church_inspection_route := PackedVector2Array()
+var church_inspection_index := -1
+var church_observed_seconds := 0.0
 var mobilizing: bool = false
 var mobilization_started: float = 0.0
 var mobilization_goal: Vector2 = Vector2.INF
@@ -91,9 +95,17 @@ func _ready() -> void:
 
 func _on_alert_changed(previous: int, current: int) -> void:
 	if is_instance_valid(actor.reinforcement_squad): return
+	if current != actor.defense.alert.Level.ALARM:
+		church_inspection_until = -1.0
 	if current < actor.defense.alert.Level.ALARM or previous >= actor.defense.alert.Level.ALARM: return
 	investigation.end("interrupted", "physical village alarm supersedes local response")
-	mobilizing = true
+	var church_alarm: bool = current == actor.defense.alert.Level.ALARM \
+		and actor.defense.alert.bell_source == actor.defense.alert.BellSource.CHURCH
+	mobilizing = not church_alarm
+	if church_alarm:
+		church_inspection_until = now() + investigation_seconds
+		church_inspection_index = -1
+		church_observed_seconds = 0.0
 	mobilization_started = now()
 	mobilization_goal = Vector2.INF
 	next_recruitment = 0.0
@@ -146,6 +158,29 @@ func mobilize(delta: float) -> bool:
 	if mobilization_goal.is_finite():
 		var result = move_to(mobilization_goal, delta)
 		if result != actor.NavigationResult.MOVING: mobilization_goal = Vector2.INF
+	return true
+
+
+func inspect_church(delta: float) -> bool:
+	if church_inspection_until < 0.0:
+		return false
+	if church_inspection_index < 0:
+		church_inspection_route = actor.defense.last_stand.church_search_route(actor)
+		church_inspection_index = 0
+	if now() >= church_inspection_until or church_inspection_index >= church_inspection_route.size():
+		church_inspection_until = -1.0
+		halt()
+		return false
+	set_state(State.CHURCH_INSPECTION)
+	recruit(false)
+	var result := move_to(church_inspection_route[church_inspection_index], delta)
+	if result == actor.NavigationResult.ARRIVED:
+		church_observed_seconds += delta
+	else:
+		church_observed_seconds = 0.0
+	if result == actor.NavigationResult.FAILED or church_observed_seconds >= observation_seconds:
+		church_inspection_index += 1
+		church_observed_seconds = 0.0
 	return true
 
 func now() -> float:
@@ -661,7 +696,7 @@ func maintain_followers() -> bool:
 	# Still-current membership stays reserved until its own separation rule ends.
 	return false
 
-func recruit() -> void:
+func recruit(allow_detour := true) -> void:
 	if now() < next_recruitment or actor.defense.alert.level < actor.defense.alert.Level.ALARM: return
 	next_recruitment = now() + recruitment_interval
 	recruitment_point = Vector2.INF
@@ -675,7 +710,7 @@ func recruit() -> void:
 		var distance = actor.global_position.distance_to(other.global_position)
 		if distance <= recruitment_radius:
 			other.escort.invite(self)
-		elif distance < closest and territory_distance(other.global_position) <= territory_margin and recruitment_site_safe(other.global_position) and actor.defense.reachable(actor, other.global_position):
+		elif allow_detour and distance < closest and territory_distance(other.global_position) <= territory_margin and recruitment_site_safe(other.global_position) and actor.defense.reachable(actor, other.global_position):
 			closest = distance
 			recruitment_point = other.global_position # local snapshot, not a remote civilian tracker
 			recruitment_until = now() + recruitment_interval
@@ -863,7 +898,7 @@ func update_ai(delta: float) -> bool:
 	var imminent = false
 	for enemy in visible_enemies:
 		if actor.global_position.distance_to(enemy.global_position) <= search_radius: imminent = true
-	if not imminent and mobilize(delta): return true
+	if not imminent and (inspect_church(delta) or mobilize(delta)): return true
 	if not visible_enemies.is_empty():
 		if not alliance.is_empty(): alliance.status = "interrupted"
 		suspend()

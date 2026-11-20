@@ -3,6 +3,7 @@ extends Node2D
 
 const SECTION = preload("res://scripts/last_stand_barricade.gd")
 const SQUAD = preload("res://scripts/reinforcement_squad.gd")
+const CHURCH_BELL_SECONDS := 10.0
 const PRIEST_SIGNAL_SECONDS := 10.0
 const RESIDENT_SIGNAL_SECONDS := 20.0
 const TRAVEL_SECONDS := 90.0
@@ -16,6 +17,7 @@ enum Wave { UNSENT, TRAVELING, ARRIVED, CANCELLED }
 @export var defense_spacing := 22.0
 @export var village_territory: Rect2
 @export var beacon_position: Vector2
+@export var church_inspection_points: PackedVector2Array
 
 var mission: Node2D
 var defense: Node
@@ -32,6 +34,8 @@ var signal_ready := false
 var operator: CharacterBody2D
 var beacon_lit := false
 var church_posts_active := false
+var sheltered_priest: CharacterBody2D
+var church_bell_ends_at := INF
 var wave := Wave.UNSENT
 var signal_remaining := 0.0
 var travel_remaining := 0.0
@@ -40,6 +44,8 @@ var signal_started_frame := -1
 var defense_bounds: Rect2
 var defense_edges: Array[Vector3] = []
 var door_posts := PackedVector2Array()
+@onready var church_bell: Node2D = $ChurchBell
+@onready var church_bell_audio: AudioStreamPlayer = $ChurchBellAudio
 
 
 func initialize(owner_map: Node2D, service: Node) -> void:
@@ -66,6 +72,8 @@ func initialize(owner_map: Node2D, service: Node) -> void:
 		set_physics_process(false)
 		return
 	church.signal_operator_entered.connect(_on_operator_entered)
+	church.resident_sheltered.connect(_on_church_sheltered)
+	defense.alert.level_changed.connect(_on_alert_changed)
 	_configure_defense_bounds()
 	defense.last_stand = self
 	process_physics_priority = -5
@@ -163,9 +171,75 @@ func keeps_door_clear(point: Vector2, clearance: float) -> bool:
 	return point.distance_to(door_post(0)) >= clearance and point.distance_to(door_post(1)) >= clearance
 
 
+func church_search_route(actor: Node2D) -> PackedVector2Array:
+	var points: Array[Vector2] = []
+	for local_point in church_inspection_points:
+		var point := to_global(local_point)
+		if keeps_door_clear(point, defense_spacing) and defense.reachable(actor, point):
+			points.append(point)
+	points.sort_custom(func(a: Vector2, b: Vector2) -> bool:
+		return actor.global_position.distance_squared_to(a) < actor.global_position.distance_squared_to(b))
+	return PackedVector2Array(points.slice(0, 3))
+
+
+func has_sheltered_priest() -> bool:
+	return living_resident(sheltered_priest) and sheltered_priest.interior_building == church
+
+
+func keeps_sheltered_priest_inside(actor: Node2D) -> bool:
+	return actor == sheltered_priest and has_sheltered_priest() and formation.active()
+
+
+func _on_church_sheltered(actor: Node2D, after_sighting: bool) -> void:
+	if actor.priest_routine == null or formation.active() or not church.seal_entrance():
+		return
+	sheltered_priest = actor
+	church_posts_active = true
+	if after_sighting and defense.alert.level < defense.alert.Level.ALARM:
+		church_bell_ends_at = defense.elapsed + CHURCH_BELL_SECONDS
+		queue_redraw()
+
+
+func _on_alert_changed(previous: int, current: int) -> void:
+	if previous < defense.alert.Level.ORGANIZED_DEFENSE and current == defense.alert.Level.ORGANIZED_DEFENSE \
+		and has_sheltered_priest() and not beacon_lit:
+		signal_ready = true
+		operator = sheltered_priest
+		_on_operator_entered(operator)
+
+
+func _can_prepare_church_bell() -> bool:
+	return has_sheltered_priest() and sheltered_priest.is_available_for_infection() \
+		and church.door_closed and church.door_hp > 0.0 and defense.alert.level < defense.alert.Level.ALARM
+
+
+func church_bell_ready(actor: Node2D) -> bool:
+	return actor == sheltered_priest and defense.elapsed >= church_bell_ends_at and _can_prepare_church_bell()
+
+
+func _update_church_bell() -> void:
+	if not is_finite(church_bell_ends_at):
+		return
+	queue_redraw()
+	if not _can_prepare_church_bell():
+		church_bell_ends_at = INF
+	elif defense.elapsed >= church_bell_ends_at:
+		if defense.alert.activate_church_bell(sheltered_priest):
+			church_bell_audio.play()
+			var swing := create_tween()
+			swing.set_trans(Tween.TRANS_SINE)
+			swing.tween_property(church_bell, "rotation", -0.35, 0.16)
+			swing.tween_property(church_bell, "rotation", 0.28, 0.28)
+			swing.tween_property(church_bell, "rotation", -0.18, 0.28)
+			swing.tween_property(church_bell, "rotation", 0.10, 0.28)
+			swing.tween_property(church_bell, "rotation", 0.0, 0.20)
+		church_bell_ends_at = INF
+
+
 func _physics_process(delta: float) -> void:
 	if church == null:
 		return
+	_update_church_bell()
 	_update_signal(delta)
 	var arrival_due := false
 	if wave == Wave.TRAVELING:
@@ -349,6 +423,8 @@ func _assign_operator() -> void:
 				operator = actor
 	if not is_instance_valid(operator):
 		return
+	if signal_remaining > 0.0:
+		return
 	stop_work(operator)
 	if is_instance_valid(operator.interior_building) and operator.interior_building != church:
 		operator.interior_building.request_resident_exit(operator)
@@ -382,6 +458,11 @@ func _update_signal(delta: float) -> void:
 
 
 func _draw() -> void:
+	if is_finite(church_bell_ends_at):
+		var progress := clampf(1.0 - (church_bell_ends_at - defense.elapsed) / CHURCH_BELL_SECONDS, 0.0, 1.0)
+		var bar := Rect2(church_bell.position + Vector2(-25, -19), Vector2(50, 6))
+		draw_rect(bar.grow(1.0), Color("#211b16"))
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * progress, bar.size.y)), Color("#e6d38e"))
 	if not beacon_lit:
 		return
 	draw_circle(beacon_position, 23.0, Color("#e8a55540"))

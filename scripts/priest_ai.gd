@@ -167,10 +167,14 @@ func update_member(escort: Node, delta: float) -> bool:
 		resident._stop_movement()
 	return true
 
+func church_morale_active() -> bool:
+	var last_stand = service.last_stand
+	return is_instance_valid(last_stand) and last_stand.sheltered_priest == actor and last_stand.has_sheltered_priest()
+
 func calming(resident: Node2D) -> float:
-	if service.alert.level == service.alert.Level.ALARM and morale.supports(resident):
+	if (service.alert.level == service.alert.Level.ALARM or church_morale_active()) and morale.supports(resident):
 		return alarm_calming
 	return 0.0
 
 func steadfast(resident: Node2D) -> bool:
-	return service.organized.active() and morale.supports(resident)
+	return (service.organized.active() or church_morale_active()) and morale.supports(resident)

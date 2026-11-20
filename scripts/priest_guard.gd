@@ -86,13 +86,13 @@ func update_ai(delta: float) -> bool:
 		organized.check_arrival(actor)
 		church_position = organized.center
 	var last_stand: Node = actor.defense.last_stand
-	var guarding_door: bool = defending and is_instance_valid(last_stand) and last_stand.church_posts_active
+	var guarding_door: bool = is_instance_valid(last_stand) and last_stand.church_posts_active
 	var alive := priest_alive()
 	var outside := alive and not is_instance_valid(priest.interior_building)
 	var anchor: Vector2 = priest.global_position if outside else church_position
 	if guarding_door:
 		anchor = last_stand.church.layout.exterior()
-		organized.release_place(actor)
+		if defending: organized.release_place(actor)
 	var previous_state := state
 	if guarding_door or not outside:
 		leave_group()

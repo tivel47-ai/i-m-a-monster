@@ -10,8 +10,7 @@ func radius() -> float:
 	if not is_instance_valid(ai.actor) or ai.actor.is_queued_for_deletion() or not ai.actor.is_alive():
 		return 0.0
 	if is_instance_valid(ai.actor.interior_building):
-		coverage.clear()
-		return 0.0
+		return maxf(ai.defense_morale_radius, ai.alarm_morale_radius) if ai.church_morale_active() else 0.0
 	var alert = ai.service.alert
 	if alert.level >= alert.Level.ORGANIZED_DEFENSE:
 		return maxf(ai.defense_morale_radius, ai.alarm_morale_radius)
@@ -22,7 +21,8 @@ func sample(resident: Node2D, extent: float) -> bool:
 	if resident == ai.actor or resident.defense != ai.service or resident.is_queued_for_deletion() or not resident.is_alive():
 		coverage.erase(id)
 		return false
-	if resident.global_position.distance_squared_to(ai.actor.global_position) <= extent * extent:
+	var center: Vector2 = ai.church.global_position if ai.church_morale_active() else ai.actor.global_position
+	if resident.global_position.distance_squared_to(center) <= extent * extent:
 		coverage[id] = INF
 		return true
 	var until: float = coverage.get(id, 0.0)

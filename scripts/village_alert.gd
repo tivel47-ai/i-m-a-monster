@@ -6,6 +6,7 @@ signal score_changed(score: float)
 signal incident_recorded(kind: StringName, subject_id: int, contribution: float)
 
 enum Level { NORMAL, SUSPICION, ALARM, ORGANIZED_DEFENSE, LAST_STAND }
+enum BellSource { NONE, SQUARE, CHURCH }
 const LEVEL_LABELS := ["Спокойствие", "Подозрение", "Тревога", "Организованная оборона", "Последний оплот"]
 
 @export_group("Legacy score compatibility")
@@ -59,6 +60,7 @@ var _registered: Dictionary = {}
 var _debug_layer: CanvasLayer
 var _debug_label: Label
 var bell_activated: bool = false
+var bell_source := BellSource.NONE
 
 
 func _ready() -> void:
@@ -193,6 +195,7 @@ func set_debug_level(next: Level) -> void:
 		if last_stand == null or not last_stand.beacon_lit: return
 	var previous := level
 	bell_activated = next >= Level.ALARM
+	bell_source = BellSource.NONE
 	danger = danger_threshold if next >= Level.ORGANIZED_DEFENSE else 0.0
 	level = next
 	level_changed.emit(previous, level)
@@ -219,12 +222,24 @@ func _refresh_level() -> void:
 		advance_level(Level.ALARM)
 
 func activate_bell(actor: Node2D) -> bool:
-	# Only the mission's physical interaction endpoint is accepted.
+	# The square bell requires an exterior physical interaction.
 	if bell_activated: return false
 	var defense = get_parent().get_node_or_null("VillageDefense")
 	if defense == null or not can_process() or not actor.is_available_for_infection() or actor.defense != defense or not is_instance_valid(defense.bell): return false
 	if actor.global_position.distance_to(defense.bell.global_position) > defense.bell_reach or not defense.bell_visible(actor): return false
+	return _activate_bell(BellSource.SQUARE)
+
+
+func activate_church_bell(actor: Node2D) -> bool:
+	var last_stand := get_parent().get_node_or_null("LastStand")
+	if bell_activated or not can_process() or last_stand == null or not last_stand.church_bell_ready(actor):
+		return false
+	return _activate_bell(BellSource.CHURCH)
+
+
+func _activate_bell(source: BellSource) -> bool:
 	danger = 0.0
+	bell_source = source
 	bell_activated = true
 	_refresh_level()
 	_update_debug()

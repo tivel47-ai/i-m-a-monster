@@ -16,6 +16,7 @@
 [ext_resource type="Script" path="res://scripts/reinforcement_squad.gd" id="35_reinforcements"]
 [ext_resource type="Texture2D" path="res://assets/maps/mission_01_terrain.png" id="36_terrain"]
 [ext_resource type="Script" path="res://scripts/mission_terrain.gd" id="37_terrain_render"]
+[ext_resource type="AudioStream" path="res://assets/audio/church_bell.wav" id="38_church_bell"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -4688,6 +4689,30 @@ z_index = 3
 script = ExtResource("33_last_stand")
 village_territory = Rect2(145, 45, 2515, 1910)
 beacon_position = Vector2(1384, 247)
+church_inspection_points = PackedVector2Array(1190, 529, 1290, 568, 1384, 621, 1494, 558, 1559, 421, 1560, 300, 1280, 270)
+
+[node name="ChurchBell" type="Node2D" parent="LastStand"]
+position = Vector2(1384, 195)
+
+[node name="Silhouette" type="Polygon2D" parent="LastStand/ChurchBell"]
+color = Color(0.13, 0.105, 0.077, 1)
+polygon = PackedVector2Array(-3, -6, 3, -6, 4, -1, 8, 1, 11, 9, 15, 12, 15, 17, 4, 17, 2, 21, -2, 21, -4, 17, -15, 17, -15, 12, -11, 9, -8, 1, -4, -1)
+
+[node name="Bronze" type="Polygon2D" parent="LastStand/ChurchBell"]
+color = Color(0.62, 0.44, 0.24, 1)
+polygon = PackedVector2Array(-2, -4, 2, -4, 2, 0, 6, 2, 9, 10, 13, 13, 13, 15, -13, 15, -13, 13, -9, 10, -6, 2, -2, 0)
+
+[node name="Highlight" type="Polygon2D" parent="LastStand/ChurchBell"]
+color = Color(0.86, 0.68, 0.4, 1)
+polygon = PackedVector2Array(-5, 2, 0, 1, -2, 4, -5, 11, -9, 12, -7, 8)
+
+[node name="Rim" type="Polygon2D" parent="LastStand/ChurchBell"]
+color = Color(0.76, 0.56, 0.3, 1)
+polygon = PackedVector2Array(-12, 13, 12, 13, 13, 15, -13, 15)
+
+[node name="ChurchBellAudio" type="AudioStreamPlayer" parent="LastStand"]
+stream = ExtResource("38_church_bell")
+volume_db = -9.0
 
 [node name="Barricades" type="Node2D" parent="LastStand"]
 z_as_relative = false
