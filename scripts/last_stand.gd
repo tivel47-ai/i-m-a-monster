@@ -45,7 +45,6 @@ var defense_bounds: Rect2
 var defense_edges: Array[Vector3] = []
 var door_posts := PackedVector2Array()
 @onready var church_bell: Node2D = $ChurchBell
-@onready var church_bell_audio: AudioStreamPlayer = $ChurchBellAudio
 
 
 func initialize(owner_map: Node2D, service: Node) -> void:
@@ -225,7 +224,6 @@ func _update_church_bell() -> void:
 		church_bell_ends_at = INF
 	elif defense.elapsed >= church_bell_ends_at:
 		if defense.alert.activate_church_bell(sheltered_priest):
-			church_bell_audio.play()
 			var swing := create_tween()
 			swing.set_trans(Tween.TRANS_SINE)
 			swing.tween_property(church_bell, "rotation", -0.35, 0.16)

@@ -16,7 +16,6 @@
 [ext_resource type="Script" path="res://scripts/reinforcement_squad.gd" id="35_reinforcements"]
 [ext_resource type="Texture2D" path="res://assets/maps/mission_01_terrain.png" id="36_terrain"]
 [ext_resource type="Script" path="res://scripts/mission_terrain.gd" id="37_terrain_render"]
-[ext_resource type="AudioStream" path="res://assets/audio/church_bell.wav" id="38_church_bell"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -4709,10 +4708,6 @@ polygon = PackedVector2Array(-5, 2, 0, 1, -2, 4, -5, 11, -9, 12, -7, 8)
 [node name="Rim" type="Polygon2D" parent="LastStand/ChurchBell"]
 color = Color(0.76, 0.56, 0.3, 1)
 polygon = PackedVector2Array(-12, 13, 12, 13, 13, 15, -13, 15)
-
-[node name="ChurchBellAudio" type="AudioStreamPlayer" parent="LastStand"]
-stream = ExtResource("38_church_bell")
-volume_db = -9.0
 
 [node name="Barricades" type="Node2D" parent="LastStand"]
 z_as_relative = false

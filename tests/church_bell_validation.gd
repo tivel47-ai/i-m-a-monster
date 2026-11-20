@@ -101,7 +101,7 @@ func church_alarm_and_beacon() -> void:
 	check(alert.level == alert.Level.NORMAL and not alert.activate_church_bell(priest), "An early call cannot complete the church bell")
 	check(await wait_for(func(): return alert.level == alert.Level.ALARM, 25), "Church bell raises the global level after ten game seconds")
 	check(alert.bell_source == alert.BellSource.CHURCH and alert.danger == 0.0, "Alarm identifies the church and starts the usual danger meter at zero")
-	check(last.church_bell_audio.playing, "The church plays its imported ringing sound on successful activation")
+	check(alert.bell_audio.playing, "The church plays the shared bell sound on successful activation")
 	check(guards.all(func(actor): return actor.guard_ai.church_inspection_until > defense.elapsed and not actor.guard_ai.mobilizing), "Ordinary guards receive church inspection instead of square mobilization")
 	check(protectors.all(func(actor): return actor.guard_ai == null), "Bodyguards stay assigned to the doorway")
 	guard.autonomous_movement_enabled = true
@@ -131,12 +131,16 @@ func interrupted_bells() -> void:
 	await step()
 	await step()
 	check(not is_finite(last.church_bell_ends_at) and alert.level < alert.Level.ALARM, "A destroyed door cancels the attempt")
+	check(not alert.bell_audio.playing, "An interrupted bell stays silent")
+	alert.set_debug_level(alert.Level.ALARM)
+	check(not alert.bell_audio.playing, "The debug selector changes the level without ringing")
 
 	await setup()
 	check(await shelter(true), "Priest starts preparation in the square-first fixture")
 	var guard: Node2D = guards[0]
 	guard.global_position = defense.bell.global_position + Vector2(0, 39)
 	check(defense.ring(guard), "Ordinary guard physically rings the square bell")
+	check(alert.bell_audio.playing, "The square plays the shared bell sound on successful activation")
 	await step()
 	await step()
 	check(not is_finite(last.church_bell_ends_at) and alert.bell_source == alert.BellSource.SQUARE

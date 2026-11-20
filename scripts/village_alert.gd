@@ -61,6 +61,7 @@ var _debug_layer: CanvasLayer
 var _debug_label: Label
 var bell_activated: bool = false
 var bell_source := BellSource.NONE
+@onready var bell_audio := get_node_or_null("BellAudio") as AudioStreamPlayer
 
 
 func _ready() -> void:
@@ -241,6 +242,8 @@ func _activate_bell(source: BellSource) -> bool:
 	danger = 0.0
 	bell_source = source
 	bell_activated = true
+	if bell_audio != null:
+		bell_audio.play()
 	_refresh_level()
 	_update_debug()
 	return true
