@@ -2,8 +2,10 @@ extends CharacterBody2D
 
 const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PEASANT_VISUAL = preload("res://scripts/peasant_visual.gd")
+const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 var melee_route: LOCAL_MELEE_ROUTE
-var _peasant_visual: PEASANT_VISUAL
+var _body_sprite: Sprite2D
+var _guard_visual: GUARD_VISUAL
 
 const MOVEMENT_STALL_TIMEOUT := 3.0
 const HEALTH_BAR_Y := -16.25
@@ -141,28 +143,46 @@ func _ready() -> void:
 	encounter_attack_timer.wait_time = maxf(attack_interval, 0.01)
 	encounter_attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(encounter_attack_timer)
-	_setup_peasant_visual()
+	_setup_body_sprite()
 	if current_health == 0.0:
 		_die()
 
 
-func _setup_peasant_visual() -> void:
-	if civilian_profile != "Peasant":
-		return
-	var ancestor := get_parent()
-	while ancestor != null and not ancestor.get_meta("peasant_sprites", false):
-		ancestor = ancestor.get_parent()
-	if ancestor != null:
-		_peasant_visual = PEASANT_VISUAL.new()
-		_peasant_visual.name = "PeasantVisual"
-		add_child(_peasant_visual)
-		polygon.hide()
+func _setup_body_sprite() -> void:
+	if get_meta("village_role", "") == "guard":
+		var mission := _sprite_map(&"guard_sprites")
+		if mission == null or defense_ranged_weapon:
+			return
+		var appearance: StringName
+		match StringName(get_meta("reinforcement_role", "")):
+			&"swordsman": appearance = GUARD_VISUAL.SWORD
+			&"spearman": appearance = GUARD_VISUAL.SPEAR
+			_: appearance = mission.call("take_guard_appearance")
+		_guard_visual = GUARD_VISUAL.new()
+		_guard_visual.name = "GuardVisual"
+		_guard_visual.appearance = appearance
+		_body_sprite = _guard_visual
+		visual_ui_offset_y = _guard_visual.health_bar_y() - HEALTH_BAR_Y
+	elif civilian_profile == "Peasant" and _sprite_map(&"peasant_sprites") != null:
+		_body_sprite = PEASANT_VISUAL.new()
+		_body_sprite.name = "PeasantVisual"
 		visual_ui_offset_y = PEASANT_VISUAL.HEALTH_BAR_Y - HEALTH_BAR_Y
+	else:
+		return
+	add_child(_body_sprite)
+	polygon.hide()
+
+
+func _sprite_map(flag: StringName) -> Node:
+	var ancestor := get_parent()
+	while ancestor != null and not ancestor.get_meta(flag, false):
+		ancestor = ancestor.get_parent()
+	return ancestor
 
 
 func contains_visual_point(world_position: Vector2) -> bool:
-	var sprite_visible := _peasant_visual != null and _peasant_visual.is_visible_in_tree()
-	if sprite_visible and _peasant_visual.is_pixel_opaque(_peasant_visual.to_local(world_position)):
+	var sprite_visible := _body_sprite != null and _body_sprite.is_visible_in_tree()
+	if sprite_visible and _body_sprite.is_pixel_opaque(_body_sprite.to_local(world_position)):
 		return true
 	return (sprite_visible or polygon.is_visible_in_tree()) and Geometry2D.is_point_in_polygon(
 		polygon.to_local(world_position) - polygon.offset, polygon.polygon)
@@ -688,12 +708,15 @@ func _die(attacker: Node = null) -> void:
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
-	if _peasant_visual != null:
-		_peasant_visual.hide()
-		_peasant_visual.set_physics_process(false)
-		polygon.show()
-	death_marker_a.show()
-	death_marker_b.show()
+	if _guard_visual != null:
+		_guard_visual.play_death()
+	else:
+		if _body_sprite != null:
+			_body_sprite.hide()
+			_body_sprite.set_physics_process(false)
+			polygon.show()
+		death_marker_a.show()
+		death_marker_b.show()
 	queue_redraw()
 	died.emit(self)
 
@@ -769,13 +792,18 @@ func _end_encounter() -> void:
 
 
 func _on_encounter_attack_timer_timeout() -> void:
-	if priest_routine != null:
+	var participant := _encounter_attack_target()
+	if participant == null:
 		encounter_attack_timer.stop()
 		return
-	if not is_alive() or encounter_participants.is_empty():
-		encounter_attack_timer.stop()
-		return
+	if _guard_visual != null:
+		_guard_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
+	participant.call("take_damage", attack_damage)
 
+
+func _encounter_attack_target() -> Node2D:
+	if priest_routine != null or not is_alive():
+		return null
 	for participant in encounter_participants:
 		if (
 			is_instance_valid(participant)
@@ -785,10 +813,8 @@ func _on_encounter_attack_timer_timeout() -> void:
 		):
 			if is_instance_valid(interior_building) and (global_position.distance_to(participant.global_position) > participant.INFECTION_DISTANCE or not participant._has_line_of_sight(self)):
 				continue
-			participant.call("take_damage", attack_damage)
-			return
-
-	encounter_attack_timer.stop()
+			return participant
+	return null
 
 
 func _on_transformation_timer_timeout() -> void:
@@ -815,9 +841,9 @@ func _complete_conversion() -> void:
 	$CollisionShape2D.set_deferred("disabled", true)
 	if infection_source == InfectionSource.ZOMBIE_COMBAT:
 		polygon.color = converted_color
-	if _peasant_visual != null:
-		_peasant_visual.hide()
-		_peasant_visual.set_physics_process(false)
+	if _body_sprite != null:
+		_body_sprite.hide()
+		_body_sprite.set_physics_process(false)
 	queue_redraw()
 	converted.emit(self)
 
@@ -837,7 +863,7 @@ func _draw() -> void:
 	)
 	draw_rect(health_rect, Color(0.05, 0.05, 0.05), false, 0.65)
 	if has_player_infection() and not is_instance_valid(interior_building):
-		var marker_y := health_y - (10.75 if _peasant_visual != null else 4.75)
+		var marker_y := health_y - (10.75 if _body_sprite != null else 4.75)
 		draw_colored_polygon(
 			PackedVector2Array([
 				Vector2(0, marker_y - 3), Vector2(3, marker_y),

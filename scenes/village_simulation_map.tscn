@@ -49,6 +49,7 @@ manual_victory_finish = true
 metadata/local_melee_routing = true
 metadata/ordinary_zombie_sprites = true
 metadata/peasant_sprites = true
+metadata/guard_sprites = true
 metadata/guard_group_combat = true
 metadata/map_size = Vector2(3000, 2000)
 

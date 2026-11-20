@@ -20,6 +20,7 @@ const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
 const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 const PRIEST_GUARD_SCENE: PackedScene = preload("res://scenes/priest_guard.tscn")
 const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
+const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 const PRIEST_ROUTINE = preload("res://scripts/priest_routine.gd")
 const PRIEST_GUARD_ROUTES = preload("res://scripts/priest_guard_routes.gd")
 @export var zombie_infection_enabled := false
@@ -40,6 +41,8 @@ var _developer_build: ZOMBIE_MISSION_BUILD
 @export var building_rules := BuildingRules.new()
 var buildings: Array[InteractiveBuilding] = []
 var reinforcement_units: Array[Node] = []
+var _guard_appearances: Array[StringName] = []
+var _guard_art_random := RandomNumberGenerator.new()
 var shelter_buildings: Dictionary = {}
 var choosing_building := false
 var consume_assault_cancel_release := false
@@ -98,6 +101,18 @@ func _make_ability_runtime(build: Dictionary) -> ZOMBIE_MISSION_BUILD:
 
 func ability_runtime() -> ZOMBIE_MISSION_BUILD:
 	return mission_build if mission_build != null else _developer_build
+
+
+func take_guard_appearance() -> StringName:
+	if _guard_appearances.is_empty():
+		_guard_appearances = [GUARD_VISUAL.SHIELD, GUARD_VISUAL.SWORD, GUARD_VISUAL.SPEAR]
+		# Use a separate random stream so costume selection cannot affect gameplay rolls.
+		for i in range(_guard_appearances.size() - 1, 0, -1):
+			var swap := _guard_art_random.randi_range(0, i)
+			var appearance := _guard_appearances[i]
+			_guard_appearances[i] = _guard_appearances[swap]
+			_guard_appearances[swap] = appearance
+	return _guard_appearances.pop_back()
 
 
 func _ready() -> void:
