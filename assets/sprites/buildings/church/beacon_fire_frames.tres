@@ -1,0 +1,132 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/church/beacon_fire.png" id="1_flames"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_00"]
+atlas = ExtResource("1_flames")
+region = Rect2(0, 0, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_01"]
+atlas = ExtResource("1_flames")
+region = Rect2(76, 0, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_02"]
+atlas = ExtResource("1_flames")
+region = Rect2(152, 0, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_03"]
+atlas = ExtResource("1_flames")
+region = Rect2(228, 0, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_04"]
+atlas = ExtResource("1_flames")
+region = Rect2(304, 0, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_05"]
+atlas = ExtResource("1_flames")
+region = Rect2(380, 0, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_06"]
+atlas = ExtResource("1_flames")
+region = Rect2(456, 0, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_07"]
+atlas = ExtResource("1_flames")
+region = Rect2(532, 0, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_08"]
+atlas = ExtResource("1_flames")
+region = Rect2(0, 58, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_09"]
+atlas = ExtResource("1_flames")
+region = Rect2(76, 58, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_10"]
+atlas = ExtResource("1_flames")
+region = Rect2(152, 58, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_11"]
+atlas = ExtResource("1_flames")
+region = Rect2(228, 58, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_12"]
+atlas = ExtResource("1_flames")
+region = Rect2(304, 58, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_13"]
+atlas = ExtResource("1_flames")
+region = Rect2(380, 58, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_14"]
+atlas = ExtResource("1_flames")
+region = Rect2(456, 58, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_15"]
+atlas = ExtResource("1_flames")
+region = Rect2(532, 58, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_16"]
+atlas = ExtResource("1_flames")
+region = Rect2(0, 116, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_17"]
+atlas = ExtResource("1_flames")
+region = Rect2(76, 116, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_18"]
+atlas = ExtResource("1_flames")
+region = Rect2(152, 116, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_19"]
+atlas = ExtResource("1_flames")
+region = Rect2(228, 116, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_20"]
+atlas = ExtResource("1_flames")
+region = Rect2(304, 116, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_21"]
+atlas = ExtResource("1_flames")
+region = Rect2(380, 116, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_22"]
+atlas = ExtResource("1_flames")
+region = Rect2(456, 116, 76, 58)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_23"]
+atlas = ExtResource("1_flames")
+region = Rect2(532, 116, 76, 58)
+
+[resource]
+animations = [{
+"frames": [
+{"duration": 1.0, "texture": SubResource("AtlasTexture_00")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_01")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_02")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_03")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_04")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_05")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_06")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_07")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_08")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_09")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_10")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_11")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_12")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_13")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_14")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_15")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_16")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_17")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_18")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_19")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_20")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_21")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_22")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_23")}
+],
+"loop": true,
+"name": &"burn",
+"speed": 12.0
+}]

@@ -1,18 +1,23 @@
 extends Control
 
-# Read serialized geometry without instantiating gameplay scripts or AI.
+# Draw a captured map, or fall back to serialized geometry without starting gameplay.
+var preview_texture: Texture2D
 var shapes: Array[Dictionary] = []
 var map_rect := Rect2()
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
-func show_mission(scene_path: String) -> void:
+func show_mission(scene_path: String, preview_path := "") -> void:
+	preview_texture = null
+	if not preview_path.is_empty() and ResourceLoader.exists(preview_path, "Texture2D"):
+		preview_texture = load(preview_path) as Texture2D
 	shapes.clear()
 	map_rect = Rect2()
 	var scene := load(scene_path) as PackedScene
 	if scene != null:
-		_collect_scene(scene, Transform2D.IDENTITY)
+		if preview_texture == null:
+			_collect_scene(scene, Transform2D.IDENTITY)
 		var state := scene.get_state()
 		for index in range(state.get_node_property_count(0)):
 			if state.get_node_property_name(0, index) == &"metadata/map_size":
@@ -20,6 +25,8 @@ func show_mission(scene_path: String) -> void:
 				if map_size.x > 0.0 and map_size.y > 0.0:
 					map_rect = Rect2(Vector2.ZERO, map_size)
 				break
+	if preview_texture != null and not map_rect.has_area():
+		map_rect = Rect2(Vector2.ZERO, preview_texture.get_size())
 	queue_redraw()
 
 func _collect_scene(scene: PackedScene, base_transform: Transform2D) -> void:
@@ -71,12 +78,16 @@ func _draw() -> void:
 	var available := (size - Vector2(16, 16)).max(Vector2.ONE)
 	var ratio := minf(available.x / map_rect.size.x, available.y / map_rect.size.y)
 	var origin := (size - map_rect.size * ratio) * 0.5
-	for shape in shapes:
-		var points := PackedVector2Array()
-		for point in shape.points:
-			points.append(origin + (point - map_rect.position) * ratio)
-		if shape.has("texture"):
-			draw_polygon(points, PackedColorArray([shape.color]), shape.uv, shape.texture)
-		else:
-			draw_colored_polygon(points, shape.color)
-	draw_rect(Rect2(origin, map_rect.size * ratio), Color("73555f"), false, 1.0)
+	var frame := Rect2(origin, map_rect.size * ratio)
+	if preview_texture != null:
+		draw_texture_rect(preview_texture, frame, false)
+	else:
+		for shape in shapes:
+			var points := PackedVector2Array()
+			for point in shape.points:
+				points.append(origin + (point - map_rect.position) * ratio)
+			if shape.has("texture"):
+				draw_polygon(points, PackedColorArray([shape.color]), shape.uv, shape.texture)
+			else:
+				draw_colored_polygon(points, shape.color)
+	draw_rect(frame, Color("73555f"), false, 1.0)

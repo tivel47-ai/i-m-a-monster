@@ -4,6 +4,8 @@ extends Node2D
 const SECTION = preload("res://scripts/last_stand_barricade.gd")
 const SQUAD = preload("res://scripts/reinforcement_squad.gd")
 const CHURCH_BELL_SECONDS := 10.0
+const BELL_SWING_PERIOD := 1.25
+const BELL_SWING_ANGLE := 0.30
 const PRIEST_SIGNAL_SECONDS := 10.0
 const RESIDENT_SIGNAL_SECONDS := 20.0
 const TRAVEL_SECONDS := 90.0
@@ -16,7 +18,6 @@ enum Wave { UNSENT, TRAVELING, ARRIVED, CANCELLED }
 @export var retry_seconds := 0.75
 @export var defense_spacing := 22.0
 @export var village_territory: Rect2
-@export var beacon_position: Vector2
 @export var church_inspection_points: PackedVector2Array
 
 var mission: Node2D
@@ -44,7 +45,9 @@ var signal_started_frame := -1
 var defense_bounds: Rect2
 var defense_edges: Array[Vector3] = []
 var door_posts := PackedVector2Array()
-@onready var church_bell: Node2D = $ChurchBell
+var church_bell: Sprite2D
+var beacon_fire: AnimatedSprite2D
+var _ringing_audio: AudioStreamPlayer
 
 
 func initialize(owner_map: Node2D, service: Node) -> void:
@@ -70,6 +73,8 @@ func initialize(owner_map: Node2D, service: Node) -> void:
 		push_error("Last Stand requires a church, organized defense, and positive barricade capacity.")
 		set_physics_process(false)
 		return
+	church_bell = church.get_node_or_null("../Exterior/ChurchBell") as Sprite2D
+	beacon_fire = church.get_node_or_null("../Exterior/BeaconFire") as AnimatedSprite2D
 	church.signal_operator_entered.connect(_on_operator_entered)
 	church.resident_sheltered.connect(_on_church_sheltered)
 	defense.alert.level_changed.connect(_on_alert_changed)
@@ -223,21 +228,29 @@ func _update_church_bell() -> void:
 	if not _can_prepare_church_bell():
 		church_bell_ends_at = INF
 	elif defense.elapsed >= church_bell_ends_at:
-		if defense.alert.activate_church_bell(sheltered_priest):
-			var swing := create_tween()
-			swing.set_trans(Tween.TRANS_SINE)
-			swing.tween_property(church_bell, "rotation", -0.35, 0.16)
-			swing.tween_property(church_bell, "rotation", 0.28, 0.28)
-			swing.tween_property(church_bell, "rotation", -0.18, 0.28)
-			swing.tween_property(church_bell, "rotation", 0.10, 0.28)
-			swing.tween_property(church_bell, "rotation", 0.0, 0.20)
+		if defense.alert.activate_church_bell(sheltered_priest) and church_bell != null:
+			_ringing_audio = defense.alert.bell_audio
 		church_bell_ends_at = INF
+
+
+func _update_bell_swing() -> void:
+	if _ringing_audio == null:
+		return
+	if not _ringing_audio.playing or _ringing_audio.stream == null:
+		church_bell.rotation = 0.0
+		_ringing_audio = null
+		return
+	var position_in_clip := _ringing_audio.get_playback_position()
+	var time_left := _ringing_audio.stream.get_length() - position_in_clip
+	var strength := smoothstep(0.0, 0.18, position_in_clip) * smoothstep(0.0, 1.5, time_left)
+	church_bell.rotation = -sin(TAU * position_in_clip / BELL_SWING_PERIOD) * BELL_SWING_ANGLE * strength
 
 
 func _physics_process(delta: float) -> void:
 	if church == null:
 		return
 	_update_church_bell()
+	_update_bell_swing()
 	_update_signal(delta)
 	var arrival_due := false
 	if wave == Wave.TRAVELING:
@@ -448,25 +461,18 @@ func _update_signal(delta: float) -> void:
 	if signal_remaining > 0.000001:
 		return
 	beacon_lit = true
+	if beacon_fire != null:
+		beacon_fire.show()
+		beacon_fire.play(&"burn")
 	wave = Wave.TRAVELING
 	travel_remaining = TRAVEL_SECONDS
 	signal_started_frame = Engine.get_physics_frames()
 	defense.alert.advance_level(defense.alert.Level.LAST_STAND)
-	queue_redraw()
 
 
 func _draw() -> void:
-	if is_finite(church_bell_ends_at):
+	if church_bell != null and is_finite(church_bell_ends_at):
 		var progress := clampf(1.0 - (church_bell_ends_at - defense.elapsed) / CHURCH_BELL_SECONDS, 0.0, 1.0)
-		var bar := Rect2(church_bell.position + Vector2(-25, -19), Vector2(50, 6))
+		var bar := Rect2(to_local(church_bell.global_position) + Vector2(-25, -26), Vector2(50, 6))
 		draw_rect(bar.grow(1.0), Color("#211b16"))
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * progress, bar.size.y)), Color("#e6d38e"))
-	if not beacon_lit:
-		return
-	draw_circle(beacon_position, 23.0, Color("#e8a55540"))
-	draw_colored_polygon(PackedVector2Array([
-		beacon_position + Vector2(-9, 9), beacon_position + Vector2(-6, -4),
-		beacon_position + Vector2(-2, 0), beacon_position + Vector2(3, -17),
-		beacon_position + Vector2(9, 3), beacon_position + Vector2(7, 9),
-	]), Color("#ffba5f"))
-	draw_circle(beacon_position + Vector2(0, 4), 4.0, Color("#fff3c4"))

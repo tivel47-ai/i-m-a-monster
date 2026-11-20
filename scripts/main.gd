@@ -626,7 +626,7 @@ func _select_mission(id: String) -> void:
 	mission_title.text = definition.name
 	mission_description.text = definition.description
 	mission_objectives.text = "Цель миссии\n" + definition.objectives
-	mission_preview.show_mission(definition.scene)
+	mission_preview.show_mission(definition.scene, definition.get("preview", ""))
 	mission_preview.show()
 	choose_race_button.disabled = false
 

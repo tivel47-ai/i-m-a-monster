@@ -51,6 +51,7 @@ var road_preferences: Dictionary = {}
 var tavern_nodes: Dictionary = {}
 var authored_tree_positions: Dictionary = {}
 var authored_last_stand: Node2D
+var authored_church: StaticBody2D
 
 func _initialize() -> void:
 	for argument in OS.get_cmdline_user_args():
@@ -326,7 +327,11 @@ func build() -> void:
 		if i in [1,6,11]:
 			building(agricultural,"HomeShed"+str(i),data[2]+(Vector2(-180,30) if i==1 else Vector2(-145,-35)),Vector2(48,46),data[4],"shed",i)
 
-	building(public_buildings,"Church",Vector2(1420,380),Vector2(224,260),0,"church")
+	if authored_church == null:
+		building(public_buildings,"Church",Vector2(1420,380),Vector2(224,260),0,"church")
+	else:
+		attach(public_buildings, authored_church, "Church")
+		assign_owners(authored_church)
 	label_at(details,"ChurchLabel","Часовня",Vector2(1375,215))
 	road("CemeteryAccess",[Vector2(1420,557),Vector2(1510,520),Vector2(1560,420)],23,PATH)
 	road("CemeteryWest",[Vector2(1560,420),Vector2(1560,120)],23,PATH)
@@ -538,6 +543,9 @@ func read_npc_preferences() -> void:
 	authored_last_stand = previous.get_node_or_null("LastStand") as Node2D
 	if authored_last_stand != null:
 		previous.remove_child(authored_last_stand)
+	authored_church = previous.get_node_or_null("NavigationRegion2D/Buildings/Public/Church") as StaticBody2D
+	if authored_church != null:
+		authored_church.get_parent().remove_child(authored_church)
 	var tavern_paths := {
 		"building": "NavigationRegion2D/Buildings/Public/Tavern",
 		"label": "Environment/TavernLabel",

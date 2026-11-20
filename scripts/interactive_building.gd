@@ -81,6 +81,8 @@ func _process(delta: float) -> void:
 	_roof_alpha = move_toward(_roof_alpha, _roof_target, delta * rules.roof_fade_speed)
 	for part in layout.roof:
 		part.modulate.a = _roof_alpha
+	if layout.exterior_entrance_marker != null:
+		layout.exterior_entrance_marker.modulate.a = 1.0 - _roof_alpha
 	if _roof_alpha == _roof_target:
 		set_process(false)
 
@@ -525,7 +527,7 @@ func _refresh_entrance() -> void:
 		color = Color("a08858") if reinforcement_hp > 0.0 else Color("88694b")
 	elif reinforcement > 0.0:
 		color = color.lerp(Color("ad9066"), reinforcement)
-	layout.set_blocked(_blocked(), color)
+	layout.set_blocked(_blocked(), color, door_hp > 0.0)
 	if signal_sealed:
 		layout.set_barricade_health(door_hp, signal_door_max_hp)
 	elif reinforcement_hp > 0.0:

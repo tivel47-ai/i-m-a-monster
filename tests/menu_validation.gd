@@ -207,7 +207,15 @@ func run() -> void:
 	check(not paused and app.mission == null, "Voluntary exit cleans up without results")
 	click("Начать игру")
 	click("Миссия №1")
-	check(app.selected_mission == "mission_1" and app.selected_race == "" and app.mission_preview.map_rect == Rect2(0,0,3000,2000), "New mission resets race and previews complete serialized map without AI")
+	check(app.selected_mission == "mission_1" and app.selected_race == "" and app.mission_preview.map_rect == Rect2(0,0,3000,2000), "New mission resets race and previews the complete map bounds")
+	var map_image: Texture2D = app.mission_preview.preview_texture
+	check(map_image != null and map_image.resource_path == "res://assets/maps/mission_01_preview.png"
+		and app.mission_preview.shapes.is_empty() and app.mission == null,
+		"Mission 1 uses the rendered map image without starting gameplay")
+	click("Тестовая карта")
+	check(app.mission_preview.preview_texture == null and not app.mission_preview.shapes.is_empty(),
+		"Switching maps clears the rendered image and restores the test map geometry")
+	click("Миссия №1")
 	click("Выбрать расу")
 	click("Зомби")
 	click("Начать миссию")

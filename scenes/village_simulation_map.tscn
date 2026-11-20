@@ -16,6 +16,12 @@
 [ext_resource type="Script" path="res://scripts/reinforcement_squad.gd" id="35_reinforcements"]
 [ext_resource type="Texture2D" path="res://assets/maps/mission_01_terrain.png" id="36_terrain"]
 [ext_resource type="Script" path="res://scripts/mission_terrain.gd" id="37_terrain_render"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/church/exterior.png" id="38_church_exterior"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/church/door.png" id="39_church_door"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/church/bell.png" id="40_church_bell"]
+[ext_resource type="SpriteFrames" path="res://assets/sprites/buildings/church/beacon_fire_frames.tres" id="41_church_fire"]
+[ext_resource type="Shader" path="res://assets/sprites/buildings/church/door.gdshader" id="42_church_door_shader"]
+[ext_resource type="Script" path="res://scripts/church_door_visual.gd" id="43_church_door_visual"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -38,6 +44,9 @@ border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(0.45, 0.85, 1, 0.95)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_church_door"]
+shader = ExtResource("42_church_door_shader")
 
 [node name="VillageSimulationMap" type="Node2D" unique_id=1788305390]
 script = ExtResource("1_4nt34")
@@ -1773,6 +1782,7 @@ collision_mask = 0
 metadata/building_type = "church"
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1030945931]
+visible = false
 position = Vector2(-36, -31.999994)
 scale = Vector2(1.3214285, 1.246154)
 color = Color(0.24313726, 0.2509804, 0.22352941, 1)
@@ -1783,15 +1793,32 @@ position = Vector2(-36, -31.999994)
 scale = Vector2(1.3214285, 1.246154)
 polygon = PackedVector2Array(-46, -150, 46, -150, 46, -44, 112, -44, 112, 40, 46, 40, 46, 130, -46, 130, -46, 40, -112, 40, -112, -44, -46, -44)
 
-[node name="Roof" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1555622687]
-position = Vector2(-36, -31)
-scale = Vector2(1.3214285, 1.2384615)
-color = Color(0.3372549, 0.36862746, 0.3764706, 1)
-polygon = PackedVector2Array(41, -145, 41, -41.92893, 43.92893, -39, 107, -39, 107, 35, 43.92893, 35, 41, 37.92893, 41, 125, -41, 125, -41, 37.92893, -43.92893, 35, -107, 35, -107, -39, -43.92893, -39, -41, -41.92893, -41, -145)
+[node name="Exterior" type="Sprite2D" parent="NavigationRegion2D/Buildings/Public/Church"]
+z_index = 5
+texture_filter = 1
+position = Vector2(-184, -218.9231)
+scale = Vector2(0.5, 0.49988985)
+texture = ExtResource("38_church_exterior")
+centered = false
 
-[node name="ShadedSlope" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church/Roof" unique_id=860363626]
-color = Color(0.2731765, 0.29858825, 0.30494118, 1)
-polygon = PackedVector2Array(107, 35, 43.928932, 35, 41, 37.928932, 41, 125, -41, 125, -41, 37.928932, -43.928932, 35, -107, 35, -107, -10, 107, -10)
+[node name="DoorPanel" type="Sprite2D" parent="NavigationRegion2D/Buildings/Public/Church/Exterior"]
+material = SubResource("ShaderMaterial_church_door")
+position = Vector2(242, 611)
+texture = ExtResource("39_church_door")
+centered = false
+script = ExtResource("43_church_door_visual")
+
+[node name="ChurchBell" type="Sprite2D" parent="NavigationRegion2D/Buildings/Public/Church/Exterior"]
+position = Vector2(297, 149)
+texture = ExtResource("40_church_bell")
+offset = Vector2(0, 31)
+
+[node name="BeaconFire" type="AnimatedSprite2D" parent="NavigationRegion2D/Buildings/Public/Church/Exterior"]
+visible = false
+position = Vector2(259, 0)
+sprite_frames = ExtResource("41_church_fire")
+animation = &"burn"
+centered = false
 
 [node name="Door" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1099537039]
 visible = false
@@ -1799,18 +1826,6 @@ position = Vector2(-35, 126)
 scale = Vector2(1.8125, 1)
 color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
-
-[node name="CrossVertical" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=348101795]
-position = Vector2(-34, -36)
-points = PackedVector2Array(0, -102, 0, -56)
-width = 5.0
-default_color = Color(0.79607844, 0.76862746, 0.654902, 1)
-
-[node name="CrossHorizontal" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1110975674]
-position = Vector2(-34, -38)
-points = PackedVector2Array(-15, -85, 15, -85)
-width = 5.0
-default_color = Color(0.79607844, 0.76862746, 0.654902, 1)
 
 [node name="Grave0" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=758721502 groups=["simulation_solids"]]
 position = Vector2(1615, 165)
@@ -4684,30 +4699,10 @@ bell_reach = 50.0
 bell_path = NodePath("../NavigationRegion2D/Buildings/Public/AlarmBell")
 
 [node name="LastStand" type="Node2D" parent="."]
-z_index = 3
+z_index = 6
 script = ExtResource("33_last_stand")
 village_territory = Rect2(145, 45, 2515, 1910)
-beacon_position = Vector2(1384, 247)
 church_inspection_points = PackedVector2Array(1190, 529, 1290, 568, 1384, 621, 1494, 558, 1559, 421, 1560, 300, 1280, 270)
-
-[node name="ChurchBell" type="Node2D" parent="LastStand"]
-position = Vector2(1384, 195)
-
-[node name="Silhouette" type="Polygon2D" parent="LastStand/ChurchBell"]
-color = Color(0.13, 0.105, 0.077, 1)
-polygon = PackedVector2Array(-3, -6, 3, -6, 4, -1, 8, 1, 11, 9, 15, 12, 15, 17, 4, 17, 2, 21, -2, 21, -4, 17, -15, 17, -15, 12, -11, 9, -8, 1, -4, -1)
-
-[node name="Bronze" type="Polygon2D" parent="LastStand/ChurchBell"]
-color = Color(0.62, 0.44, 0.24, 1)
-polygon = PackedVector2Array(-2, -4, 2, -4, 2, 0, 6, 2, 9, 10, 13, 13, 13, 15, -13, 15, -13, 13, -9, 10, -6, 2, -2, 0)
-
-[node name="Highlight" type="Polygon2D" parent="LastStand/ChurchBell"]
-color = Color(0.86, 0.68, 0.4, 1)
-polygon = PackedVector2Array(-5, 2, 0, 1, -2, 4, -5, 11, -9, 12, -7, 8)
-
-[node name="Rim" type="Polygon2D" parent="LastStand/ChurchBell"]
-color = Color(0.76, 0.56, 0.3, 1)
-polygon = PackedVector2Array(-12, 13, 12, 13, 13, 15, -13, 15)
 
 [node name="Barricades" type="Node2D" parent="LastStand"]
 z_as_relative = false

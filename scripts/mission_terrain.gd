@@ -71,7 +71,7 @@ var _motion_time := 0.0
 
 
 func _ready() -> void:
-	# The serialized texture is a snapshot of these layers for the editor and mission selector.
+	# The serialized texture is a terrain snapshot for the editor.
 	texture = null
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	material = _surface(Kind.MEADOW, MEADOW, Vector2(222, 222))

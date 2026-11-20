@@ -19,6 +19,8 @@ var roof: Array[CanvasItem] = []
 var threshold: StaticBody2D
 var door_shape: CollisionShape2D
 var door_visual: Polygon2D
+var exterior_door: ChurchDoorVisual
+var exterior_entrance_marker: Polygon2D
 var barricade_bar: Node2D
 var barricade_ratio := 0.0
 var map := RID()
@@ -181,16 +183,21 @@ func _surface(points: PackedVector2Array, color: Color) -> Polygon2D:
 
 func _create_presentation(body: StaticBody2D) -> void:
 	var footprint := body.get_node_or_null("Footprint") as Polygon2D
+	exterior_door = body.get_node_or_null("Exterior/DoorPanel") as ChurchDoorVisual
 	_surface(outline, Color("85705a")).z_index = 0
 	for child in body.get_children():
-		if child is Polygon2D or child is Line2D or child is Label:
+		if child is Polygon2D or child is Sprite2D or child is Line2D or child is Label:
 			child.z_index = 5
 			roof.append(child)
 	if footprint != null:
 		footprint.z_index = 4
 	# Keep a visible entrance marker when the roof is opaque or the passage is open.
 	var step := entrance + outward * 6.0
-	_segment(step - across * half_width, step + across * half_width, Color("b8a17e"), 4.0).z_index = 3
+	var marker := _segment(step - across * half_width, step + across * half_width, Color("b8a17e"), 4.0)
+	marker.z_index = 3
+	if exterior_door != null:
+		exterior_entrance_marker = marker
+		marker.modulate.a = 0.0
 	barricade_bar = Node2D.new()
 	barricade_bar.name = "BarricadeHealth"
 	barricade_bar.z_index = 6
@@ -287,10 +294,12 @@ func _body_extent(actor: CharacterBody2D, axis: Vector2) -> float:
 	return (absf(direction.x) * shape.size.x + absf(direction.y) * shape.size.y) * 0.5
 
 
-func set_blocked(blocked: bool, color: Color) -> void:
+func set_blocked(blocked: bool, color: Color, original_door_intact: bool) -> void:
 	door_shape.disabled = not blocked
 	door_visual.visible = blocked
 	door_visual.color = color
+	if exterior_door != null:
+		exterior_door.update_door(blocked, original_door_intact)
 
 
 func _exit_tree() -> void:
