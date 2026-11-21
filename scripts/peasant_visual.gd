@@ -64,7 +64,8 @@ func _ready() -> void:
 	variation.seed = _actor.get_instance_id()
 	_next_attack = variation.randi_range(0, ATTACK_COUNT - 1)
 	_death_variant = variation.randi_range(0, 1)
-	texture = ATLAS
+	if texture == null:
+		texture = ATLAS
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	centered = false
 	region_enabled = true

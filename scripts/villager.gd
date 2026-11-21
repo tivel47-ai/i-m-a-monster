@@ -2,10 +2,11 @@ extends CharacterBody2D
 
 const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PEASANT_VISUAL = preload("res://scripts/peasant_visual.gd")
+const ARTISAN_ATLAS = preload("res://assets/sprites/characters/artisan/frames.png")
 const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 var melee_route: LOCAL_MELEE_ROUTE
 var _body_sprite: Sprite2D
-var _peasant_visual: PEASANT_VISUAL
+var _civilian_visual: PEASANT_VISUAL
 var _guard_visual: GUARD_VISUAL
 var _bell_pose: Sprite2D
 
@@ -166,14 +167,21 @@ func _setup_body_sprite() -> void:
 		_body_sprite = _guard_visual
 		visual_ui_offset_y = _guard_visual.health_bar_y() - HEALTH_BAR_Y
 	elif civilian_profile == "Peasant" and _sprite_map(&"peasant_sprites") != null:
-		_peasant_visual = PEASANT_VISUAL.new()
-		_peasant_visual.name = "PeasantVisual"
-		_body_sprite = _peasant_visual
-		visual_ui_offset_y = PEASANT_VISUAL.COMBAT_HEALTH_BAR_Y - HEALTH_BAR_Y
+		_setup_civilian_sprite("PeasantVisual")
+	elif civilian_profile == "Craftsman" and _sprite_map(&"artisan_sprites") != null:
+		_setup_civilian_sprite("ArtisanVisual", ARTISAN_ATLAS)
 	else:
 		return
 	add_child(_body_sprite)
 	polygon.hide()
+
+
+func _setup_civilian_sprite(visual_name: String, atlas: Texture2D = null) -> void:
+	_civilian_visual = PEASANT_VISUAL.new()
+	_civilian_visual.name = visual_name
+	_civilian_visual.texture = atlas
+	_body_sprite = _civilian_visual
+	visual_ui_offset_y = PEASANT_VISUAL.COMBAT_HEALTH_BAR_Y - HEALTH_BAR_Y
 
 
 func _sprite_map(flag: StringName) -> Node:
@@ -679,8 +687,8 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 	current_health = maxf(current_health - amount, 0.0)
 	queue_redraw()
 	if current_health > 0.0:
-		if _peasant_visual != null:
-			_peasant_visual.play_hurt()
+		if _civilian_visual != null:
+			_civilian_visual.play_hurt()
 		return
 
 	if infection_state == InfectionState.TRANSFORMING:
@@ -756,9 +764,9 @@ func _die(attacker: Node = null) -> void:
 	$CollisionShape2D.set_deferred("disabled", true)
 	if _guard_visual != null:
 		_guard_visual.play_death()
-	elif _peasant_visual != null:
+	elif _civilian_visual != null:
 		clear_bell_pose()
-		_peasant_visual.play_death()
+		_civilian_visual.play_death()
 	else:
 		death_marker_a.show()
 		death_marker_b.show()
@@ -843,8 +851,8 @@ func _on_encounter_attack_timer_timeout() -> void:
 		return
 	if _guard_visual != null:
 		_guard_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
-	elif _peasant_visual != null:
-		_peasant_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
+	elif _civilian_visual != null:
+		_civilian_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	participant.call("take_damage", attack_damage)
 
 
@@ -888,6 +896,7 @@ func _complete_conversion() -> void:
 	$CollisionShape2D.set_deferred("disabled", true)
 	if infection_source == InfectionSource.ZOMBIE_COMBAT:
 		polygon.color = converted_color
+	clear_bell_pose()
 	if _body_sprite != null:
 		_body_sprite.hide()
 		_body_sprite.set_physics_process(false)

@@ -5,6 +5,7 @@ const ZOMBIE = preload("res://scenes/zombie.tscn")
 const VILLAGER = preload("res://scenes/villager.tscn")
 const VISUAL = preload("res://scripts/peasant_visual.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const BELL_CIVILIANS = preload("res://assets/sprites/characters/bell_pull/civilians.png")
 
 var _checks := 0
 var _failures := 0
@@ -20,24 +21,37 @@ func _run() -> void:
 	root.add_child(mission)
 	for frame in 8:
 		await physics_frame
-	var peasants: Array = mission.villagers.filter(func(actor): return actor.civilian_profile == "Peasant")
-	_check(not peasants.is_empty() and peasants.all(func(actor): return actor.has_node("PeasantVisual")),
-		"The new sprites are loaded for Mission 1 peasants")
-	var point := Vector2(350, 1000)
-	if not mission.developer_place("peasant", point):
-		_check(false, "Developer placement failed")
-		quit(1)
+	var craftspeople: Array = mission.villagers.filter(func(actor): return actor.civilian_profile == "Craftsman")
+	_check(craftspeople.size() == 5, "Mission 1 keeps all five craftspeople")
+	await _check_profile(mission, "Peasant", "PeasantVisual", "peasant", Vector2(350, 1000))
+	await _check_profile(mission, "Craftsman", "ArtisanVisual", "artisan", Vector2(500, 1000))
+	_check_artisan_bell_transition(mission)
+	var outside_mission := VILLAGER.instantiate()
+	outside_mission.civilian_profile = "Craftsman"
+	root.add_child(outside_mission)
+	_check(not outside_mission.has_node("ArtisanVisual") and outside_mission.polygon.is_visible_in_tree(),
+		"The craftsman keeps the prototype body on maps without the graphics flag")
+	print("Civilian visual validation: %d/%d passed" % [_checks - _failures, _checks])
+	quit(1 if _failures else 0)
+
+
+func _check_profile(mission: Node, profile: String, visual_name: String, kind: String, point: Vector2) -> void:
+	var residents: Array = mission.villagers.filter(func(actor): return actor.civilian_profile == profile)
+	_check(not residents.is_empty() and residents.all(func(actor): return actor.has_node(visual_name)),
+		"Mission 1 loads the sprite for " + profile)
+	if not mission.developer_place(kind, point):
+		_check(false, "Developer placement failed for " + profile)
 		return
 	var actor: Node2D = mission.villagers.back()
-	var sprite := actor.get_node_or_null("PeasantVisual") as VISUAL
+	var sprite := actor.get_node_or_null(visual_name) as VISUAL
 	_check(sprite != null and not actor.polygon.visible, "Developer placement uses the same sprite")
 	if sprite == null:
-		quit(1)
 		return
+	_check((sprite.texture == VISUAL.ATLAS) == (profile == "Peasant"), "Profile uses its own atlas")
 	_check(actor.get_node("CollisionShape2D").shape.size == Vector2(7.8, 15.6)
 		and is_equal_approx(sprite.scale.y * VISUAL.FRAME_HEIGHT, VISUAL.WORLD_HEIGHT)
 		and sprite.position.y == VISUAL.FEET_Y, "Sprite scale, feet anchor and collider agree")
-	_check_atlas()
+	_check_atlas(sprite.texture)
 
 	actor.set_physics_process(false)
 	actor.navigation_agent.avoidance_enabled = false
@@ -84,7 +98,7 @@ func _run() -> void:
 	opponent.position = actor.position + Vector2(12, -12)
 	mission.add_child(opponent)
 	opponent.set_physics_process(false)
-	_check(actor.begin_encounter(Color.GREEN, opponent), "Peasant enters a real encounter")
+	_check(actor.begin_encounter(Color.GREEN, opponent), profile + " enters a real encounter")
 	var timer: Timer = actor.encounter_attack_timer
 	timer.start(0.12)
 	timer.wait_time = actor.attack_interval
@@ -117,10 +131,10 @@ func _run() -> void:
 		var falling: Node2D = actor
 		if variant == 1:
 			falling = VILLAGER.instantiate()
-			falling.civilian_profile = "Peasant"
+			falling.civilian_profile = profile
 			falling.position = point + Vector2(35, 3)
 			mission.add_child(falling)
-		var body := falling.get_node("PeasantVisual") as VISUAL
+		var body := falling.get_node(visual_name) as VISUAL
 		body._death_variant = variant
 		falling.take_damage(1000.0)
 		body._physics_process(0.35)
@@ -132,12 +146,32 @@ func _run() -> void:
 		_check(_cell(body).x == VISUAL.ACTION_FRAMES - 1 and not body.is_physics_processing(),
 			"Final pose is retained after the fall")
 	_check(final_poses.size() == 2, "The two deaths have different final poses")
-	print("Peasant visual validation: %d/%d passed" % [_checks - _failures, _checks])
-	quit(1 if _failures else 0)
 
 
-func _check_atlas() -> void:
-	var image := VISUAL.ATLAS.get_image()
+func _check_artisan_bell_transition(mission: Node) -> void:
+	for infected in [false, true]:
+		var actor := VILLAGER.instantiate()
+		actor.civilian_profile = "Craftsman"
+		actor.set_meta("village_role", "artisan")
+		mission.add_child(actor)
+		var sprite := actor.get_node("ArtisanVisual") as VISUAL
+		actor.show_bell_pose(BELL_CIVILIANS, Rect2(0, 160, 128, 160), Vector2(72, 136))
+		var bell_pose := actor.get_node("BellPullPose") as Sprite2D
+		_check(bell_pose.visible and not sprite.visible, "Craftsman switches to the rope pose")
+		if infected:
+			actor.apply_player_infection(10.0)
+		actor.take_damage(actor.max_health)
+		if infected:
+			_check(not bell_pose.visible and not sprite.visible and actor.infection_state == actor.InfectionState.CONVERTED,
+				"Conversion hides both the rope pose and the craftsman sprite")
+		else:
+			_check(not bell_pose.visible and sprite.visible and sprite._clip == VISUAL.Clip.DEATH,
+				"Fatal damage replaces the rope pose with the falling sequence")
+		actor.queue_free()
+
+
+func _check_atlas(atlas: Texture2D) -> void:
+	var image := atlas.get_image()
 	var size := Vector2i(VISUAL.CELL)
 	var counts := [8, 8, 8, 8, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10,
 		8, 8, 8, 6, 8, 8, 8, 8, 8, 6, 8, 8]

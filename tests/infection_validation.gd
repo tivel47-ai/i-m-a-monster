@@ -224,9 +224,16 @@ func outdoors_and_recovery() -> void:
 	check(not ability.targeting and zombie.is_selected and zombie.target_position == destination,
 		"RMB cancels ability aiming without changing selection or issuing an order")
 	choose_infection()
-	tap_world(artisan.global_position)
+	var artisan_sprite := artisan.get_node_or_null("ArtisanVisual") as Sprite2D
+	var artisan_head := sprite_head_point(artisan_sprite) if artisan_sprite != null else Vector2.INF
+	var artisan_body: Polygon2D = artisan.polygon
+	check(artisan_head.is_finite() and not artisan_body.is_visible_in_tree() and not Geometry2D.is_point_in_polygon(
+		artisan_body.to_local(artisan_head) - artisan_body.offset, artisan_body.polygon),
+		"Craftsman head extends outside the hidden graybox body")
+	if artisan_head.is_finite():
+		tap_world(artisan_head)
 	check(artisan.has_player_infection() and ability.charges == 1
-		and zombie.is_selected and zombie.target_position == destination, "Craftsman can be infected without replacing a selected zombie's order")
+		and zombie.is_selected and zombie.target_position == destination, "Craftsman sprite can be infected without replacing a selected zombie's order")
 	lethal_attack(artisan, zombie, 1.0)
 	artisan._on_transformation_timer_timeout()
 	artisan._complete_conversion()
