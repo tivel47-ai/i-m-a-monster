@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cofojgp6j473t"
-path="res://.godot/imported/base.png-08d64337289c8938b81d7e2b300342d8.ctex"
+uid="uid://dmogla6cy8ixa"
+path="res://.godot/imported/wounded-sw.png-1f628ddf347811139cbb074b77a3cc53.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/characters/ordinary_zombie/base.png"
-dest_files=["res://.godot/imported/base.png-08d64337289c8938b81d7e2b300342d8.ctex"]
+source_file="res://assets/sprites/characters/ordinary_zombie/wounded-sw.png"
+dest_files=["res://.godot/imported/wounded-sw.png-1f628ddf347811139cbb074b77a3cc53.ctex"]
 
 [params]
 

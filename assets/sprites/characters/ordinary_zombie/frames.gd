@@ -1,168 +1,78 @@
 extends RefCounted
 
-# Frame data is [x, y, width, height, anchor_x, anchor_y] in source pixels.
-const BASE = preload("res://assets/sprites/characters/ordinary_zombie/base.png")
-const SOUTH = preload("res://assets/sprites/characters/ordinary_zombie/south.png")
-const EAST = preload("res://assets/sprites/characters/ordinary_zombie/east.png")
-const NORTH_EAST = preload("res://assets/sprites/characters/ordinary_zombie/north_east.png")
-const NORTH = preload("res://assets/sprites/characters/ordinary_zombie/north.png")
+const CELL := Vector2(160, 128)
+const ANCHOR := Vector2(80, 116)
+const STANDING_HEIGHT := 96.0
+const FRAME_COUNT := 6
+const CONTACT_FRAME := 3
 
-const TURN_HEIGHT := 199.0
+enum Clip { IDLE, WALK, RUSH, SWIPE, OVERHEAD, REACH, HURT, DEATH_FORWARD, DEATH_BACK }
+enum Appearance { PLAIN, NECROSIS, WOUNDED, BLOOM }
+
 const TURN := [
-	[86, 25, 98, 201, 45, 199],
-	[280, 26, 87, 200, 37, 198],
-	[470, 26, 90, 200, 31, 198],
-	[648, 26, 84, 199, 39, 197],
-	[825, 21, 92, 205, 45, 203],
-	[1002, 28, 91, 197, 52, 195],
-	[1190, 26, 87, 200, 45, 198],
-	[1379, 26, 87, 200, 47, 198],
+	preload("res://assets/sprites/characters/ordinary_zombie/plain-turn.png"),
+	preload("res://assets/sprites/characters/ordinary_zombie/necrosis-turn.png"),
+	preload("res://assets/sprites/characters/ordinary_zombie/wounded-turn.png"),
+	preload("res://assets/sprites/characters/ordinary_zombie/bloom-turn.png"),
+]
+# Diagonal animation views: SE, NE, NW, SW.
+const VIEWS := [
+	[
+		preload("res://assets/sprites/characters/ordinary_zombie/plain-se.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/plain-ne.png"),
+	],
+	[
+		preload("res://assets/sprites/characters/ordinary_zombie/necrosis-se.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/necrosis-ne.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/necrosis-nw.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/necrosis-sw.png"),
+	],
+	[
+		preload("res://assets/sprites/characters/ordinary_zombie/wounded-se.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/wounded-ne.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/wounded-nw.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/wounded-sw.png"),
+	],
+	[
+		preload("res://assets/sprites/characters/ordinary_zombie/bloom-se.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/bloom-ne.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/bloom-nw.png"),
+		preload("res://assets/sprites/characters/ordinary_zombie/bloom-sw.png"),
+	],
 ]
 
-const DEATH_HEIGHT := 157.0
-const DEATH := [
-	[77, 855, 79, 159, 35, 157],
-	[247, 857, 96, 158, 48, 156],
-	[421, 869, 112, 145, 50, 143],
-	[589, 894, 122, 118, 52, 116],
-	[765, 935, 147, 78, 65, 76],
-	[960, 951, 174, 60, 78, 58],
-]
+# RGB multipliers measured from idle and locomotion against each skin's turntable.
+# Keep one correction per view so a clip's shading stays stable between frames.
+const VIEW_TINTS := {
+	Appearance.NECROSIS: [
+		Color(0.873, 0.892, 0.894), Color(0.808, 0.800, 0.803),
+		Color(0.681, 0.664, 0.663), Color(0.702, 0.686, 0.679),
+	],
+	Appearance.WOUNDED: [
+		Color(0.923, 0.886, 0.866), Color(0.860, 0.820, 0.805),
+		Color(0.831, 0.789, 0.795), Color(0.796, 0.738, 0.731),
+	],
+	Appearance.BLOOM: [
+		Color(0.841, 0.821, 0.819), Color(0.789, 0.781, 0.766),
+		Color(0.727, 0.701, 0.689), Color(0.709, 0.711, 0.690),
+	],
+}
 
-const CYCLES := [
-	{
-		"texture": SOUTH, "height": 272.0,
-		&"idle": [
-			[42, 45, 133, 274, 61, 272],
-			[238, 60, 128, 259, 59, 257],
-			[429, 38, 127, 280, 60, 278],
-			[620, 45, 130, 274, 60, 272],
-		],
-		&"walk": [
-			[39, 390, 125, 263, 60, 261],
-			[231, 390, 129, 257, 62, 255],
-			[422, 386, 124, 266, 60, 264],
-			[608, 397, 133, 263, 66, 261],
-			[802, 390, 127, 255, 65, 253],
-			[995, 386, 124, 261, 65, 259],
-			[1185, 388, 136, 267, 66, 265],
-			[1376, 393, 131, 266, 64, 264],
-		],
-		&"attack": [
-			[34, 726, 135, 270, 66, 268],
-			[221, 739, 148, 263, 61, 261],
-			[414, 741, 147, 261, 60, 259],
-			[599, 756, 158, 246, 64, 244],
-			[796, 755, 151, 247, 57, 245],
-			[992, 730, 134, 269, 63, 267],
-		],
-	},
-	{
-		"texture": BASE, "height": 170.0,
-		&"idle": [
-			[79, 262, 83, 172, 39, 170],
-			[264, 265, 87, 169, 41, 167],
-			[451, 267, 82, 167, 36, 165],
-			[636, 262, 86, 172, 40, 170],
-		],
-		&"walk": [
-			[80, 464, 89, 178, 35, 176],
-			[251, 464, 105, 177, 42, 175],
-			[426, 464, 115, 176, 45, 174],
-			[609, 464, 117, 178, 43, 176],
-			[798, 463, 110, 177, 48, 175],
-			[986, 463, 110, 178, 39, 176],
-			[1177, 463, 106, 177, 36, 175],
-			[1367, 463, 101, 179, 40, 177],
-		],
-		&"attack": [
-			[74, 670, 88, 162, 34, 160],
-			[249, 673, 100, 160, 37, 158],
-			[426, 673, 106, 160, 36, 158],
-			[602, 671, 156, 162, 44, 160],
-			[793, 672, 146, 161, 47, 159],
-			[1001, 672, 98, 161, 35, 159],
-		],
-	},
-	{
-		"texture": EAST, "height": 251.0,
-		&"idle": [
-			[67, 52, 107, 252, 38, 250],
-			[252, 56, 119, 249, 47, 247],
-			[449, 50, 104, 255, 43, 253],
-			[643, 52, 105, 253, 41, 251],
-		],
-		&"walk": [
-			[62, 383, 113, 252, 43, 250],
-			[244, 385, 121, 251, 43, 249],
-			[411, 383, 148, 247, 57, 245],
-			[589, 392, 161, 243, 67, 241],
-			[799, 380, 127, 255, 43, 253],
-			[965, 384, 152, 250, 56, 248],
-			[1166, 392, 144, 243, 50, 241],
-			[1377, 381, 119, 255, 43, 253],
-		],
-		&"attack": [
-			[47, 730, 121, 241, 47, 239],
-			[225, 730, 141, 241, 51, 239],
-			[404, 731, 151, 240, 59, 238],
-			[583, 734, 194, 237, 63, 235],
-			[777, 741, 196, 230, 66, 228],
-			[995, 732, 136, 239, 53, 237],
-		],
-	},
-	{
-		"texture": NORTH_EAST, "height": 261.0,
-		&"idle": [
-			[57, 39, 117, 263, 56, 261],
-			[262, 48, 129, 254, 52, 252],
-			[467, 36, 110, 266, 49, 264],
-			[664, 39, 113, 263, 54, 261],
-		],
-		&"walk": [
-			[56, 383, 121, 260, 44, 258],
-			[229, 387, 140, 257, 55, 255],
-			[406, 384, 149, 260, 61, 258],
-			[596, 383, 155, 260, 62, 258],
-			[793, 383, 140, 261, 53, 259],
-			[994, 383, 124, 251, 42, 249],
-			[1176, 383, 130, 260, 41, 258],
-			[1363, 383, 129, 261, 53, 259],
-		],
-		&"attack": [
-			[49, 727, 128, 265, 53, 263],
-			[237, 731, 127, 261, 46, 259],
-			[420, 728, 146, 261, 43, 259],
-			[599, 735, 170, 255, 44, 253],
-			[789, 735, 175, 257, 41, 255],
-			[987, 731, 135, 261, 55, 259],
-		],
-	},
-	{
-		"texture": NORTH, "height": 266.0,
-		&"idle": [
-			[48, 41, 119, 268, 60, 266],
-			[235, 52, 116, 257, 60, 255],
-			[421, 37, 122, 272, 60, 270],
-			[611, 42, 120, 266, 59, 264],
-		],
-		&"walk": [
-			[47, 377, 119, 250, 58, 248],
-			[234, 378, 123, 253, 56, 251],
-			[429, 376, 113, 251, 51, 249],
-			[617, 377, 117, 249, 44, 247],
-			[802, 378, 120, 253, 62, 251],
-			[991, 380, 126, 250, 60, 248],
-			[1188, 376, 116, 255, 54, 253],
-			[1376, 378, 117, 254, 59, 252],
-		],
-		&"attack": [
-			[43, 706, 127, 272, 64, 270],
-			[227, 709, 138, 270, 65, 268],
-			[407, 709, 158, 272, 75, 270],
-			[594, 708, 151, 274, 76, 272],
-			[785, 717, 150, 266, 76, 264],
-			[987, 710, 133, 271, 61, 269],
-		],
-	},
-]
+const IDLE_TIME := 1.20
+const WALK_DISTANCE := 59.0
+const RUSH_DISTANCE := 49.0
+const WINDUP_TIMES := [0.27, 0.35, 0.32]
+const WALK_PHASES := [0.0, 0.18, 0.31, 0.47, 0.65, 0.81]
+
+static var _appearance_rng := RandomNumberGenerator.new()
+
+
+static func random_appearance() -> int:
+	return _appearance_rng.randi_range(0, TURN.size() - 1)
+
+
+static func walk_frame(progress: float) -> int:
+	for index in range(WALK_PHASES.size() - 1, 0, -1):
+		if progress >= WALK_PHASES[index]:
+			return index
+	return 0

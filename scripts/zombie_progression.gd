@@ -59,7 +59,7 @@ const NODES := {
 	},
 	HOUND: {
 		"tree_position": Vector2(0.94, 0.70),
-		"title": "Гончий", "costs": [30], "requires": {TENDONS: 2},
+		"title": "Бегун", "costs": [30], "requires": {TENDONS: 2},
 		"chance": 0.08, "health": 0.70, "speed": 1.25, "damage": 0.70,
 		"interval": 1.0, "infection": 0.15, "icon": preload("res://assets/ui/zombie_style/hound.png"),
 	},
@@ -150,7 +150,7 @@ static func effect_text(id: String, rank: int) -> String:
 		HOUND: return "8% при обращении · HP 70% · скорость 125% · урон 70% · заражение 15% до пассивов."
 		CARRIER: return "6% при обращении · HP 125% · скорость 80% · урон 50% · заражение 25% до пассивов."
 		TENDONS: return "+%d%% скорости всех форм от базовой скорости формы" % (rank * 2)
-		SALIVA: return "+%d п.п. заражения обычных зомби, Гончих и Носителей. Громила сохраняет 2%%." % rank
+		SALIVA: return "+%d п.п. заражения обычных зомби, Бегунов и Носителей. Громила сохраняет 2%%." % rank
 		GROWTHS: return "+%d%% урона дверям и баррикадам всех форм" % (rank * 5)
 		FORTITUDE:
 			var data: Dictionary = NODES[id].effects[rank - 1]

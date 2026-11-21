@@ -3,6 +3,7 @@ extends SceneTree
 
 const MAIN = preload("res://scenes/main.tscn")
 const ZOMBIE = preload("res://scenes/zombie.tscn")
+const ORDINARY_ART = preload("res://assets/sprites/characters/ordinary_zombie/frames.gd")
 
 var app: Node
 var mission: Node2D
@@ -107,6 +108,15 @@ func lethal_attack(actor: Node2D, zombie: Node2D, chance := 0.0) -> void:
 	actor.receive_zombie_attack(1000.0, chance, zombie)
 
 
+func has_conversion_visual(zombie: Node) -> bool:
+	if not zombie.zombie_form.is_empty():
+		return zombie.ordinary_appearance == -1
+	var appearance: int = zombie.ordinary_appearance
+	var visual := zombie.get_node_or_null("OrdinaryZombieVisual") as Sprite2D
+	return appearance >= 0 and appearance < ORDINARY_ART.TURN.size() and visual != null \
+		and visual.appearance == appearance
+
+
 func settle_residents() -> void:
 	for actor in mission.villagers:
 		if is_instance_valid(actor):
@@ -116,7 +126,9 @@ func settle_residents() -> void:
 func run() -> void:
 	seed(1249)
 	root.size = Vector2i(1280, 720)
+	var profile_path := "res://.godot/infection_validation_%d.cfg" % OS.get_process_id()
 	app = MAIN.instantiate()
+	app.set_meta("progression_path", profile_path)
 	root.add_child(app)
 	await launch()
 	await outdoors_and_recovery()
@@ -127,6 +139,8 @@ func run() -> void:
 	await lifecycle()
 	app.queue_free()
 	await frame()
+	if FileAccess.file_exists(profile_path):
+		DirAccess.remove_absolute(profile_path)
 	print("Infection and mission lifecycle: ", checks - failures, "/", checks, " passed")
 	quit(0 if failures == 0 else 1)
 
@@ -201,6 +215,7 @@ func outdoors_and_recovery() -> void:
 		"Natural expiry spawns one player zombie without moving the camera")
 	settle_residents()
 	var zombie: Node2D = get_nodes_in_group("player_units")[0]
+	check(has_conversion_visual(zombie), "Outdoor ability conversion has a persistent appearance")
 	zombie.set_physics_process(false)
 	zombie.set_selected(true)
 	var destination := Vector2(200, 900)
@@ -228,6 +243,8 @@ func outdoors_and_recovery() -> void:
 		and not ability.infect(combat_conversion), "Existing successful combat infection excludes a duplicate player application")
 	check(await until(func(): return mission.infected_residents == 3, 135) and ability.recovery_progress == 0,
 		"Ordinary combat conversion retains its own timer and earns no charge progress")
+	check(get_nodes_in_group("player_units").all(has_conversion_visual),
+		"Normal and lethal combat conversions attach the same appearance system")
 	lethal_attack(guard, zombie)
 	lethal_attack(priest, zombie)
 	mission._on_resident_died(priest)
@@ -298,6 +315,7 @@ func interiors() -> void:
 		"Interior death and normal expiry create exactly two inside zombies, without recovery credit")
 	if building.monsters.size() != 2:
 		return
+	check(building.monsters.all(has_conversion_visual), "Both interior conversion paths use the appearance system")
 	var inside: Node2D = building.monsters[0]
 	building.monsters[0].infection_chance = 0.0
 	building.monsters[1].infection_chance = 0.0

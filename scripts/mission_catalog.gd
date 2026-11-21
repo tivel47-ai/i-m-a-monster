@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ZOMBIE_PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const ORDINARY_ART = preload("res://assets/sprites/characters/ordinary_zombie/frames.gd")
 
 const HUMAN_TYPES := {
 	"peasant": "Крестьянин",

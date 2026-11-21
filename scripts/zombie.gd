@@ -51,6 +51,7 @@ var current_health: float
 var is_dead: bool = false
 var is_brute := false
 var zombie_form := ""
+var ordinary_appearance := -1
 var _ordinary_visual: ORDINARY_VISUAL
 var _brute_visual: BRUTE_VISUAL
 var _portrait_atlas: Texture2D
@@ -116,9 +117,12 @@ func _setup_form_visual() -> void:
 			_attach_form_visual(_brute_visual)
 		return
 	if zombie_form.is_empty() and _uses_form_sprites(&"ordinary_zombie_sprites"):
+		ordinary_appearance = ORDINARY_VISUAL.ART.random_appearance()
 		_ordinary_visual = ORDINARY_VISUAL.new()
 		_ordinary_visual.name = "OrdinaryZombieVisual"
+		_ordinary_visual.appearance = ordinary_appearance
 		_attach_form_visual(_ordinary_visual)
+		_portrait_atlas = ORDINARY_VISUAL.ART.TURN[ORDINARY_VISUAL.ART.Appearance.PLAIN]
 
 
 func _attach_form_visual(visual: Sprite2D) -> void:
@@ -154,12 +158,12 @@ func _uses_form_sprites(flag: StringName) -> bool:
 	return false
 
 
-func play_attack_visual(world_point: Vector2, at_impact := false) -> void:
+func play_attack_visual(world_point: Vector2) -> void:
 	if _brute_visual != null:
 		# Every caller reports a resolved hit. Only the encounter timer offers a windup.
 		_brute_visual.play_attack(world_point - global_position, effective_attack_interval())
 	elif _ordinary_visual != null:
-		_ordinary_visual.play_attack(world_point - global_position, effective_attack_interval(), at_impact)
+		_ordinary_visual.play_attack(world_point - global_position, effective_attack_interval())
 
 
 func movement_speed() -> float:
@@ -314,8 +318,11 @@ func take_damage(amount: float) -> void:
 	queue_redraw()
 	if current_health == 0.0:
 		_die()
-	elif _brute_visual != null and current_health < previous_health:
-		_brute_visual.play_hurt()
+	elif current_health < previous_health:
+		if _brute_visual != null:
+			_brute_visual.play_hurt()
+		elif _ordinary_visual != null:
+			_ordinary_visual.play_hurt()
 
 
 func _die() -> void:
@@ -516,7 +523,7 @@ func _on_encounter_attack_timer_timeout() -> void:
 	if is_brute:
 		_brute_hit(villager)
 	else:
-		play_attack_visual(villager.global_position, true)
+		play_attack_visual(villager.global_position)
 		villager.receive_zombie_attack(attack_damage, infection_chance, self)
 
 
@@ -533,7 +540,7 @@ func _brute_hit(primary: Node2D) -> void:
 			continue
 		if center.distance_squared_to(resident.global_position) <= radius_squared and _has_line_of_sight(resident, true):
 			splash_targets.append(resident)
-	play_attack_visual(center, true)
+	play_attack_visual(center)
 	primary.receive_knockback(global_position.direction_to(center) * width * stats.knockback)
 	primary.receive_zombie_attack(attack_damage, infection_chance, self)
 	for resident in splash_targets:

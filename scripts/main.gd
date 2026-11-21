@@ -21,6 +21,7 @@ var ui: Control
 var menu_background: TextureRect
 var race_list: VBoxContainer
 var race_preview: VBoxContainer
+var _race_preview_appearance := 0
 var race_details: VBoxContainer
 var race_buttons: Dictionary = {}
 var race_mission_label: Label
@@ -120,6 +121,9 @@ func _show(next: Screen) -> void:
 		_end_settings_capture()
 		settings_draft = null
 	var returning_from_development := screen == Screen.DEVELOPMENT and next == Screen.RACES
+	if screen != Screen.RACES and next == Screen.RACES and CATALOG.MISSIONS.has(selected_mission):
+		_race_preview_appearance = CATALOG.ORDINARY_ART.random_appearance()
+		_update_preview()
 	screen = next
 	finish_mission_button.visible = screen == Screen.PAUSE and is_instance_valid(mission) and mission.can_finish_mission()
 	for key in pages:
@@ -638,7 +642,6 @@ func _open_race_selection() -> void:
 		var item := _button(race_list, CATALOG.RACES[race_id].name, _select_race.bind(race_id))
 		item.toggle_mode = true
 		race_buttons[race_id] = item
-	_update_preview()
 	_show(Screen.RACES)
 
 func _select_race(id: String) -> void:
@@ -679,7 +682,9 @@ func _update_preview() -> void:
 	stage.position = Vector2(90, 121)
 	stage.scale = Vector2.ONE * 5.1
 	portrait.add_child(stage)
-	stage.add_child(race.preview.new())
+	var sprite: Sprite2D = race.preview.new()
+	sprite.appearance = _race_preview_appearance
+	stage.add_child(sprite)
 	race_preview.add_child(preview)
 	_text(race_preview, "Как играется", 24)
 	_text(race_preview, race.gameplay, 18)

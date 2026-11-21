@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bm0ukg75blb6l"
-path="res://.godot/imported/south.png-ae93cc411fc2e3eabd07a2b9e57b09ae.ctex"
+uid="uid://bqccq57eif65d"
+path="res://.godot/imported/wounded-nw.png-4fed279479189dc40208c6fb0f918f8f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/characters/ordinary_zombie/south.png"
-dest_files=["res://.godot/imported/south.png-ae93cc411fc2e3eabd07a2b9e57b09ae.ctex"]
+source_file="res://assets/sprites/characters/ordinary_zombie/wounded-nw.png"
+dest_files=["res://.godot/imported/wounded-nw.png-4fed279479189dc40208c6fb0f918f8f.ctex"]
 
 [params]
 

@@ -458,7 +458,8 @@ func refresh_developer_tool(placement_failed := false) -> void:
 		developer_tool_label.text = "Выберите доступное место на карте"
 		return
 	var kind: String = mission.developer_spawn
-	var unit_name: String = CATALOG.HUMAN_TYPES.get(kind, CATALOG.monster_types().get(kind, ""))
+	var unit_name: String = CATALOG.HUMAN_TYPES.get(kind,
+		CATALOG.monster_types().get(kind, ""))
 	developer_tool_label.text = "%s · ЛКМ на карте, ПКМ — отмена" % unit_name if not unit_name.is_empty() else "Выберите инструмент"
 
 

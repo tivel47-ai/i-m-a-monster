@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ta05bf8oo0p4"
-path="res://.godot/imported/north.png-3fae6a00c8054f7ef4674d928372a7f2.ctex"
+uid="uid://cqfxkkpmbovb1"
+path="res://.godot/imported/necrosis-ne.png-5dd563cfbee6f9d8dbbea18e53b6705e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/characters/ordinary_zombie/north.png"
-dest_files=["res://.godot/imported/north.png-3fae6a00c8054f7ef4674d928372a7f2.ctex"]
+source_file="res://assets/sprites/characters/ordinary_zombie/necrosis-ne.png"
+dest_files=["res://.godot/imported/necrosis-ne.png-5dd563cfbee6f9d8dbbea18e53b6705e.ctex"]
 
 [params]
 

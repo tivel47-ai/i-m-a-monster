@@ -111,13 +111,13 @@ func run() -> void:
 	await frames()
 	check(app.race_list.get_global_rect().end.x < app.race_preview.get_global_rect().position.x and app.race_preview.get_global_rect().end.x < app.race_details.get_global_rect().position.x, "Race list, appearance and details form three columns")
 	check(app.race_buttons.zombie.button_pressed, "Selected race is highlighted")
-	check(app.race_preview.find_children("*", "Sprite2D", true, false).size() == 1 and get_nodes_in_group("player_units").is_empty(), "Portrait shows one visual without running units")
+	check(app.race_preview.find_children("*", "Sprite2D", true, false).size() == 1 and get_nodes_in_group("player_units").is_empty(), "Portrait shows one ordinary zombie without running units")
 	var details := ""
 	for label in app.race_details.find_children("*", "Label", true, false): details += label.text
 	check("Зомби" in details and "Сильные стороны" in details and "Слабые стороны" in details, "Description and strengths/weaknesses appear on the right")
 	check(app.race_back_button.position.x < app.start_button.position.x and app.race_back_button.global_position.y == app.start_button.global_position.y, "Back and Start occupy left and right ends of footer")
 	click("Зомби")
-	check(app.race_preview.find_children("*", "Sprite2D", true, false).size() == 1, "Repeated selection replaces portrait without duplicates")
+	check(app.race_preview.find_children("*", "Sprite2D", true, false).size() == 1, "Repeated selection replaces the portrait without duplicates")
 	click("Назад")
 	check(app.screen == app.Screen.MISSIONS and app.selected_race == "zombie", "Race Back preserves selection")
 	click("Выбрать расу")
