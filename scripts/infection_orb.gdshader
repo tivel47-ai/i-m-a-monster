@@ -1,55 +1,90 @@
 shader_type canvas_item;
-render_mode unshaded;
+render_mode unshaded, blend_premul_alpha;
 
+uniform sampler2D sludge_texture : source_color, filter_linear_mipmap, repeat_disable;
 uniform float fill_level : hint_range(0.0, 1.0) = 0.0;
 uniform bool highlighted = false;
 uniform bool targeting = false;
 uniform bool available = true;
 
+const float GLASS_RADIUS = 0.853;
+
+float liquid_surface(float x, float level, float time) {
+	float side = x / GLASS_RADIUS;
+	float strength = (0.54 + 0.46 * sin(level * PI)) * smoothstep(0.0, 0.13, level);
+	float shoulder = -0.071 * pow(abs(side), 3.5);
+	float swell = 0.046 * sin(side * 3.65 + time * 1.22) + 0.018 * sin(side * 7.4 - time * 1.57);
+	float offset = side - 0.41 * sin(time * 0.71 + 0.23);
+	float heave = 0.5 + 0.5 * sin(time * 1.51);
+	float dome = -0.068 * exp(-44.0 * offset * offset) * heave * heave;
+	return GLASS_RADIUS * (1.052 - 2.13 * level + strength * (shoulder + swell + dome));
+}
+
+vec3 draw_bubbles(vec3 liquid, vec2 point, float level, float time) {
+	for (int index = 0; index < 9; index++) {
+		float seed = (float(index) + 1.0) * 0.618034;
+		float phase = fract(time / (3.3 + mod(float(index), 4.0) * 0.72) + seed);
+		float side = fract(seed) * 1.67 - 0.835 + 0.052 * sin(phase * 4.4 + seed * 19.0);
+		float x = side * GLASS_RADIUS;
+		float rim_depth = GLASS_RADIUS * sqrt(1.0 - side * side);
+		float floor_y = rim_depth * 0.965;
+		float ceiling_y = max(-rim_depth * 0.96, liquid_surface(x, level, time));
+		float column = floor_y - ceiling_y;
+		float size = min(GLASS_RADIUS * (0.029 + fract(seed * 2.62) * 0.045), max(column, 0.001) * 0.174);
+		float life = smoothstep(0.0, 0.28, phase) * (1.0 - smoothstep(0.76, 1.0, phase));
+		life *= smoothstep(0.085, 0.15, column);
+		float squash = smoothstep(0.57, 0.97, phase);
+		float y = mix(floor_y - size * 0.73, ceiling_y + size * 0.63, smoothstep(0.0, 1.0, phase));
+		vec2 shape = vec2(mix(0.86, 1.23, squash), mix(0.93, 0.66, squash));
+		vec2 bubble = (point - vec2(x, y)) / (shape * max(size, 0.012));
+		float silhouette = 1.0 - smoothstep(0.70, 1.0, length(bubble));
+		float sheen = 1.0 - smoothstep(0.12, 0.67, length(bubble + vec2(0.30, 0.43)));
+		vec3 dome = mix(vec3(0.15, 0.15, 0.057), vec3(0.58, 0.51, 0.26), sheen);
+		liquid = mix(liquid, dome, silhouette * life * 0.55);
+	}
+	return liquid;
+}
+
 void fragment() {
 	vec2 point = UV * 2.0 - 1.0;
 	float radius = length(point);
-	float edge = max(fwidth(radius), 0.01);
-	float circle = 1.0 - smoothstep(0.92 - edge, 0.92 + edge, radius);
-	float shadow_radius = length(point - vec2(0.0, 0.06));
-	float shadow = (1.0 - smoothstep(0.84, 0.99, shadow_radius)) * 0.64;
+	float edge = max(fwidth(radius), 0.008);
+	vec4 art = texture(TEXTURE, UV);
+	float glass = 1.0 - smoothstep(GLASS_RADIUS - edge, GLASS_RADIUS + edge, radius);
+	// The atlas alpha stores opacity of roots, bone, crust and glass highlights.
+	float transmission = glass * (1.0 - art.a);
+	float time = TIME;
+	vec3 color = art.rgb;
+	float pulse = 0.5 + 0.5 * sin(time * 1.75);
+	float haze = 1.0 - smoothstep(0.07, 0.72, length(point - vec2(0.10 * sin(time * 0.72), 0.15)));
+	color += vec3(0.17, 0.19, 0.066) * transmission * haze * mix(0.09, 0.34, pulse);
 
-	// Directional bevel and fine grooves in the dark green metal.
-	float angle = atan(point.y, point.x);
-	float light = 0.5 + 0.5 * cos(angle + 2.0);
-	float grain = 0.93 + 0.07 * cos(61.0 * angle + 1.7 * sin(27.0 * angle));
-	vec3 frame = mix(vec3(0.13, 0.20, 0.13), vec3(0.48, 0.60, 0.34), light) * grain;
-	frame *= 1.0 - 0.76 * smoothstep(0.856, 0.875, radius);
-	frame *= mix(0.36, 1.0, smoothstep(0.786, 0.817, radius));
-	frame += vec3(0.19, 0.25, 0.12) * (1.0 - smoothstep(0.009, 0.033, abs(radius - 0.844))) * light;
-
-	float glass_radius = 0.755;
-	float glass_mask = 1.0 - smoothstep(glass_radius - edge, glass_radius + edge, radius);
-	float side = point.x / glass_radius;
-	float curve = 0.056 * (1.0 - side * side);
-	float surface = mix(glass_radius, -glass_radius, fill_level) + curve;
-	float liquid = smoothstep(surface - edge, surface + edge, point.y);
-	liquid *= step(0.001, fill_level);
-	float depth = clamp((point.y - surface) / glass_radius, 0.0, 1.0);
-	float body_light = 1.0 - smoothstep(0.04, 0.87, length(point - vec2(-0.22, 0.17)));
-	vec3 water = mix(vec3(0.06, 0.27, 0.07), vec3(0.47, 0.85, 0.20), body_light);
-	water *= mix(1.0, 0.69, depth);
-	float meniscus = (1.0 - smoothstep(0.002, 0.034, abs(point.y - surface))) * step(0.001, fill_level);
-	float glass_light = 1.0 - smoothstep(0.0, 0.85, length(point - vec2(-0.20, -0.26)));
-	vec3 glass = mix(vec3(0.027, 0.053, 0.038), vec3(0.17, 0.25, 0.16), glass_light);
-	glass = mix(glass, water, liquid) + vec3(0.47, 0.73, 0.29) * meniscus * 0.60;
-	glass *= 1.0 - 0.53 * smoothstep(0.50, glass_radius, radius);
-	float reflection = length((point - vec2(0.28, -0.36)) * vec2(0.94, 1.19));
-	glass += vec3(0.62, 0.80, 0.53) * (0.51 * exp(-88.0 * reflection * reflection) + 0.16 * exp(-14.0 * reflection * reflection));
+	if (fill_level > 0.001 && transmission > 0.003) {
+		float surface = liquid_surface(point.x, fill_level, time);
+		float depth = (point.y - surface) / GLASS_RADIUS;
+		float coverage = smoothstep(-0.012, 0.025, depth);
+		float drift = sin(time * 0.56);
+		vec2 flow = vec2(0.075 * drift - point.y * 0.049 * sin(time * 0.58),
+			0.072 * sin(time * 0.70) + 0.18 * (1.0 - fill_level));
+		vec3 liquid = texture(sludge_texture, vec2(0.5) + (point - flow) * vec2(0.45, 0.40)).rgb;
+		liquid *= mix(1.06, 0.56, smoothstep(0.09, 1.82, depth));
+		float fold_width = 0.096 * (0.82 + 0.25 * cos(point.x / GLASS_RADIUS * 5.0 - time));
+		float fold = smoothstep(0.0, 0.022, depth) * (1.0 - smoothstep(0.028, fold_width, depth));
+		float highlight = 0.5 + 0.5 * cos(point.x * 7.0 + time * 0.62);
+		liquid += vec3(0.22, 0.20, 0.10) * (fold * mix(0.15, 0.57, highlight) + haze * 0.23 * pulse);
+		liquid = draw_bubbles(liquid, point, fill_level, time);
+		color = mix(color, liquid, coverage * transmission * 0.93);
+	}
 
 	if ((highlighted || targeting) && available) {
-		float intensity = targeting ? 1.0 : 0.30;
-		frame += vec3(0.33, 0.49, 0.16) * smoothstep(0.79, 0.85, radius) * intensity;
+		float strength = targeting ? 0.25 : 0.10;
+		color += vec3(0.46, 0.52, 0.23) * strength * smoothstep(0.80, 0.90, radius);
 	}
 	if (!available) {
-		frame *= 0.65;
+		color *= mix(0.65, 0.90, transmission);
 	}
-	vec3 color = mix(frame, glass, glass_mask);
-	float alpha = mix(shadow, 1.0, circle);
-	COLOR = vec4(color * circle / max(alpha, 0.001), alpha);
+	float circle = 1.0 - smoothstep(0.92 - edge, 0.92 + edge, radius);
+	float shadow_radius = length(point - vec2(0.0, 0.060));
+	float shadow = (1.0 - smoothstep(0.83, 0.99, shadow_radius)) * 0.63;
+	COLOR = vec4(color * circle, mix(shadow, 1.0, circle));
 }

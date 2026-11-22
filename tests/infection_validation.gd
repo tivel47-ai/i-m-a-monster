@@ -255,14 +255,32 @@ func outdoors_and_recovery() -> void:
 	lethal_attack(guard, zombie)
 	lethal_attack(priest, zombie)
 	mission._on_resident_died(priest)
-	check(ability.recovery_progress == 2 and ability.charges == 1
-		and is_equal_approx(hud.infection_orb_material.get_shader_parameter("fill_level"), 0.4),
-		"Guard and priest kills count once and fill 40 percent of the orb's height")
+	check(ability.recovery_progress == 2 and ability.charges == 1,
+		"Guard and priest kills each count once toward a charge")
+	hud._animate_infection_fill(0.30)
+	var rising: float = hud.infection_orb_material.get_shader_parameter("fill_level")
+	check(rising > 0.0 and rising < 0.4, "The liquid moves toward the credited level without snapping")
+	hud._animate_infection_fill(1.65)
+	check(is_equal_approx(hud.infection_orb_material.get_shader_parameter("fill_level"), 0.4),
+		"Two credited kills settle at 40 percent of the orb's height")
 	for i in 18:
 		lethal_attack(residents("peasant")[0], zombie)
-	check(ability.charges == 5 and ability.recovery_progress == 0 and hud.infection_charges.text == "5"
-		and hud.infection_orb_material.get_shader_parameter("fill_level") == 0.0,
-		"Twenty qualifying kills restore four charges and empty the orb with no three-charge cap")
+	check(ability.charges == 5 and ability.recovery_progress == 0 and hud.infection_charges.text == "5",
+		"Twenty qualifying kills restore four immediately available charges with no three-charge cap")
+	hud._animate_infection_fill(2.0)
+	check(hud.infection_orb_material.get_shader_parameter("fill_level") == 1.0,
+		"The orb reaches full after a charge rolls over")
+	hud._animate_infection_fill(0.5)
+	hud._animate_infection_fill(0.3)
+	var draining: float = hud.infection_orb_material.get_shader_parameter("fill_level")
+	check(draining > 0.0 and draining < 1.0, "The orb drains smoothly after showing full")
+	lethal_attack(residents("peasant")[0], zombie)
+	hud._animate_infection_fill(1.5)
+	check(ability.recovery_progress == 1 and hud.infection_orb_material.get_shader_parameter("fill_level") == 0.0,
+		"The completed cycle reaches empty even if another kill arrives while draining")
+	hud._animate_infection_fill(1.8)
+	check(is_equal_approx(hud.infection_orb_material.get_shader_parameter("fill_level"), 0.2),
+		"The next cycle fills to the progress earned while draining")
 
 
 func shelter(building: InteractiveBuilding, actor: Node2D) -> bool:

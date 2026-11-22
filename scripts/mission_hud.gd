@@ -1,6 +1,10 @@
 extends Control
 
+enum InfectionFillStage { TRACKING, TOPPING_OFF, DRAINING }
+
 const INFECTION_ORB = preload("res://scripts/infection_orb.gdshader")
+const INFECTION_ORB_ART = preload("res://assets/ui/zombie_style/infection_orb.png")
+const INFECTION_ORB_SLUDGE = preload("res://assets/ui/zombie_style/infection_orb_sludge.png")
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
 const CATALOG = preload("res://scripts/mission_catalog.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
@@ -21,6 +25,11 @@ var assault_status: Label
 var infection_button: Button
 var infection_orb_material: ShaderMaterial
 var infection_charges: Label
+var _infection_recovery_progress := 0
+var _infection_fill := 0.0
+var _infection_fill_velocity := 0.0
+var _infection_fill_stage := InfectionFillStage.TRACKING
+var _infection_full_hold := 0.0
 var virus_label: Label
 var hotbar: PanelContainer
 var abilities_placeholder: PanelContainer
@@ -285,11 +294,16 @@ func _build_infection() -> void:
 	add_child(infection_button)
 	_blocks.append(infection_button)
 
-	var orb := ColorRect.new()
+	var orb := TextureRect.new()
+	orb.texture = INFECTION_ORB_ART
+	orb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	orb.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	orb.size = Vector2.ONE * INFECTION_ORB_SIZE
 	orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	infection_orb_material = ShaderMaterial.new()
 	infection_orb_material.shader = INFECTION_ORB
+	infection_orb_material.set_shader_parameter("sludge_texture", INFECTION_ORB_SLUDGE)
+	infection_orb_material.set_shader_parameter("fill_level", _infection_fill)
 	orb.material = infection_orb_material
 	infection_button.add_child(orb)
 
@@ -318,13 +332,45 @@ func refresh_infection() -> void:
 	if infection_button == null:
 		return
 	var ability = mission.zombie_infection
+	var progress: int = ability.recovery_progress
+	if progress < _infection_recovery_progress:
+		_infection_fill_stage = InfectionFillStage.TOPPING_OFF
+		_infection_full_hold = 0.42
+	_infection_recovery_progress = progress
 	infection_charges.text = str(ability.charges)
 	infection_button.disabled = ability.charges == 0
 	infection_button.set_pressed_no_signal(ability.targeting)
-	infection_orb_material.set_shader_parameter("fill_level",
-		float(ability.recovery_progress) / mission.ZOMBIE_INFECTION.KILLS_PER_CHARGE)
 	infection_orb_material.set_shader_parameter("available", not infection_button.disabled)
 	infection_orb_material.set_shader_parameter("targeting", ability.targeting)
+
+
+func _animate_infection_fill(delta: float) -> void:
+	var target: float = float(_infection_recovery_progress) / mission.ZOMBIE_INFECTION.KILLS_PER_CHARGE
+	if _infection_fill_stage == InfectionFillStage.TOPPING_OFF:
+		target = 1.0
+		if _infection_fill == 1.0:
+			_infection_full_hold -= delta
+			if _infection_full_hold <= 0.0:
+				_infection_fill_stage = InfectionFillStage.DRAINING
+			return
+	elif _infection_fill_stage == InfectionFillStage.DRAINING:
+		target = 0.0
+
+	if _infection_fill == target and _infection_fill_velocity == 0.0:
+		return
+	# Critical damping keeps the surface moving smoothly when kills change its destination.
+	var response := 5.7 if _infection_fill_stage == InfectionFillStage.DRAINING else 4.6
+	var displacement := _infection_fill - target
+	var tangent := _infection_fill_velocity + response * displacement
+	var decay := exp(-response * delta)
+	_infection_fill = target + (displacement + tangent * delta) * decay
+	_infection_fill_velocity = (_infection_fill_velocity - response * tangent * delta) * decay
+	if absf(_infection_fill - target) <= 0.003 and absf(_infection_fill_velocity) <= 0.018:
+		_infection_fill = target
+		_infection_fill_velocity = 0.0
+		if _infection_fill_stage == InfectionFillStage.DRAINING:
+			_infection_fill_stage = InfectionFillStage.TRACKING
+	infection_orb_material.set_shader_parameter("fill_level", clampf(_infection_fill, 0.0, 1.0))
 
 
 func _build_developer_tools() -> void:
@@ -464,6 +510,8 @@ func refresh_developer_tool(placement_failed := false) -> void:
 
 
 func _process(delta: float) -> void:
+	if infection_orb_material != null:
+		_animate_infection_fill(delta)
 	_refresh_elapsed += delta
 	if _refresh_elapsed >= 0.2:
 		_refresh_elapsed = 0.0
