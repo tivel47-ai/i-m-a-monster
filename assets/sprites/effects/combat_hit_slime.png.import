@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://fxsbseilae76"
-path="res://.godot/imported/combat_splashes.png-3303d386404a18c81f50e531053d013d.ctex"
+uid="uid://50nqaa03hcl2"
+path="res://.godot/imported/combat_hit_slime.png-0d03919d37b84d0da33eae43fb160f16.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/effects/combat_splashes.png"
-dest_files=["res://.godot/imported/combat_splashes.png-3303d386404a18c81f50e531053d013d.ctex"]
+source_file="res://assets/sprites/effects/combat_hit_slime.png"
+dest_files=["res://.godot/imported/combat_hit_slime.png-0d03919d37b84d0da33eae43fb160f16.ctex"]
 
 [params]
 

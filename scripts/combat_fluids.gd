@@ -5,13 +5,24 @@ enum Fluid { BLOOD, SLIME }
 const FRESH := preload("res://assets/sprites/effects/combat_pools_fresh.png")
 const OLD := preload("res://assets/sprites/effects/combat_pools_old.png")
 const SPREAD := preload("res://assets/sprites/effects/combat_pools_spread.png")
-const SPLASHES := preload("res://assets/sprites/effects/combat_splashes.png")
+const SPLASHES := [
+	[
+		preload("res://assets/sprites/effects/combat_hit_blood.png"),
+		preload("res://assets/sprites/effects/combat_hit_blood_fan.png"),
+	],
+	[
+		preload("res://assets/sprites/effects/combat_hit_slime.png"),
+		preload("res://assets/sprites/effects/combat_hit_slime_glob.png"),
+	],
+]
 const POOL_SHADER := preload("res://scripts/combat_pool.gdshader")
 const MEADOW := preload("res://assets/maps/mission_01/meadow.png")
 const POOL_VARIANTS := 5
-const SPLASH_VARIANTS := 3
-const SPLASH_FRAMES := 21
+const SPLASH_FRAMES := 24
 const SPLASH_TIME := 0.35
+const SPLASH_ORIGIN := Vector2(49.0, 39.0)
+const SPLASH_FEET := Vector2(42.0, 79.0)
+const FIRST_LANDING_TIME := SPLASH_TIME * 9.0 / SPLASH_FRAMES
 const HIT_CHANCE := 0.25
 const DEATH_HIT_CHANCE := 0.20
 const TRACE_CHANCE := 0.10
@@ -39,6 +50,9 @@ class Pool:
 
 class Flight:
 	var sprite: Sprite2D
+	var trace: Sprite2D
+	var feet: Vector2
+	var launch_offset: Vector2
 	var elapsed := 0.0
 
 
@@ -66,29 +80,39 @@ func hit(actor: Node2D, fluid: Fluid, direction: Vector2, lethal: bool, height: 
 		return
 	if direction.is_zero_approx():
 		direction = Vector2.from_angle(_random.randf_range(-PI, PI))
-	var sprite := Sprite2D.new()
-	sprite.texture = SPLASHES
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.hframes = SPLASH_FRAMES
-	sprite.vframes = SPLASH_VARIANTS * 2
-	var row := fluid * SPLASH_VARIANTS + _random.randi_range(0, SPLASH_VARIANTS - 1)
-	sprite.frame_coords = Vector2i(0, row)
-	# The origin is baked near the left of each cell. Rotate around that origin.
-	sprite.centered = false
-	sprite.offset = Vector2(-19.0, -33.0)
+	var variants: Array = SPLASHES[fluid]
+	var texture: Texture2D = variants[_random.randi_range(0, variants.size() - 1)]
+	var sprite := _splash_sprite(texture, 0)
 	sprite.z_index = 3
-	sprite.scale = Vector2.ONE * TEXEL_SCALE * clampf(height / 28.0, 0.64, 1.2)
-	sprite.rotation = direction.angle()
-	if direction.x < 0.0:
-		sprite.scale.y *= -1.0
 	add_child(sprite)
-	sprite.global_position = actor.global_position + Vector2(0.0, 5.5 - height * 0.57)
 	var flight := Flight.new()
 	flight.sprite = sprite
+	flight.feet = actor.global_position + Vector2(0.0, 5.5)
+	var scale_factor := TEXEL_SCALE * clampf(height / 28.0, 0.64, 1.2)
+	var mirror := -1.0 if direction.x < 0.0 else 1.0
+	sprite.global_transform = Transform2D(
+		direction.angle(), Vector2(scale_factor, scale_factor * mirror), 0.0, flight.feet)
+	if not lethal and _random.randf() < TRACE_CHANCE:
+		flight.trace = _add_trace(actor, sprite)
+	# Match the target's hit point at launch, then align both rows before any drop lands.
+	flight.launch_offset = (
+		Vector2(0.0, -height * 0.57)
+		- sprite.global_transform.basis_xform(SPLASH_ORIGIN - SPLASH_FEET))
+	sprite.global_position += flight.launch_offset
 	_splashes.append(flight)
 	set_process(true)
-	if not lethal and _random.randf() < TRACE_CHANCE:
-		_add_trace(actor, fluid, direction.normalized())
+
+
+func _splash_sprite(texture: Texture2D, row: int) -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.texture = texture
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.hframes = SPLASH_FRAMES
+	sprite.vframes = 2
+	sprite.frame_coords = Vector2i(0, row)
+	sprite.centered = false
+	sprite.offset = -SPLASH_FEET
+	return sprite
 
 
 func settled(actor: Node2D, fluid: Fluid, pose: Sprite2D = null) -> void:
@@ -139,28 +163,20 @@ func _ground_layer(actor: Node2D) -> Node2D:
 	return _ground.get_node_or_null("CombatFluidDecals")
 
 
-func _add_trace(actor: Node2D, fluid: Fluid, direction: Vector2) -> void:
+func _add_trace(actor: Node2D, splash: Sprite2D) -> Sprite2D:
 	var layer := _ground_layer(actor)
 	if layer == null:
-		return
-	var location := actor.global_position + Vector2(0.0, 5.5) + direction * _random.randf_range(5.0, 10.0)
-	var sprite := Sprite2D.new()
-	sprite.texture = SPLASHES
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.hframes = SPLASH_FRAMES
-	sprite.vframes = SPLASH_VARIANTS * 2
-	sprite.frame_coords = Vector2i(SPLASH_FRAMES - 1, fluid * SPLASH_VARIANTS)
-	sprite.scale = Vector2.ONE * 0.27
-	# Align the small final airborne drop with the new ground position.
-	sprite.offset.x = 5.0
-	sprite.modulate.a = 0.84
-	layer.add_child(sprite)
-	sprite.global_position = location
-	_traces.append(sprite)
+		return null
+	var trace := _splash_sprite(splash.texture, 1)
+	trace.modulate.a = 0.84
+	layer.add_child(trace)
+	trace.global_transform = splash.global_transform
+	_traces.append(trace)
 	if _traces.size() > MAX_TRACES:
 		var oldest: Sprite2D = _traces.pop_front()
 		if is_instance_valid(oldest):
 			oldest.queue_free()
+	return trace
 
 
 func _pose_bounds(pose: Sprite2D) -> Rect2:
@@ -205,10 +221,15 @@ func _process(delta: float) -> void:
 	for i in range(_splashes.size() - 1, -1, -1):
 		var flight := _splashes[i]
 		flight.elapsed += delta
+		var frame := mini(int(flight.elapsed / SPLASH_TIME * SPLASH_FRAMES), SPLASH_FRAMES - 1)
+		if is_instance_valid(flight.trace):
+			flight.trace.frame_coords.x = frame
 		if flight.elapsed >= SPLASH_TIME:
 			flight.sprite.queue_free()
 			_splashes.remove_at(i)
 		else:
-			flight.sprite.frame_coords.x = int(flight.elapsed / SPLASH_TIME * SPLASH_FRAMES)
+			flight.sprite.frame_coords.x = frame
+			var launch_weight := 1.0 - minf(flight.elapsed / FIRST_LANDING_TIME, 1.0)
+			flight.sprite.global_position = flight.feet + flight.launch_offset * launch_weight
 	if _pools.is_empty() and _splashes.is_empty():
 		set_process(false)
