@@ -221,6 +221,15 @@ func church_bell_ready(actor: Node2D) -> bool:
 	return actor == sheltered_priest and defense.elapsed >= church_bell_ends_at and _can_prepare_church_bell()
 
 
+func church_bell_visual_frame(actor: Node2D, frames: int) -> int:
+	if actor != sheltered_priest or not has_sheltered_priest() or not actor.is_available_for_infection():
+		return -1
+	if not is_instance_valid(_ringing_audio) or not _ringing_audio.playing:
+		return -1
+	var phase := fposmod(_ringing_audio.get_playback_position() / BELL_SWING_PERIOD, 1.0)
+	return mini(int(phase * frames), frames - 1)
+
+
 func _update_church_bell() -> void:
 	if not is_finite(church_bell_ends_at):
 		return

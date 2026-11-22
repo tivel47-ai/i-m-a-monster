@@ -2,6 +2,7 @@ extends SceneTree
 
 const MISSION = preload("res://scenes/village_simulation_map.tscn")
 const MONSTER = preload("res://scenes/zombie.tscn")
+const VISUAL = preload("res://scripts/church_character_visual.gd")
 
 var mission: Node2D
 var last: Node
@@ -102,6 +103,11 @@ func church_alarm_and_beacon() -> void:
 	check(await wait_for(func(): return alert.level == alert.Level.ALARM, 25), "Church bell raises the global level after ten game seconds")
 	check(alert.bell_source == alert.BellSource.CHURCH and alert.danger == 0.0, "Alarm identifies the church and starts the usual danger meter at zero")
 	check(alert.bell_audio.playing, "The church plays the shared bell sound on successful activation")
+	var priest_pose := priest.get_node_or_null("PriestVisual") as VISUAL
+	check(last.church_bell_visual_frame(priest, VISUAL.BELL_FRAMES) >= 0, "Successful sound exposes an animation phase while priest is sheltered")
+	check(priest_pose != null and await wait_for(func(): return priest_pose.region_rect.position.y == VISUAL.BELL_ROW * VISUAL.CELL.y, 24),
+		"Priest plays the authored bell rope row")
+	check(last.church_bell_visual_frame(protectors[0], VISUAL.BELL_FRAMES) == -1, "Church ringing pose is scoped to its priest")
 	check(guards.all(func(actor): return actor.guard_ai.church_inspection_until > defense.elapsed and not actor.guard_ai.mobilizing), "Ordinary guards receive church inspection instead of square mobilization")
 	check(protectors.all(func(actor): return actor.guard_ai == null), "Bodyguards stay assigned to the doorway")
 	guard.autonomous_movement_enabled = true

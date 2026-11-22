@@ -4,11 +4,13 @@ const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PEASANT_VISUAL = preload("res://scripts/peasant_visual.gd")
 const ARTISAN_ATLAS = preload("res://assets/sprites/characters/artisan/frames.png")
 const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
+const CHURCH_CHARACTER_VISUAL = preload("res://scripts/church_character_visual.gd")
 const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
 var melee_route: LOCAL_MELEE_ROUTE
 var _body_sprite: Sprite2D
 var _civilian_visual: PEASANT_VISUAL
 var _guard_visual: GUARD_VISUAL
+var _church_visual: CHURCH_CHARACTER_VISUAL
 var _bell_pose: Sprite2D
 
 const MOVEMENT_STALL_TIMEOUT := 3.0
@@ -153,7 +155,16 @@ func _ready() -> void:
 
 
 func _setup_body_sprite() -> void:
-	if get_meta("village_role", "") == "guard":
+	var role := StringName(get_meta("village_role", ""))
+	if role in [&"priest", &"priest_guard"]:
+		if _sprite_map(&"church_character_sprites") == null:
+			return
+		_church_visual = CHURCH_CHARACTER_VISUAL.new()
+		_church_visual.is_escort = role == &"priest_guard"
+		_church_visual.name = "PriestGuardVisual" if _church_visual.is_escort else "PriestVisual"
+		_body_sprite = _church_visual
+		visual_ui_offset_y = CHURCH_CHARACTER_VISUAL.HEALTH_BAR_Y - HEALTH_BAR_Y
+	elif role == &"guard":
 		var mission := _sprite_map(&"guard_sprites")
 		if mission == null or defense_ranged_weapon:
 			return
@@ -689,7 +700,9 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 	queue_redraw()
 	if current_health > 0.0:
 		_show_blood_hit(attacker, false)
-		if _civilian_visual != null:
+		if _church_visual != null:
+			_church_visual.play_hurt()
+		elif _civilian_visual != null:
 			_civilian_visual.play_hurt()
 		return
 
@@ -782,7 +795,11 @@ func _die(attacker: Node = null) -> void:
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
-	if _guard_visual != null:
+	if _church_visual != null:
+		clear_bell_pose()
+		_church_visual.death_finished.connect(_leave_blood_pool, CONNECT_ONE_SHOT)
+		_church_visual.play_death()
+	elif _guard_visual != null:
 		_guard_visual.death_finished.connect(_leave_blood_pool, CONNECT_ONE_SHOT)
 		_guard_visual.play_death()
 	elif _civilian_visual != null:
@@ -872,7 +889,9 @@ func _on_encounter_attack_timer_timeout() -> void:
 	if participant == null:
 		encounter_attack_timer.stop()
 		return
-	if _guard_visual != null:
+	if _church_visual != null:
+		_church_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
+	elif _guard_visual != null:
 		_guard_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	elif _civilian_visual != null:
 		_civilian_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)

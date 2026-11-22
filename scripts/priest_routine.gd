@@ -33,6 +33,8 @@ func _create_sermon_label() -> void:
 	sermon_label = Label.new()
 	sermon_label.text = "Проповедь"
 	sermon_label.position = Vector2(-23, -30)
+	if get_parent().has_node("PriestVisual"):
+		sermon_label.position.y += get_parent().visual_ui_offset_y
 	sermon_label.add_theme_font_size_override("font_size", 8)
 	sermon_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sermon_label.visible = false
