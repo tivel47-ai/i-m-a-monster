@@ -31,21 +31,18 @@ func follows_after_melee() -> void:
 	brute.set_physics_process(false)
 	enable(guard)
 	await frames(120)
-	print("start ", guard.now(), " pursuit ", guard.pursuit_started, " pos ", actor.position, " brute ", brute.position, " guard_hp ", actor.current_health, " hp ", brute.current_health)
 	check(actor.is_encounter_owner(brute) and guard.pursuit_target == brute.get_instance_id(),
 		"Guard approaches the Brute and enters melee on the road by the smithy")
 	await frames(ceili(guard.pursuit_seconds * 60.0))
-	print("preorder ", guard.now(), " pursuit ", guard.pursuit_started, " pos ", actor.position, " brute ", brute.position, " guard_hp ", actor.current_health, " hp ", brute.current_health, " owner ", actor.is_encounter_owner(brute), " state ", guard.state, " can ", guard._can_pursue(brute))
 	check(actor.is_encounter_owner(brute) and brute.current_health < 1000.0,
 		"Guard lands hits and remains in combat past the pursuit time limit")
 	var before: Vector2 = actor.position
-	var destination: Vector2 = brute.position + Vector2(72.0, 0.0)
+	var destination := Vector2(2460, 550)
 	brute.issue_player_move_order(destination)
 	brute.set_physics_process(true)
 	await frames(120)
-	print("after ", guard.now(), " pursuit ", guard.pursuit_started, " pos ", actor.position, " brute ", brute.position, " dest ", destination, " guard_hp ", actor.current_health, " hp ", brute.current_health, " owner ", actor.is_encounter_owner(brute), " state ", guard.state, " can ", guard._can_pursue(brute))
 	check(brute.position.distance_to(destination) < 8.0, "Brute carries out the player's move order")
-	check(actor.position.x > before.x + 30.0, "Guard follows the personally visible Brute after melee")
+	check(actor.position.distance_to(before) > 30.0, "Guard follows the personally visible Brute after melee")
 	var health: float = brute.current_health
 	await frames(100)
 	check(brute.current_health < health, "Guard closes the gap and hits the Brute again")

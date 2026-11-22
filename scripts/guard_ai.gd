@@ -52,6 +52,7 @@ var last_seen_id: int = 0
 var last_seen_point: Vector2
 var last_seen_time: float = -1.0
 var pursuit_started: float = 0.0
+var pursuit_contact_seconds: float = 0.0
 var pursuit_origin: Vector2
 var pursuit_target: int = 0
 var pursuit_started_outside_territory := false
@@ -440,7 +441,7 @@ func _can_pursue(enemy: Node2D) -> bool:
 	)
 	var local_assault: bool = enemy.is_assaulting_building() and actor.global_position.distance_to(point) <= search_radius
 	return (
-		(now() - pursuit_started <= pursuit_seconds or local_inspection or local_assault)
+		(now() - pursuit_started - pursuit_contact_seconds <= pursuit_seconds or local_inspection or local_assault)
 		and pursuit_origin.distance_to(point) <= pursuit_distance
 		and (pursuit_started_outside_territory or local_inspection or territory_distance(point) <= territory_margin)
 	)
@@ -861,6 +862,9 @@ func update_ai(delta: float) -> bool:
 		for enemy in actor.encounter_participants.duplicate():
 			if not is_instance_valid(enemy) or not actor.threat_detection._is_visible_target(enemy) or actor.global_position.distance_to(enemy.global_position) > enemy.INFECTION_DISTANCE + actor.arrival_tolerance:
 				actor.leave_encounter(enemy)
+			elif actor.defense.guard_group_combat and enemy.get_instance_id() == pursuit_target:
+				# Melee with the pursued enemy pauses the clock without renewing the chase.
+				pursuit_contact_seconds += delta
 		set_state(State.COMBAT)
 		# Forced encounter uses actual combat timers; do not freeze the task memory.
 		if actor.is_in_collision(): return true
@@ -911,6 +915,7 @@ func update_ai(delta: float) -> bool:
 		if pursuit_target != enemy.get_instance_id():
 			pursuit_target = enemy.get_instance_id()
 			pursuit_started = now()
+			pursuit_contact_seconds = 0.0
 			pursuit_origin = actor.global_position
 			# A guard already off patrol territory can fight where it is.
 			# The same time and distance limits still bound the pursuit.
