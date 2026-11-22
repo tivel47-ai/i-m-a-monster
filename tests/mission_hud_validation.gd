@@ -275,15 +275,75 @@ func check_ordinary_visuals() -> void:
 		check(visual.region_rect.position == Vector2(ART.FRAME_COUNT - 1, visual._death_row) * ART.CELL
 			and not visual.is_physics_processing(),
 			"Death interrupts hurt and holds its final pose")
+		var turn_atlas: Image = ART.TURN[index].get_image()
 		for sector in 4:
 			visual._direction = sector * 2 + 1
-			visual._show_cycle(ART.Clip.WALK, 0)
-			var tint: Color = ART.VIEW_TINTS[index][sector] if ART.VIEW_TINTS.has(index) else Color.WHITE
-			check(visual.self_modulate == tint, "Every movement sector applies its own palette correction")
-			visual._show_cycle(ART.Clip.WALK, 1)
-			check(visual.self_modulate == tint, "A direction's palette stays constant within the animation")
 			visual._show_turn()
-			check(visual.self_modulate == Color.WHITE, "Turntable uses its reference colors")
+			var turn_color := _tunic_midtones(turn_atlas, 0, visual._direction, 1)
+			visual._show_cycle(ART.Clip.WALK, 0)
+			check(visual.self_modulate == Color.WHITE, "Direction change uses the palette baked into the sprites")
+			var motion_atlas := visual.texture.get_image()
+			var walk_color := _tunic_midtones(motion_atlas, ART.Clip.WALK, 0, ART.FRAME_COUNT)
+			var rush_color := _tunic_midtones(motion_atlas, ART.Clip.RUSH, 0, ART.FRAME_COUNT)
+			check(_largest_channel_difference(turn_color, walk_color) <= 10.0 / 255.0,
+				"Turning and walking keep the tunic palette in the same range")
+			check(_largest_channel_difference(turn_color, rush_color) <= 18.0 / 255.0,
+				"Turning and rushing keep the tunic palette in the same range")
+			if index == ART.Appearance.NECROSIS:
+				var turn_light := _necrosis_highlights(turn_atlas, 0, visual._direction, 1)
+				var walk_light := _necrosis_highlights(motion_atlas, ART.Clip.WALK, 0, ART.FRAME_COUNT)
+				var rush_light := _necrosis_highlights(motion_atlas, ART.Clip.RUSH, 0, ART.FRAME_COUNT)
+				check(maxf(absf(turn_light - walk_light), absf(turn_light - rush_light)) <= 24.0 / 255.0,
+					"Gray necrotic skin keeps its levels across a turn, walk and rush")
+
+
+func _tunic_midtones(atlas: Image, row: int, first: int, count: int) -> Vector3:
+	var reds := PackedFloat32Array()
+	var greens := PackedFloat32Array()
+	var blues := PackedFloat32Array()
+	for frame in range(first, first + count):
+		# In these atlases the center of the standing figure is near x=80.
+		var origin := Vector2i(Vector2(frame, row) * ART.CELL)
+		for y in range(46, 74):
+			for x in range(61, 99):
+				var pixel := atlas.get_pixel(origin.x + x, origin.y + y)
+				if pixel.a < 245.0 / 255.0 or pixel.r < 50.0 / 255.0 or pixel.r >= 198.0 / 255.0:
+					continue
+				# Ignore neutral outlines and strongly red fabric damage.
+				if pixel.r - pixel.g <= 4.5 / 255.0 or pixel.r - pixel.g >= 41.5 / 255.0 or pixel.g - pixel.b <= 3.5 / 255.0:
+					continue
+				reds.append(pixel.r)
+				greens.append(pixel.g)
+				blues.append(pixel.b)
+	reds.sort()
+	greens.sort()
+	blues.sort()
+	if reds.is_empty():
+		return Vector3.INF
+	var median := reds.size() >> 1
+	return Vector3(reds[median], greens[median], blues[median])
+
+
+func _necrosis_highlights(atlas: Image, row: int, first: int, count: int) -> float:
+	var samples := PackedFloat32Array()
+	for frame in range(first, first + count):
+		var origin := Vector2i(Vector2(frame, row) * ART.CELL)
+		for y in range(17, 84):
+			for x in range(Vector2i(ART.CELL).x):
+				var pixel := atlas.get_pixel(origin.x + x, origin.y + y)
+				if pixel.a < 245.0 / 255.0 or pixel.r < 69.5 / 255.0:
+					continue
+				if absf(pixel.r - pixel.g) <= 11.5 / 255.0 and absf(pixel.g - pixel.b) <= 14.5 / 255.0 and pixel.r - pixel.b <= 21.5 / 255.0:
+					samples.append(pixel.r)
+	if samples.is_empty():
+		return INF
+	samples.sort()
+	return samples[roundi((samples.size() - 1) * 0.90)]
+
+
+func _largest_channel_difference(first: Vector3, second: Vector3) -> float:
+	var difference := (first - second).abs()
+	return maxf(difference.x, maxf(difference.y, difference.z))
 
 
 func check_developer_humans() -> void:

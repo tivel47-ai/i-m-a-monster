@@ -1,5 +1,7 @@
 extends Sprite2D
 
+signal death_finished
+
 const ART = preload("res://assets/sprites/characters/ordinary_zombie/frames.gd")
 # Match the peasant's pixels-to-world ratio. The slouched stance is 4 px shorter.
 const PIXEL_SCALE := 25.2 / 100.0
@@ -138,6 +140,7 @@ func _advance_clip(delta: float) -> bool:
 	if _clip_row >= ART.Clip.DEATH_FORWARD:
 		_show_cycle(_clip_row, ART.FRAME_COUNT - 1)
 		set_physics_process(false)
+		death_finished.emit()
 		return true
 	_clip_row = -1
 	return false
@@ -181,17 +184,15 @@ func _show_cycle(row: int, frame: int) -> void:
 	var views: Array = ART.VIEWS[appearance]
 	var mirror := views.size() == 2 and sector >= 2
 	var view := 3 - sector if mirror else sector
-	_display(views[view], frame, row, mirror, view)
+	_display(views[view], frame, row, mirror)
 
 
-func _display(sheet: Texture2D, column: int, row: int, mirror: bool, view := -1) -> void:
+func _display(sheet: Texture2D, column: int, row: int, mirror: bool) -> void:
 	var region := Rect2(Vector2(column, row) * ART.CELL, ART.CELL)
 	if scale.y != PIXEL_SCALE:
 		scale.y = PIXEL_SCALE
 	if texture == sheet and region_rect == region and flip_h == mirror:
 		return
-	if texture != sheet:
-		texture = sheet
-		self_modulate = ART.VIEW_TINTS[appearance][view] if view >= 0 and ART.VIEW_TINTS.has(appearance) else Color.WHITE
+	texture = sheet
 	region_rect = region
 	flip_h = mirror

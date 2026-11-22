@@ -41,23 +41,6 @@ const VIEWS := [
 	],
 ]
 
-# RGB multipliers measured from idle and locomotion against each skin's turntable.
-# Keep one correction per view so a clip's shading stays stable between frames.
-const VIEW_TINTS := {
-	Appearance.NECROSIS: [
-		Color(0.873, 0.892, 0.894), Color(0.808, 0.800, 0.803),
-		Color(0.681, 0.664, 0.663), Color(0.702, 0.686, 0.679),
-	],
-	Appearance.WOUNDED: [
-		Color(0.923, 0.886, 0.866), Color(0.860, 0.820, 0.805),
-		Color(0.831, 0.789, 0.795), Color(0.796, 0.738, 0.731),
-	],
-	Appearance.BLOOM: [
-		Color(0.841, 0.821, 0.819), Color(0.789, 0.781, 0.766),
-		Color(0.727, 0.701, 0.689), Color(0.709, 0.711, 0.690),
-	],
-}
-
 const IDLE_TIME := 1.20
 const WALK_DISTANCE := 59.0
 const RUSH_DISTANCE := 49.0

@@ -25,6 +25,8 @@ var barricade_bar: Node2D
 var barricade_ratio := 0.0
 var map := RID()
 var region := RID()
+var _floor_visual: Polygon2D
+var _combat_fluid_decals: Node2D
 
 
 func configure(body: StaticBody2D, door_hint: Vector2) -> bool:
@@ -184,7 +186,7 @@ func _surface(points: PackedVector2Array, color: Color) -> Polygon2D:
 func _create_presentation(body: StaticBody2D) -> void:
 	var footprint := body.get_node_or_null("Footprint") as Polygon2D
 	exterior_door = body.get_node_or_null("Exterior/DoorPanel") as ChurchDoorVisual
-	_surface(outline, Color("85705a")).z_index = 0
+	_floor_visual = _surface(outline, Color("85705a"))
 	for child in body.get_children():
 		if child is Polygon2D or child is Sprite2D or child is Line2D or child is Label:
 			child.z_index = 5
@@ -206,6 +208,15 @@ func _create_presentation(body: StaticBody2D) -> void:
 	barricade_bar.global_position = to_global(step) + Vector2(0.0, -10.0)
 	barricade_bar.global_rotation = 0.0
 	barricade_bar.draw.connect(_draw_barricade_bar)
+
+
+func combat_fluid_layer() -> Node2D:
+	if _combat_fluid_decals == null:
+		_combat_fluid_decals = Node2D.new()
+		_combat_fluid_decals.name = &"CombatFluidDecals"
+		_floor_visual.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+		_floor_visual.add_child(_combat_fluid_decals)
+	return _combat_fluid_decals
 
 
 func set_barricade_health(current: float, maximum: float) -> void:

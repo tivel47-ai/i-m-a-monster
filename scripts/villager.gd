@@ -4,6 +4,7 @@ const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PEASANT_VISUAL = preload("res://scripts/peasant_visual.gd")
 const ARTISAN_ATLAS = preload("res://assets/sprites/characters/artisan/frames.png")
 const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
+const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
 var melee_route: LOCAL_MELEE_ROUTE
 var _body_sprite: Sprite2D
 var _civilian_visual: PEASANT_VISUAL
@@ -687,6 +688,7 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 	current_health = maxf(current_health - amount, 0.0)
 	queue_redraw()
 	if current_health > 0.0:
+		_show_blood_hit(attacker, false)
 		if _civilian_visual != null:
 			_civilian_visual.play_hurt()
 		return
@@ -697,7 +699,25 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 		else:
 			_end_encounter()
 	else:
+		_show_blood_hit(attacker, true)
 		_die(attacker)
+
+
+func _show_blood_hit(attacker: Node, lethal: bool) -> void:
+	var fluids = COMBAT_FLUIDS.for_actor(self)
+	if fluids == null:
+		return
+	var direction := Vector2.ZERO
+	if is_instance_valid(attacker) and attacker is Node2D:
+		direction = global_position - attacker.global_position
+	var height := PEASANT_VISUAL.WORLD_HEIGHT if _body_sprite != null else 15.6
+	fluids.hit(self, COMBAT_FLUIDS.Fluid.BLOOD, direction, lethal, height)
+
+
+func _leave_blood_pool() -> void:
+	var fluids = COMBAT_FLUIDS.for_actor(self)
+	if fluids != null:
+		fluids.settled(self, COMBAT_FLUIDS.Fluid.BLOOD, _body_sprite)
 
 
 func receive_knockback(motion: Vector2) -> void:
@@ -763,13 +783,16 @@ func _die(attacker: Node = null) -> void:
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
 	if _guard_visual != null:
+		_guard_visual.death_finished.connect(_leave_blood_pool, CONNECT_ONE_SHOT)
 		_guard_visual.play_death()
 	elif _civilian_visual != null:
 		clear_bell_pose()
+		_civilian_visual.death_finished.connect(_leave_blood_pool, CONNECT_ONE_SHOT)
 		_civilian_visual.play_death()
 	else:
 		death_marker_a.show()
 		death_marker_b.show()
+		_leave_blood_pool.call_deferred()
 	queue_redraw()
 	died.emit(self)
 
@@ -853,7 +876,7 @@ func _on_encounter_attack_timer_timeout() -> void:
 		_guard_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	elif _civilian_visual != null:
 		_civilian_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
-	participant.call("take_damage", attack_damage)
+	participant.call("take_damage", attack_damage, participant.global_position - global_position)
 
 
 func _encounter_attack_target() -> Node2D:

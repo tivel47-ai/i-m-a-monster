@@ -67,6 +67,7 @@ var _boundary_fog: ShaderMaterial
 var _edge_fade: GradientTexture2D
 var _tree_shadow: GradientTexture2D
 var _blocked_ground: Array[Dictionary] = []
+var _non_meadow_surfaces: Array[Dictionary] = []
 var _motion_time := 0.0
 
 
@@ -90,8 +91,20 @@ func _ready() -> void:
 	_add_roads(roads, environment.get_node("WorkYard"), map_bounds)
 	_add_fields(environment)
 	var water_outline := _add_river(roads, region.get_node("River"), map_bounds)
+	var decals := Node2D.new()
+	decals.name = &"CombatFluidDecals"
+	add_child(decals)
+	_non_meadow_surfaces.assign(_blocked_ground)
 	_add_vegetation(region, map_bounds, water_outline)
 	_add_boundary_fog(map_bounds)
+
+
+func is_combat_fluid_meadow(world_point: Vector2) -> bool:
+	var point := to_local(world_point)
+	for surface in _non_meadow_surfaces:
+		if surface.bounds.has_point(point) and Geometry2D.is_point_in_polygon(point, surface.points):
+			return false
+	return true
 
 
 func _process(delta: float) -> void:

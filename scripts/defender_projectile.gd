@@ -21,7 +21,8 @@ func _physics_process(delta: float) -> void:
 	var hit = get_world_2d().direct_space_state.intersect_ray(ray)
 	if not hit.is_empty():
 		var body = hit.collider
-		if body.is_in_group("player_units") and body.interior_building == interior_building and body.is_alive(): body.take_damage(damage)
+		if body.is_in_group("player_units") and body.interior_building == interior_building and body.is_alive():
+			body.take_damage(damage, direction)
 		queue_free()
 		return
 	global_position = end

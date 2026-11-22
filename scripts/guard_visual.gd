@@ -1,5 +1,7 @@
 extends Sprite2D
 
+signal death_finished
+
 const HUMAN_VISUAL = preload("res://scripts/peasant_visual.gd")
 const SHIELD := &"shield"
 const SWORD := &"sword"
@@ -64,8 +66,9 @@ func _physics_process(delta: float) -> void:
 		_death_time += delta
 		var frame := mini(int(_death_time * DEATH_FPS), ACTION_FRAMES - 1)
 		_show_frame(frame, DIRECTIONAL_DEATH_ROW)
-		if frame == ACTION_FRAMES - 1:
+		if _death_time >= ACTION_FRAMES / DEATH_FPS:
 			set_physics_process(false)
+			death_finished.emit()
 		return
 
 	if _impact_time >= 0.0:

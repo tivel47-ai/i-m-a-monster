@@ -1,5 +1,7 @@
 extends Sprite2D
 
+signal death_finished
+
 const ATLAS = preload("res://assets/sprites/characters/peasant/frames.png")
 const CELL := Vector2(160, 128)
 const ANCHOR := Vector2(80, 116)
@@ -161,6 +163,7 @@ func _advance_clip(delta: float) -> bool:
 	if _clip == Clip.DEATH:
 		_show_pose(_clip_frames - 1, _clip_row, _clip_mirrored)
 		set_physics_process(false)
+		death_finished.emit()
 		return true
 	_clip = Clip.NONE
 	return false

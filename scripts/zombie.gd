@@ -14,6 +14,7 @@ const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ORDINARY_VISUAL = preload("res://scripts/ordinary_zombie_visual.gd")
 const BRUTE_VISUAL = preload("res://scripts/brute_visual.gd")
+const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
 
 @export var move_speed: float = 100.0
 @export var max_health: float = 120.0
@@ -309,13 +310,15 @@ func _draw() -> void:
 		)
 
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, direction := Vector2.ZERO) -> void:
 	if is_dead or amount <= 0.0:
 		return
 
 	var previous_health := current_health
 	current_health = maxf(current_health - amount * (1.0 - damage_reduction), 0.0)
 	queue_redraw()
+	if current_health < previous_health:
+		_show_slime_hit(direction, current_health == 0.0)
 	if current_health == 0.0:
 		_die()
 	elif current_health < previous_health:
@@ -323,6 +326,25 @@ func take_damage(amount: float) -> void:
 			_brute_visual.play_hurt()
 		elif _ordinary_visual != null:
 			_ordinary_visual.play_hurt()
+
+
+func _show_slime_hit(direction: Vector2, lethal: bool) -> void:
+	var fluids = COMBAT_FLUIDS.for_actor(self)
+	if fluids == null:
+		return
+	var height := 15.6
+	if _brute_visual != null:
+		height = BRUTE_VISUAL.WORLD_HEIGHT
+	elif _ordinary_visual != null:
+		height = ORDINARY_VISUAL.ART.STANDING_HEIGHT * ORDINARY_VISUAL.PIXEL_SCALE
+	fluids.hit(self, COMBAT_FLUIDS.Fluid.SLIME, direction, lethal, height)
+
+
+func _leave_slime_pool() -> void:
+	var fluids = COMBAT_FLUIDS.for_actor(self)
+	if fluids != null:
+		var pose: Sprite2D = _brute_visual if _brute_visual != null else _ordinary_visual
+		fluids.settled(self, COMBAT_FLUIDS.Fluid.SLIME, pose)
 
 
 func _die() -> void:
@@ -367,12 +389,15 @@ func _die() -> void:
 	navigation_agent.avoidance_enabled = false
 	z_index = 0
 	if _brute_visual != null:
+		_brute_visual.death_finished.connect(_leave_slime_pool, CONNECT_ONE_SHOT)
 		_brute_visual.play_death()
 	elif _ordinary_visual != null:
+		_ordinary_visual.death_finished.connect(_leave_slime_pool, CONNECT_ONE_SHOT)
 		_ordinary_visual.play_death()
 	else:
 		death_marker_a.show()
 		death_marker_b.show()
+		_leave_slime_pool.call_deferred()
 	queue_redraw()
 
 

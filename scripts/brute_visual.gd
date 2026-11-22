@@ -1,5 +1,7 @@
 extends Sprite2D
 
+signal death_finished
+
 const ART = preload("res://assets/sprites/characters/brute/frames.gd")
 const WORLD_HEIGHT := 33.6
 const FEET_Y := 5.5
@@ -66,6 +68,7 @@ func _physics_process(delta: float) -> void:
 		if _phase == Phase.DEATH:
 			_show(_clip_sector, _clip[-1])
 			set_physics_process(false)
+			death_finished.emit()
 			return
 		_phase = Phase.FREE
 

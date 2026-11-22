@@ -23,6 +23,7 @@
 [ext_resource type="Shader" path="res://assets/sprites/buildings/church/door.gdshader" id="42_church_door_shader"]
 [ext_resource type="Script" path="res://scripts/church_door_visual.gd" id="43_church_door_visual"]
 [ext_resource type="PackedScene" path="res://scenes/square_alarm_bell.tscn" id="44_square_alarm_bell"]
+[ext_resource type="Script" path="res://scripts/combat_fluids.gd" id="45_combat_fluids"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mission"]
 content_margin_left = 3.0
@@ -72,6 +73,9 @@ texture = ExtResource("36_terrain")
 polygon = PackedVector2Array(-1500, -1000, 1500, -1000, 1500, 1000, -1500, 1000)
 uv = PackedVector2Array(0, 0, 1536, 0, 1536, 1024, 0, 1024)
 script = ExtResource("37_terrain_render")
+
+[node name="CombatFluids" type="Node" parent="."]
+script = ExtResource("45_combat_fluids")
 
 [node name="GroundVariation" type="Node2D" parent="." unique_id=2013575452]
 visible = false
