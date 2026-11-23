@@ -1,0 +1,84 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/tavern/exterior.png" id="1_exterior"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/tavern/yard_table.png" id="2_table"]
+[ext_resource type="Texture2D" path="res://assets/sprites/buildings/guard_post/exterior.png" id="3_door_atlas"]
+[ext_resource type="Shader" path="res://assets/sprites/buildings/guard_post/door.gdshader" id="4_door"]
+[ext_resource type="Script" path="res://scripts/church_door_visual.gd" id="5_door_visual"]
+[ext_resource type="Shader" path="res://assets/sprites/buildings/guard_post/chimney_smoke.gdshader" id="6_smoke"]
+[ext_resource type="Shader" path="res://assets/sprites/buildings/guard_post/lantern_glow.gdshader" id="7_lantern"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_door"]
+shader = ExtResource("4_door")
+shader_parameter/atlas_rect = Vector4(670, 402, 117, 151)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_smoke"]
+shader = ExtResource("6_smoke")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lantern"]
+shader = ExtResource("7_lantern")
+
+[node name="Tavern" type="StaticBody2D" groups=["simulation_solids"]]
+collision_mask = 0
+metadata/building_type = "tavern"
+metadata/entrance_half_width = 9.0
+metadata/fade_interior_with_roof = true
+
+[node name="Footprint" type="Polygon2D" parent="."]
+visible = false
+polygon = PackedVector2Array(-79, -108, 89, -108, 89, 49, 35, 49, 35, -2, -79, -2)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(-79, -108, 89, -108, 89, 49, 35, 49, 35, -2, -79, -2)
+
+[node name="Door" type="Polygon2D" parent="."]
+visible = false
+position = Vector2(-50.5, -2)
+
+[node name="Exterior" type="Sprite2D" parent="."]
+self_modulate = Color(0.89, 0.93, 0.96, 1)
+texture_filter = 4
+position = Vector2(-99, -132)
+scale = Vector2(0.165, 0.165)
+texture = ExtResource("1_exterior")
+centered = false
+
+[node name="DoorPanel" type="Polygon2D" parent="Exterior"]
+self_modulate = Color(0.89, 0.93, 0.96, 1)
+material = SubResource("ShaderMaterial_door")
+texture = ExtResource("3_door_atlas")
+polygon = PackedVector2Array(239, 780, 239, 680, 244, 663, 253, 651, 270, 642, 293, 638, 315, 641, 332, 651, 344, 664, 349, 680, 349, 780)
+uv = PackedVector2Array(670, 553, 670, 439, 675, 425, 687, 414, 706, 405, 729, 402, 751, 405, 771, 414, 782, 426, 787, 438, 787, 553)
+script = ExtResource("5_door_visual")
+animates_light = false
+
+[node name="LanternGlow" type="Polygon2D" parent="Exterior"]
+self_modulate = Color(1, 1, 1, 0.75)
+material = SubResource("ShaderMaterial_lantern")
+position = Vector2(187, 654)
+scale = Vector2(0.83, 0.86)
+polygon = PackedVector2Array(-45, -58, 45, -58, 45, 58, -45, 58)
+
+[node name="ChimneySmoke" type="Polygon2D" parent="Exterior"]
+self_modulate = Color(1, 1, 1, 0.62)
+material = SubResource("ShaderMaterial_smoke")
+position = Vector2(655, 91)
+scale = Vector2(0.70, 0.76)
+polygon = PackedVector2Array(-58, -223, 186, -223, 186, 7, -58, 7)
+
+[node name="YardTable" type="StaticBody2D" parent="."]
+position = Vector2(4, 22)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="YardTable"]
+visible = false
+polygon = PackedVector2Array(-21, -8, 21, -8, 21, 10, -21, 10)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="YardTable"]
+polygon = PackedVector2Array(-21, -8, 21, -8, 21, 10, -21, 10)
+
+[node name="Table" type="Sprite2D" parent="YardTable"]
+self_modulate = Color(0.84, 0.9, 0.94, 1)
+texture_filter = 4
+scale = Vector2(0.035, 0.035)
+texture = ExtResource("2_table")
