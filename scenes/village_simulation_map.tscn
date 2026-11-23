@@ -1796,6 +1796,8 @@ polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
 position = Vector2(1420, 380)
 collision_mask = 0
 metadata/building_type = "church"
+metadata/fade_interior_with_roof = true
+metadata/inset_interior_walls = true
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Church" unique_id=1030945931]
 visible = false

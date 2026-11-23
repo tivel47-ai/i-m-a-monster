@@ -96,14 +96,15 @@ func _choose_entrance(hint: Vector2, preferred_half_width: float) -> int:
 
 
 func _build_walls(body: StaticBody2D, edge: int, floor: PackedVector2Array) -> void:
+	var draw_segments: bool = not (body.get_meta(&"inset_interior_walls", false) and _create_inset_wall())
 	for i in outline.size():
 		var a := outline[i]
 		var b := outline[(i + 1) % outline.size()]
 		if i == edge:
-			_wall(body, a, entrance - across * half_width)
-			_wall(body, entrance + across * half_width, b)
+			_wall(body, a, entrance - across * half_width, draw_segments)
+			_wall(body, entrance + across * half_width, b, draw_segments)
 		else:
-			_wall(body, a, b)
+			_wall(body, a, b, draw_segments)
 	_add_partition(body, floor)
 	threshold = StaticBody2D.new()
 	threshold.name = "EntranceAccess"
@@ -158,10 +159,34 @@ func _add_partition(body: StaticBody2D, floor: PackedVector2Array) -> void:
 		_wall(body, start, end)
 
 
-func _wall(body: StaticBody2D, a: Vector2, b: Vector2) -> void:
+func _create_inset_wall() -> bool:
+	var interior := Geometry2D.offset_polygon(outline, -WALL_WIDTH, Geometry2D.JOIN_MITER)
+	if interior.size() != 1:
+		return false
+	# Open the inset at the doorway so the difference produces one joined wall.
+	var side := across * half_width
+	var outside := entrance + outward * WALL_WIDTH
+	var inside := entrance - outward * (WALL_WIDTH * 2.0)
+	var doorway := PackedVector2Array([outside - side, outside + side, inside + side, inside - side])
+	var opening := Geometry2D.merge_polygons(interior[0], doorway)
+	if opening.size() != 1:
+		return false
+	var walls := Geometry2D.clip_polygons(outline, opening[0])
+	if walls.size() != 1:
+		return false
+	var surface := _surface(walls[0], Color("484037"))
+	surface.z_index = 1
+	surface.antialiased = true
+	surface.reparent(_interior_art, false)
+	return true
+
+
+func _wall(body: StaticBody2D, a: Vector2, b: Vector2, draw_segment: bool = true) -> void:
 	if a.distance_to(b) < 0.1:
 		return
 	_add_shape(body, a, b)
+	if not draw_segment:
+		return
 	var surface := _segment(a, b, Color("484037"), WALL_WIDTH)
 	surface.z_index = 1
 	surface.reparent(_interior_art, false)
