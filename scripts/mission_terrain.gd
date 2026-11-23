@@ -6,6 +6,7 @@ const BOUNDARY_FOG := preload("res://scripts/mission_boundary_fog.gdshader")
 const TERRAIN_DISTANCE := preload("res://scripts/mission_terrain_distance.gd")
 const MEADOW := preload("res://assets/maps/mission_01/meadow.png")
 const DIRT := preload("res://assets/maps/mission_01/dirt.png")
+const GUARD_YARD_EARTH := preload("res://assets/maps/mission_01/guard_yard_earth.png")
 const WATER := preload("res://assets/maps/mission_01/river.png")
 const TIMBER := preload("res://assets/maps/mission_01/timber.png")
 const GRASS := preload("res://assets/maps/mission_01/grass_tuft.png")
@@ -222,6 +223,15 @@ func _add_roads(roads: Node2D, yard: Polygon2D, map_bounds: Rect2) -> void:
 		if road.get_meta("road_width", 0.0) >= 36.0:
 			rutted_roads.append(road)
 	var mask := TERRAIN_DISTANCE.build(contours)
+	var guard_yard := roads.get_node_or_null("GuardYardGround") as Polygon2D
+	if guard_yard != null:
+		var yard_mask := TERRAIN_DISTANCE.build([_outline(guard_yard)])
+		var bounds: Rect2 = yard_mask.bounds
+		dirt.set_shader_parameter("local_soil_texture", GUARD_YARD_EARTH)
+		dirt.set_shader_parameter("local_soil_tint", Vector3(0.955, 1.02, 1.14))
+		dirt.set_shader_parameter("local_soil_edges", yard_mask.texture)
+		dirt.set_shader_parameter("local_soil_bounds", Vector4(
+			bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y))
 	_fill_mask(&"RoadSurface", mask, map_bounds, dirt)
 	_set_edge_map(wear, mask)
 	for road in rutted_roads:

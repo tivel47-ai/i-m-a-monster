@@ -1,5 +1,7 @@
 shader_type canvas_item;
 
+#include "res://assets/sprites/buildings/door_swing.gdshaderinc"
+
 instance uniform float opening = 1.0;
 instance uniform bool intact = true;
 instance uniform float light_time = 0.0;
@@ -60,13 +62,9 @@ void fragment() {
 		float motes = dust(point, TEXTURE_PIXEL_SIZE);
 		if (point.y <= 1.0) {
 			vec4 arch = texture(TEXTURE, point);
-			float angle = opening * 1.18;
-			float hinge_distance = min(point.x, 1.0 - point.x) / cos(angle);
-			float leaf_x = point.x < 0.5 ? hinge_distance : 1.0 - hinge_distance;
-			vec2 leaf_uv = vec2(leaf_x, point.y + 0.26 * hinge_distance * sin(angle));
-			vec4 wood = texture(TEXTURE, leaf_uv);
-			// The arch clips the far edges of the leaves as they turn inward.
-			float coverage = intact && hinge_distance <= 0.5 && leaf_uv.y <= 1.0 ? wood.a : 0.0;
+			vec3 leaf = door_leaf_sample(point, opening);
+			vec4 wood = texture(TEXTURE, leaf.xy);
+			float coverage = intact ? leaf.z * wood.a : 0.0;
 			float center_distance = length((point - vec2(0.49, 0.43)) * vec2(1.50, 0.88));
 			float falloff = 1.0 - smoothstep(0.05, 0.67, center_distance);
 			vec3 recess = mix(vec3(0.19, 0.15, 0.11), vec3(0.65, 0.53, 0.35), falloff);

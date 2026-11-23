@@ -25,6 +25,9 @@ var barricade_bar: Node2D
 var barricade_ratio := 0.0
 var map := RID()
 var region := RID()
+var _fade_interior_with_roof := false
+var _original_door_intact := true
+var _interior_art: Node2D
 var _floor_visual: Polygon2D
 var _combat_fluid_decals: Node2D
 
@@ -39,7 +42,7 @@ func configure(body: StaticBody2D, door_hint: Vector2) -> bool:
 		outline = shape.transform * _rectangle(Rect2(-size / 2.0, size))
 	else:
 		return false
-	var edge := _choose_entrance(door_hint)
+	var edge := _choose_entrance(door_hint, body.get_meta(&"entrance_half_width", 28.0))
 	if edge < 0:
 		return false
 	var inset := Geometry2D.offset_polygon(outline, -NAV_CLEARANCE)
@@ -48,6 +51,9 @@ func configure(body: StaticBody2D, door_hint: Vector2) -> bool:
 	var floor: PackedVector2Array = inset[0]
 	if not Geometry2D.is_point_in_polygon(entrance - outward * PORTAL_OFFSET, floor):
 		return false
+	_interior_art = Node2D.new()
+	_interior_art.name = &"InteriorArt"
+	add_child(_interior_art)
 	_build_walls(body, edge, floor)
 	if polygon != null:
 		polygon.disabled = true
@@ -63,7 +69,7 @@ func configure(body: StaticBody2D, door_hint: Vector2) -> bool:
 	return true
 
 
-func _choose_entrance(hint: Vector2) -> int:
+func _choose_entrance(hint: Vector2, preferred_half_width: float) -> int:
 	var best := INF
 	var edge := -1
 	for i in outline.size():
@@ -73,7 +79,7 @@ func _choose_entrance(hint: Vector2) -> int:
 		if length < 38.0:
 			continue
 		var tangent := a.direction_to(b)
-		var width := minf(28.0, (length - 12.0) * 0.5)
+		var width := minf(preferred_half_width, (length - 12.0) * 0.5)
 		var at := a + tangent * clampf((hint - a).dot(tangent), width + 6.0, length - width - 6.0)
 		var distance := at.distance_squared_to(hint)
 		if distance < best:
@@ -156,7 +162,9 @@ func _wall(body: StaticBody2D, a: Vector2, b: Vector2) -> void:
 	if a.distance_to(b) < 0.1:
 		return
 	_add_shape(body, a, b)
-	_segment(a, b, Color("484037"), WALL_WIDTH).z_index = 1
+	var surface := _segment(a, b, Color("484037"), WALL_WIDTH)
+	surface.z_index = 1
+	surface.reparent(_interior_art, false)
 
 
 func _add_shape(body: StaticBody2D, a: Vector2, b: Vector2) -> CollisionShape2D:
@@ -186,7 +194,12 @@ func _surface(points: PackedVector2Array, color: Color) -> Polygon2D:
 func _create_presentation(body: StaticBody2D) -> void:
 	var footprint := body.get_node_or_null("Footprint") as Polygon2D
 	exterior_door = body.get_node_or_null("Exterior/DoorPanel") as ChurchDoorVisual
+	_fade_interior_with_roof = body.get_meta(&"fade_interior_with_roof", false)
+	if _fade_interior_with_roof:
+		door_visual.z_index = 5
+		_interior_art.modulate.a = 0.0
 	_floor_visual = _surface(outline, Color("85705a"))
+	_floor_visual.reparent(_interior_art, false)
 	for child in body.get_children():
 		if child is Polygon2D or child is Sprite2D or child is Line2D or child is Label:
 			child.z_index = 5
@@ -208,6 +221,17 @@ func _create_presentation(body: StaticBody2D) -> void:
 	barricade_bar.global_position = to_global(step) + Vector2(0.0, -10.0)
 	barricade_bar.global_rotation = 0.0
 	barricade_bar.draw.connect(_draw_barricade_bar)
+
+
+func set_roof_alpha(alpha: float) -> void:
+	for part in roof:
+		part.modulate.a = alpha
+	if exterior_entrance_marker != null:
+		exterior_entrance_marker.modulate.a = 1.0 - alpha
+	if _fade_interior_with_roof:
+		_interior_art.modulate.a = 1.0 - alpha
+		if _original_door_intact:
+			door_visual.modulate.a = _interior_art.modulate.a
 
 
 func combat_fluid_layer() -> Node2D:
@@ -311,6 +335,9 @@ func set_blocked(blocked: bool, color: Color, original_door_intact: bool) -> voi
 	door_visual.color = color
 	if exterior_door != null:
 		exterior_door.update_door(blocked, original_door_intact)
+	if _fade_interior_with_roof:
+		_original_door_intact = original_door_intact
+		door_visual.modulate.a = _interior_art.modulate.a if original_door_intact else 1.0
 
 
 func _exit_tree() -> void:

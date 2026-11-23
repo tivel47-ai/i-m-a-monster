@@ -62,6 +62,9 @@ func configure(owner_map: Node2D, config: BuildingRules, body: StaticBody2D, hin
 	add_child(layout)
 	if not layout.configure(body, hint):
 		return false
+	if layout.exterior_door != null and not layout.exterior_door.initially_open:
+		door_closed = true
+		_refresh_entrance()
 	process_physics_priority = -10
 	set_physics_process(false)
 	set_process(false)
@@ -79,10 +82,7 @@ func show_interior(reveal: bool) -> void:
 
 func _process(delta: float) -> void:
 	_roof_alpha = move_toward(_roof_alpha, _roof_target, delta * rules.roof_fade_speed)
-	for part in layout.roof:
-		part.modulate.a = _roof_alpha
-	if layout.exterior_entrance_marker != null:
-		layout.exterior_entrance_marker.modulate.a = 1.0 - _roof_alpha
+	layout.set_roof_alpha(_roof_alpha)
 	if _roof_alpha == _roof_target:
 		set_process(false)
 

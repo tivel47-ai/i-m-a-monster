@@ -6,6 +6,7 @@ const OUTPUT := "res://scenes/village_simulation_map.tscn"
 const NAVIGATION := "res://scenes/village_simulation_navigation.tres"
 const TERRAIN := preload("res://assets/maps/mission_01_terrain.png")
 const SQUARE_ALARM_BELL := preload("res://scenes/square_alarm_bell.tscn")
+const GUARD_POST := preload("res://scenes/mission_one_guard_post.tscn")
 const ROAD := Color("71654f")
 const PATH := Color("645d47")
 const TAVERN_ANGLE := 1.7139033
@@ -53,6 +54,7 @@ var tavern_nodes: Dictionary = {}
 var authored_tree_positions: Dictionary = {}
 var authored_last_stand: Node2D
 var authored_church: StaticBody2D
+var guard_post: StaticBody2D
 
 func _initialize() -> void:
 	for argument in OS.get_cmdline_user_args():
@@ -179,7 +181,6 @@ func building(parent: Node, title: String, center: Vector2, size: Vector2, angle
 	body.set_meta("building_type", kind)
 	var roof_color: Color = ROOFS[index % ROOFS.size()]
 	if kind == "church": roof_color = Color("565e60")
-	if kind == "guard": roof_color = Color("454b49")
 	var inset := Geometry2D.offset_polygon(footprint, -5.0)
 	if not inset.is_empty():
 		var roof := polygon(body, "Roof", inset[0], roof_color)
@@ -403,17 +404,20 @@ func build() -> void:
 	else:
 		attach(public_buildings, tavern, "Tavern")
 		assign_owners(tavern)
-	var guard_post := building(public_buildings,"GuardPost",Vector2(2310,1510),Vector2(130,150),0.06,"guard",3)
+	if guard_post == null:
+		guard_post = GUARD_POST.instantiate() as StaticBody2D
+		guard_post.position = Vector2(2380, 1515)
+	attach(public_buildings, guard_post, "GuardPost")
 	if tavern_nodes.has("label"):
 		attach(details, tavern_nodes["label"], "TavernLabel")
 	else:
 		label_at(details,"TavernLabel","Таверна",Vector2(1908,1341))
-	label_at(details,"GuardLabel","Пост стражи",Vector2(2250,1605))
+	label_at(details,"GuardLabel","Пост стражи",guard_post.to_global(Vector2(-61, 143)))
 	if tavern_nodes.has("marker"):
 		attach(points, tavern_nodes["marker"], "Tavern")
 	else:
 		marker("Tavern",Vector2(1826,1416),true)
-	marker("GuardYard",Vector2(2230,1640))
+	marker("GuardYard",guard_post.to_global(Vector2(1, 84)))
 	marker("GuardRoad",Vector2(2300,1380))
 	marker("NorthRoad",Vector2(1900,550))
 	marker("WestRoad",Vector2(650,940))
@@ -427,7 +431,7 @@ func build() -> void:
 			door.to_global(Vector2(0, 42)),
 			nearest_street(Vector2(1800, 1320)),
 		], 22, PATH, true, str(village.get_path_to(tavern)))
-	entrance_path(guard_post,"GuardDoorPath",Vector2(2140,1620),[Vector2(2290,1640)])
+	build_guard_post_approach()
 
 	build_river()
 	# Tree obstacles and sight occlusion remain in the scene under the painted art.
@@ -547,6 +551,12 @@ func read_npc_preferences() -> void:
 	authored_church = previous.get_node_or_null("NavigationRegion2D/Buildings/Public/Church") as StaticBody2D
 	if authored_church != null:
 		authored_church.get_parent().remove_child(authored_church)
+	var previous_post := previous.get_node_or_null("NavigationRegion2D/Buildings/Public/GuardPost") as StaticBody2D
+	if previous_post != null and previous_post.scene_file_path == GUARD_POST.resource_path:
+		guard_post = previous_post
+		var saved_transform := guard_post.global_transform
+		guard_post.get_parent().remove_child(guard_post)
+		guard_post.transform = saved_transform
 	var tavern_paths := {
 		"building": "NavigationRegion2D/Buildings/Public/Tavern",
 		"label": "Environment/TavernLabel",
@@ -573,17 +583,25 @@ func read_npc_preferences() -> void:
 		for zone in previous.get_node("ActivityZones").get_children():
 			if not zone is ActivityZone2D: continue
 			var values := exported_values(zone)
-			if not reset_zone_geometry:
+			var placeholder_yard := guard_post == null and zone.name in [&"HomeGuardPost", &"WorkGuardYard", &"SocialGuard"]
+			if not reset_zone_geometry and not placeholder_yard:
 				for key in ["polygon", "position", "rotation", "scale", "offset"]: values[key] = zone.get(key)
 			zone_preferences[str(zone.name)] = values
 	if not reset_road_geometry:
 		for surface in previous.get_node("Roads").get_children():
 			if surface is Polygon2D:
+				if guard_post == null and surface.name == &"GuardDoorPath0":
+					continue
 				var values: Dictionary={}
 				for key in ["polygon","position","rotation","scale","offset","color","visible"]: values[key]=surface.get(key)
+				if surface.name == &"GuardDoorPath0" and surface.has_meta("centerline"):
+					values["metadata/centerline"] = surface.get_meta("centerline")
+					values["metadata/road_width"] = surface.get_meta("road_width", 26.0)
 				road_preferences[str(surface.name)]=values
 	if previous.has_node("GuardPatrolRoutes"):
 		for route in previous.get_node("GuardPatrolRoutes").get_children():
+			if route.name == &"PostAccess" and (guard_post == null or reset_patrol_routes.has("PostAccess")):
+				continue
 			var values := exported_values(route)
 			if not reset_patrol_routes.has(str(route.name)):
 				for key in ["points","position","rotation","scale"]: values[key]=route.get(key)
@@ -593,6 +611,24 @@ func read_npc_preferences() -> void:
 	if previous_defense != null: defense_preferences = exported_values(previous_defense)
 	previous.placement.free()
 	previous.free()
+
+func build_guard_post_approach() -> void:
+	var yard := PackedVector2Array([
+		Vector2(-81, 30), Vector2(99, 30), Vector2(107, 58), Vector2(111, 95),
+		Vector2(39, 100), Vector2(19, 116), Vector2(-54, 116), Vector2(-85, 101),
+		Vector2(-79, 69),
+	])
+	polygon(roads, "GuardYardGround", guard_post.global_transform * yard, Color("76674f"))
+	var door := guard_post.get_node("Door") as Polygon2D
+	road("GuardDoorPath", [
+		door.to_global(Vector2(0, 2)),
+		guard_post.to_global(Vector2(1, 75)),
+		guard_post.to_global(Vector2(-7, 111)),
+		guard_post.to_global(Vector2(-44, 137)),
+		guard_post.to_global(Vector2(-90, 139)),
+		guard_post.to_global(Vector2(-165, 127)),
+		nearest_street(guard_post.to_global(Vector2(-245, 104))),
+	], 26, PATH, true, str(village.get_path_to(guard_post)))
 
 func activity_zone(title: String, activity: int, outline: PackedVector2Array, district: String, location: String = "", roles: PackedStringArray = PackedStringArray()) -> ActivityZone2D:
 	var zone := load("res://scenes/activity_zone_2d.tscn").instantiate() as ActivityZone2D
@@ -649,18 +685,21 @@ func build_activity_zones() -> void:
 	for entry in [["SmithYard",Vector2(2205,838),Vector2(90,95),"Blacksmith"],["Carpenter",Vector2(2400,950),Vector2(140,70),"Carpenter"],["Weaver",Vector2(2180,1225),Vector2(160,90),"Weaver"],["Storage",Vector2(2440,1210),Vector2(150,90),"Storage"]]:
 		zone_box("Work"+entry[0],1,entry[1],entry[2],"artisan","NavigationRegion2D/Buildings/Workshops/"+entry[3],PackedStringArray(["artisan"]))
 	var guards := PackedStringArray(["guard"])
-	zone_box("HomeGuardPost",0,Vector2(2260,1660),Vector2(200,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost",guards)
-	zone_box("WorkGuardYard",1,Vector2(2260,1660),Vector2(200,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost",guards)
+	var guard_yard := guard_post.to_global(Vector2(-10, 84))
+	zone_box("HomeGuardPost",0,guard_yard,Vector2(83,40),"guard","NavigationRegion2D/Buildings/Public/GuardPost",guards)
+	zone_box("WorkGuardYard",1,guard_yard,Vector2(83,40),"guard","NavigationRegion2D/Buildings/Public/GuardPost",guards)
 	zone_box("WorkGuardRoad",1,Vector2(2305,1370),Vector2(130,70),"guard","NavigationRegion2D/Buildings/Public/GuardPost",guards)
 	var priest := PackedStringArray(["priest"])
 	zone_box("HomeChapel",0,Vector2(1405,595),Vector2(100,90),"church","NavigationRegion2D/Buildings/Public/Church",priest)
 	zone_box("WorkChurch",1,Vector2(1400,598),Vector2(110,95),"church","NavigationRegion2D/Buildings/Public/Church",priest)
 	zone_box("WorkCemetery",1,Vector2(1730,290),Vector2(310,220),"church","Environment/CemeteryYard",priest)
-	for entry in [["Northwest",Vector2(710,653),Vector2(90,105),"northwest","Roads/WestLane0"],["Square",Vector2(1530,965),Vector2(150,100),"center","Roads/Square"],["Well",Vector2(1380,970),Vector2(110,80),"center","NavigationRegion2D/Buildings/Public/Well"],["Farm",Vector2(735,1445),Vector2(120,100),"farm","Environment/EastField"],["Artisan",Vector2(2230,900),Vector2(120,100),"artisan","Environment/WorkYard"],["South",Vector2(1500,1635),Vector2(120,90),"south","Roads/FarmLane0"],["Tavern",Vector2(1757.5981,1429.1898),Vector2(180,60),"south","NavigationRegion2D/Buildings/Public/Tavern"],["Guard",Vector2(2230,1650),Vector2(140,90),"guard","NavigationRegion2D/Buildings/Public/GuardPost"],["Church",Vector2(1540,530),Vector2(120,70),"church","NavigationRegion2D/Buildings/Public/Church"]]:
-		var zone := zone_box("Social"+entry[0],2,entry[1],entry[2],entry[3],entry[4],guards if entry[0] == "Guard" else PackedStringArray())
+	for entry in [["Northwest",Vector2(710,653),Vector2(90,105),"northwest","Roads/WestLane0"],["Square",Vector2(1530,965),Vector2(150,100),"center","Roads/Square"],["Well",Vector2(1380,970),Vector2(110,80),"center","NavigationRegion2D/Buildings/Public/Well"],["Farm",Vector2(735,1445),Vector2(120,100),"farm","Environment/EastField"],["Artisan",Vector2(2230,900),Vector2(120,100),"artisan","Environment/WorkYard"],["South",Vector2(1500,1635),Vector2(120,90),"south","Roads/FarmLane0"],["Tavern",Vector2(1757.5981,1429.1898),Vector2(180,60),"south","NavigationRegion2D/Buildings/Public/Tavern"],["Church",Vector2(1540,530),Vector2(120,70),"church","NavigationRegion2D/Buildings/Public/Church"]]:
+		var zone := zone_box("Social"+entry[0],2,entry[1],entry[2],entry[3],entry[4])
 		if entry[0] == "Tavern" and not zone_preferences.get("SocialTavern", {}).has("polygon"):
 			zone.rotation = 1.660164
 			zone.scale = Vector2(1, 2.1913574)
+	zone_box("SocialGuard", 2, guard_post.to_global(Vector2(-15, 91)), Vector2(78, 35),
+		"guard", "NavigationRegion2D/Buildings/Public/GuardPost", guards)
 	for entry in [["Northwest",Vector2(780,790),Vector2(70,160),"northwest"],["Center",Vector2(1540,1125),Vector2(100,110),"center"],["Farm",Vector2(505,1400),Vector2(130,100),"farm"],["Artisan",Vector2(2045,990),Vector2(70,120),"artisan"],["South",Vector2(1595,1745),Vector2(150,90),"south"],["Guard",Vector2(2155,1455),Vector2(110,110),"guard"],["Church",Vector2(1520,635),Vector2(90,100),"church"],["Cemetery",Vector2(1730,290),Vector2(310,220),"church"]]:
 		zone_box("Walk"+entry[0],3,entry[1],entry[2],entry[3],"",guards if entry[0] == "Guard" else (priest if entry[0] == "Cemetery" else PackedStringArray()))
 
@@ -753,7 +792,11 @@ func build_guard_routes() -> void:
 		road_section("SouthSquareLane",Vector2(1500,960),Vector2(1430,1230)),
 		road_section("SouthBypass",Vector2(1430,1230),Vector2(2060,1320))])
 	var door: PackedVector2Array=village.get_node("Roads/GuardDoorPath0").get_meta("centerline")
-	var reversed_door:=door.duplicate()
+	var reversed_door := PackedVector2Array()
+	# End in the courtyard clear of the door's exterior navigation margin.
+	for point in door:
+		if guard_post.to_local(point).y >= 64.0:
+			reversed_door.append(point)
 	reversed_door.reverse()
 	patrol_route("PostAccess",[
 		road_section("SouthBypass",Vector2(2060,1320),Vector2(2300,1350)),
@@ -795,7 +838,8 @@ func build_river() -> void:
 
 func populate() -> void:
 	var residents := container(village,"Villagers")
-	var spawn_points := [Vector2(590,580),Vector2(790,760),Vector2(440,930),Vector2(1180,1180),Vector2(1040,555),Vector2(1860,805),Vector2(1875,1740),Vector2(790,1220),Vector2(1980,1190),Vector2(1190,1010),Vector2(1230,1550),Vector2(750,1710),Vector2(260,1510),Vector2(940,1540),Vector2(950,1850),Vector2(550,1430),Vector2(800,1750),Vector2(1510,955),Vector2(1410,940),Vector2(2230,805),Vector2(2420,910),Vector2(2180,1190),Vector2(2435,1180),Vector2(2130,860),Vector2(2160,1480),Vector2(2300,1380),Vector2(2060,1320),Vector2(1900,550),Vector2(1630,960),Vector2(1420,557)]
+	var sentry_spawn := guard_post.to_global(Vector2(-65, 137))
+	var spawn_points := [Vector2(590,580),Vector2(790,760),Vector2(440,930),Vector2(1180,1180),Vector2(1040,555),Vector2(1860,805),Vector2(1875,1740),Vector2(790,1220),Vector2(1980,1190),Vector2(1190,1010),Vector2(1230,1550),Vector2(750,1710),Vector2(260,1510),Vector2(940,1540),Vector2(950,1850),Vector2(550,1430),Vector2(800,1750),Vector2(1510,955),Vector2(1410,940),Vector2(2230,805),Vector2(2420,910),Vector2(2180,1190),Vector2(2435,1180),Vector2(2130,860),sentry_spawn,Vector2(2300,1380),Vector2(2060,1320),Vector2(1900,550),Vector2(1630,960),Vector2(1420,557)]
 	var peasant_jobs := ["Garden0","FieldsWest","FieldsEast","Barn","Vegetables","Well","SouthRoad","Barn","Garden7","Garden0","Garden7","FarmLane","FieldsWest","FieldsEast","FieldsSouth","Barn","Vegetables","Square","Bell"]
 	var peasant_districts := ["northwest","northwest","northwest","farm","northwest","center","south","farm","artisan","northwest","south","farm","farm","farm","farm","farm","farm","center","center"]
 	var home_districts := ["northwest","northwest","northwest","center","northwest","center","south","farm","artisan","northwest","south","farm"]

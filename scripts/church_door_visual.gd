@@ -1,7 +1,10 @@
 class_name ChurchDoorVisual
-extends Sprite2D
+extends Node2D
 
 const SWING_SECONDS := 0.38
+
+@export var initially_open := true
+@export var animates_light := true
 
 var _intact := true
 var _target := 1.0
@@ -11,6 +14,12 @@ var _opening := 1.0:
 	set(value):
 		_opening = value
 		set_instance_shader_parameter(&"opening", value)
+
+
+func _ready() -> void:
+	_target = 1.0 if initially_open else 0.0
+	_opening = _target
+	set_process(animates_light)
 
 
 func _process(delta: float) -> void:
