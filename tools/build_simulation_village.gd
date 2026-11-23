@@ -240,6 +240,7 @@ func fence_line(parent: Node2D, title: String, anchors: Array, enclosure: Node2D
 
 func build_fences() -> void:
 	var fences := container(region,"Fences")
+	fences.hide()
 	# Each barrier follows a named plot. Open sides and 96-unit gates keep
 	# entrances and the existing 26-unit navigation clearance usable.
 	fence_line(fences,"Garden0RoadEdge",[Vector2(474,452),Vector2(474,538),Vector2(552,538)],details.get_node("Garden0"))
@@ -340,10 +341,10 @@ func build() -> void:
 	road("CemeteryWest",[Vector2(1560,420),Vector2(1560,120)],23,PATH)
 	road("CemeteryNorth",[Vector2(1560,120),Vector2(1880,120),Vector2(1970,300)],23,PATH)
 	road("CemeteryEast",[Vector2(1970,300),Vector2(1900,420),Vector2(1560,420)],23,PATH)
-	for i in range(8):
+	for i in range(12):
 		var at := Vector2(1615+(i%4)*85+(i%2)*7,165+(i/4)*105)
 		var grave := solid(public_buildings,"Grave"+str(i),at,rectangle(Vector2(14,20)),Color("7b7e70"),(i%3-1)*0.12)
-		stroke(grave,"Cross",PackedVector2Array([Vector2(-4,-3),Vector2(4,-3)]),Color("434a43"),2)
+		grave.get_node("Footprint").hide()
 	marker("Church",Vector2(1420,557),true)
 	road("ChapelEntrance",[Vector2(1420,511),Vector2(1420,557)],24,PATH,true)
 	marker("Cemetery",Vector2(1730,355))
@@ -497,6 +498,7 @@ func build() -> void:
 		error = ResourceSaver.save(navigation, NAVIGATION)
 		navigation.take_over_path(NAVIGATION)
 	ground.set_script(preload("res://scripts/mission_terrain.gd"))
+	container(region, "CemeteryAndFences").set_script(preload("res://scripts/mission_one_boundary_art.gd"))
 	village.set_script(load("res://scripts/test_map.gd"))
 	village.zombie_infection_enabled = true
 	village.dark_fantasy_hud = true

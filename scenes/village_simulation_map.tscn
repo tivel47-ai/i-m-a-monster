@@ -19,13 +19,14 @@
 [ext_resource type="Texture2D" uid="uid://jrfq08yf8klj" path="res://assets/sprites/buildings/church/exterior.png" id="38_church_exterior"]
 [ext_resource type="Texture2D" uid="uid://b518emgvftyyd" path="res://assets/sprites/buildings/church/door.png" id="39_church_door"]
 [ext_resource type="Texture2D" uid="uid://kl4fr82jh3x4" path="res://assets/sprites/buildings/church/bell.png" id="40_church_bell"]
-[ext_resource type="SpriteFrames" path="res://assets/sprites/buildings/church/beacon_fire_frames.tres" id="41_church_fire"]
+[ext_resource type="SpriteFrames" uid="uid://bvsalt133fxws" path="res://assets/sprites/buildings/church/beacon_fire_frames.tres" id="41_church_fire"]
 [ext_resource type="Shader" uid="uid://c05fgehl6kusl" path="res://assets/sprites/buildings/church/door.gdshader" id="42_church_door_shader"]
 [ext_resource type="Script" uid="uid://drdsjwob36s08" path="res://scripts/church_door_visual.gd" id="43_church_door_visual"]
 [ext_resource type="PackedScene" path="res://scenes/square_alarm_bell.tscn" id="44_square_alarm_bell"]
 [ext_resource type="Script" uid="uid://7fauhg37d10t" path="res://scripts/combat_fluids.gd" id="45_combat_fluids"]
 [ext_resource type="PackedScene" path="res://scenes/mission_one_guard_post.tscn" id="guard_post_scene"]
 [ext_resource type="PackedScene" path="res://scenes/mission_one_tavern.tscn" id="tavern_scene"]
+[ext_resource type="Script" path="res://scripts/mission_one_boundary_art.gd" id="boundary_art"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_church_door"]
 shader = ExtResource("42_church_door_shader")
@@ -1851,6 +1852,7 @@ rotation = -0.12
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave0" unique_id=814351222]
+visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
@@ -1858,6 +1860,7 @@ polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Cross" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Grave0" unique_id=1992320561]
+visible = false
 points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
@@ -1867,6 +1870,7 @@ position = Vector2(1707, 165)
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave1" unique_id=1816038114]
+visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
@@ -1874,6 +1878,7 @@ polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Cross" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Grave1" unique_id=124006339]
+visible = false
 points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
@@ -1884,6 +1889,7 @@ rotation = 0.12
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave2" unique_id=2133267360]
+visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
@@ -1891,6 +1897,7 @@ polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Cross" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Grave2" unique_id=1640018447]
+visible = false
 points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
@@ -1901,6 +1908,7 @@ rotation = -0.12
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave3" unique_id=647258391]
+visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
@@ -1908,6 +1916,7 @@ polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Cross" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Grave3" unique_id=797484100]
+visible = false
 points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
@@ -1917,6 +1926,7 @@ position = Vector2(1615, 270)
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave4" unique_id=276810560]
+visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
@@ -1924,6 +1934,7 @@ polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Cross" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Grave4" unique_id=210457176]
+visible = false
 points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
@@ -1934,6 +1945,7 @@ rotation = 0.12
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave5" unique_id=71256265]
+visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
@@ -1941,6 +1953,7 @@ polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Cross" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Grave5" unique_id=2070982329]
+visible = false
 points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
@@ -1951,6 +1964,7 @@ rotation = -0.12
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave6" unique_id=594370741]
+visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
@@ -1958,6 +1972,7 @@ polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Cross" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Grave6" unique_id=350405821]
+visible = false
 points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
@@ -1967,6 +1982,7 @@ position = Vector2(1877, 270)
 collision_mask = 0
 
 [node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave7" unique_id=1287747804]
+visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
@@ -1974,9 +1990,61 @@ polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Cross" type="Line2D" parent="NavigationRegion2D/Buildings/Public/Grave7" unique_id=276979939]
+visible = false
 points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
+
+[node name="Grave8" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" groups=["simulation_solids"]]
+position = Vector2(1615, 375)
+rotation = 0.12
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave8"]
+visible = false
+color = Color(0.48235294, 0.49411765, 0.4392157, 1)
+polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave8"]
+polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
+
+[node name="Grave9" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" groups=["simulation_solids"]]
+position = Vector2(1707, 375)
+rotation = -0.12
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave9"]
+visible = false
+color = Color(0.48235294, 0.49411765, 0.4392157, 1)
+polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave9"]
+polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
+
+[node name="Grave10" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" groups=["simulation_solids"]]
+position = Vector2(1785, 375)
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave10"]
+visible = false
+color = Color(0.48235294, 0.49411765, 0.4392157, 1)
+polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave10"]
+polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
+
+[node name="Grave11" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" groups=["simulation_solids"]]
+position = Vector2(1877, 375)
+rotation = 0.12
+collision_mask = 0
+
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave11"]
+visible = false
+color = Color(0.48235294, 0.49411765, 0.4392157, 1)
+polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave11"]
+polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Well" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=295689890 groups=["simulation_solids"]]
 position = Vector2(1430, 868)
@@ -3286,6 +3354,7 @@ color = Color(0.15686275, 0.17254902, 0.15686275, 1)
 polygon = PackedVector2Array(-8, -4, 8, -4, 8, 4, -8, 4)
 
 [node name="Fences" type="Node2D" parent="NavigationRegion2D" unique_id=1116555035]
+visible = false
 
 [node name="Garden0RoadEdge" type="Node2D" parent="NavigationRegion2D/Fences" unique_id=1764644442]
 
@@ -4455,6 +4524,9 @@ polygon = PackedVector2Array(-6, -988, 6, -988, 6, 988, -6, 988)
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Boundaries/Edge3" unique_id=1700235793]
 polygon = PackedVector2Array(-6, -988, 6, -988, 6, 988, -6, 988)
 
+[node name="CemeteryAndFences" type="Node2D" parent="NavigationRegion2D"]
+script = ExtResource("boundary_art")
+
 [node name="VillagePointsOfInterest" type="Node2D" parent="." unique_id=2097212991]
 
 [node name="Home1" type="Marker2D" parent="VillagePointsOfInterest" unique_id=2084590307 groups=["civilian_shelter_points"]]
@@ -5115,7 +5187,7 @@ allowed_roles = PackedStringArray()
 [node name="SocialGuard" parent="ActivityZones" unique_id=540597578 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2365, 1606)
 color = Color(1, 1, 1, 0)
-polygon = PackedVector2Array(-39, -17.5, 39, -17.5, 39, 17.5, -39, 17.5)
+polygon = PackedVector2Array(-41, -41, 59, -41, 55, -18, 31, -18.348969, 31, 37, -50, 38)
 activity = 2
 zone_id = &"SocialGuard"
 district_id = &"guard"
@@ -5181,7 +5253,7 @@ allowed_roles = PackedStringArray()
 [node name="WalkGuard" parent="ActivityZones" unique_id=1572530268 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(2155, 1455)
 color = Color(1, 1, 1, 0)
-polygon = PackedVector2Array(-69, 208, 4, 209, 70, 214, 231, 235, 236, 164, 56, 152, -49, 135)
+polygon = PackedVector2Array(-60, 218, -11, 228, -2, 191, 192, 220, 236, 178, 182, 174, 161, 189, 77, 188, 76, 175, 6, 158, 8, 118, -37, 103, -41, 149)
 uv = PackedVector2Array(-234.24487, -47.40999, -257.6294, 71.46178, -271.2705, 196.1797, -152.39868, 205.9233, -45.21924, 211.76945, -35.475586, 159.15408, -179.68079, 141.61562, -162.14221, 53.923325, -142.65515, -45.461273)
 activity = 3
 zone_id = &"WalkGuard"
@@ -5229,7 +5301,7 @@ script = ExtResource("8_aki2m")
 observation_indices = PackedInt32Array(41, 130, 172, 284, 312, 350, 391)
 
 [node name="PostAccess" type="Line2D" parent="GuardPatrolRoutes" unique_id=1585947011]
-points = PackedVector2Array(2060, 1320, 2077.3584, 1322.3877, 2094.7168, 1324.7754, 2111.2256, 1327.8955, 2127.7344, 1331.0156, 2143.4814, 1334.4287, 2159.2285, 1337.8418, 2174.3018, 1341.1084, 2189.375, 1344.375, 2203.8623, 1347.0557, 2218.3496, 1349.7363, 2232.3389, 1351.3916, 2246.3281, 1353.0469, 2259.9072, 1353.2373, 2273.4863, 1353.4277, 2286.7432, 1351.7139, 2300, 1350, 2288.584, 1357.666, 2280.6592, 1362.3096, 2272.7344, 1366.9531, 2263.2666, 1372.4365, 2253.7988, 1377.9199, 2243.462, 1384.2725, 2233.125, 1390.625, 2222.5928, 1397.876, 2212.0605, 1405.127, 2202.0068, 1413.3057, 2191.9531, 1421.4844, 2183.0518, 1430.6201, 2174.1504, 1439.7559, 2167.0752, 1449.8779, 2160, 1460, 2155.2686, 1472.1191, 2150.537, 1484.2383, 2147.7295, 1498.7598, 2144.9219, 1513.2813, 2143.3057, 1529.3262, 2141.6895, 1545.3711, 2140.5322, 1562.0605, 2139.375, 1578.75, 2137.9443, 1595.2051, 2136.5137, 1611.6602, 2141.5168, 1620.8989, 2149.7627, 1623.4336, 2159.5823, 1626.4591, 2170.4822, 1629.777, 2181.968, 1633.1886, 2193.5454, 1636.4952, 2204.721, 1639.4987, 2215, 1642, 2224.7964, 1644.1195, 2234.7573, 1646.0978, 2244.741, 1647.917, 2254.6038, 1649.5592, 2264.2039, 1651.0065, 2273.3984, 1652.2408, 2282.0444, 1653.2448, 2297.1992, 1654.584, 2309.7695, 1655.3301, 2320.6836, 1655.123, 2330.879, 1653.4941, 2341.254, 1649.9668, 2351.8086, 1644.4473, 2361.6445, 1637.5371, 2369.8242, 1629.8926, 2375.4424, 1622.0332, 2378.4756, 1613.584, 2389.7153, 1600.3662, 2390.3047, 1590.5592)
+points = PackedVector2Array(2060, 1320, 2077.3584, 1322.3877, 2094.7168, 1324.7754, 2111.2256, 1327.8955, 2127.7344, 1331.0156, 2143.4814, 1334.4287, 2159.2285, 1337.8418, 2174.3018, 1341.1084, 2189.375, 1344.375, 2203.8623, 1347.0557, 2218.3496, 1349.7363, 2232.3389, 1351.3916, 2246.3281, 1353.0469, 2259.9072, 1353.2373, 2273.4863, 1353.4277, 2286.7432, 1351.7139, 2300, 1350, 2288.584, 1357.666, 2280.6592, 1362.3096, 2272.7344, 1366.9531, 2263.2666, 1372.4365, 2253.7988, 1377.9199, 2243.462, 1384.2725, 2233.125, 1390.625, 2222.5928, 1397.876, 2212.0605, 1405.127, 2202.0068, 1413.3057, 2191.9531, 1421.4844, 2183.0518, 1430.6201, 2174.1504, 1439.7559, 2167.0752, 1449.8779, 2160, 1460, 2155.2686, 1472.1191, 2150.537, 1484.2383, 2147.7295, 1498.7598, 2144.9219, 1513.2813, 2143.3057, 1529.3262, 2141.6895, 1545.3711, 2140.5322, 1562.0605, 2139.375, 1578.75, 2137.9443, 1595.2051, 2136.5137, 1611.6602, 2141.5168, 1620.8989, 2149.7627, 1623.4336, 2159.5823, 1626.4591, 2170.4822, 1629.777, 2181.968, 1633.1886, 2193.5454, 1636.4952, 2204.721, 1639.4987, 2215, 1642, 2224.7964, 1644.1195, 2234.7573, 1646.0978, 2244.741, 1647.917, 2254.6038, 1649.5592, 2264.2039, 1651.0065, 2273.3984, 1652.2408, 2282.0444, 1653.2448, 2297.1992, 1654.584, 2309.7695, 1655.3301, 2320.6836, 1655.123, 2330.879, 1653.4941, 2341.254, 1649.9668, 2351.8086, 1644.4473, 2361.6445, 1637.5371, 2369.8242, 1629.8926, 2375.4424, 1622.0332, 2378.4756, 1613.584, 2380, 1598, 2380, 1575)
 default_color = Color(1, 1, 1, 0)
 script = ExtResource("8_aki2m")
 observation_indices = PackedInt32Array()

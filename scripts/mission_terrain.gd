@@ -549,6 +549,8 @@ func _tree(layer: Node2D, title: StringName, anchor: Vector2, variant: int, widt
 	shadow.position = Vector2(3, -3)
 	tree_art.add_child(shadow)
 	var crown := Sprite2D.new()
+	# The tree can cover a low fence while its contact shadow stays on the ground.
+	crown.z_index = 1
 	var region: Rect2 = TREE_REGIONS[variant]
 	crown.texture = TREES
 	crown.region_enabled = true
