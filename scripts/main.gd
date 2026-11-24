@@ -753,6 +753,7 @@ func _pause() -> void:
 func _resume() -> void:
 	if is_instance_valid(mission):
 		mission.get_node("Camera2D").move_speed = settings.camera_speed
+		mission.mission_hud.refresh_metaprogression()
 		mission.set_menu_paused(false)
 	_show(Screen.GAMEPLAY)
 

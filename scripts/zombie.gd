@@ -14,7 +14,13 @@ const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ORDINARY_VISUAL = preload("res://scripts/ordinary_zombie_visual.gd")
 const BRUTE_VISUAL = preload("res://scripts/brute_visual.gd")
+const INFECTED_FORM_VISUAL = preload("res://scripts/infected_form_visual.gd")
 const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
+const POUNCE_RANGE := 3.0 * INFECTION_DISTANCE
+const POUNCE_REARM_DISTANCE := 2.0 * INFECTION_DISTANCE
+const POUNCE_LANDING_DISTANCE := 16.0
+const POUNCE_TAKEOFF := 0.12
+const POUNCE_CONTACT := 0.40
 
 @export var move_speed: float = 100.0
 @export var max_health: float = 120.0
@@ -55,6 +61,12 @@ var zombie_form := ""
 var ordinary_appearance := -1
 var _ordinary_visual: ORDINARY_VISUAL
 var _brute_visual: BRUTE_VISUAL
+var _infected_form_visual: INFECTED_FORM_VISUAL
+var _pounce_elapsed := -1.0
+var _pounce_origin: Vector2
+var _pounce_motion: Vector2
+var _last_pounce_target: Node2D
+var _pounce_closed_gap := false
 var _portrait_atlas: Texture2D
 var _portrait_region: Rect2
 var entrance_damage_bonus := 0.0
@@ -117,6 +129,12 @@ func _setup_form_visual() -> void:
 			_brute_visual.name = "BruteVisual"
 			_attach_form_visual(_brute_visual)
 		return
+	if zombie_form in [PROGRESSION.CARRIER, PROGRESSION.HOUND] and _uses_form_sprites(&"infected_form_sprites"):
+		_infected_form_visual = INFECTED_FORM_VISUAL.new()
+		_infected_form_visual.name = "InfectedFormVisual"
+		_infected_form_visual.is_runner = zombie_form == PROGRESSION.HOUND
+		_attach_form_visual(_infected_form_visual)
+		return
 	if zombie_form.is_empty() and _uses_form_sprites(&"ordinary_zombie_sprites"):
 		ordinary_appearance = ORDINARY_VISUAL.ART.random_appearance()
 		_ordinary_visual = ORDINARY_VISUAL.new()
@@ -165,6 +183,8 @@ func play_attack_visual(world_point: Vector2) -> void:
 		_brute_visual.play_attack(world_point - global_position, effective_attack_interval())
 	elif _ordinary_visual != null:
 		_ordinary_visual.play_attack(world_point - global_position, effective_attack_interval())
+	elif _infected_form_visual != null:
+		_infected_form_visual.play_attack(world_point - global_position, effective_attack_interval())
 
 
 func movement_speed() -> float:
@@ -263,7 +283,7 @@ func _draw() -> void:
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0
-	if _brute_visual == null:
+	if _brute_visual == null and _infected_form_visual == null:
 		draw_form_marker(self, PROGRESSION.BRUTE if is_brute else zombie_form)
 	if damage_reduction > 0.0:
 		draw_arc(Vector2.ZERO, 10.0, 0.0, TAU, 24, Color("b4c4a3"), 1.0)
@@ -272,6 +292,8 @@ func _draw() -> void:
 	var health_y := ORDINARY_VISUAL.HEALTH_BAR_Y if _ordinary_visual != null else -16.25
 	if _brute_visual != null:
 		health_y = BRUTE_VISUAL.HEALTH_BAR_Y
+	elif _infected_form_visual != null:
+		health_y = _infected_form_visual.health_bar_y()
 	var health_rect := Rect2(-5.85, health_y, 11.7, 2.6)
 	draw_rect(health_rect, Color(0.12, 0.12, 0.12, 0.9), true)
 	draw_rect(
@@ -326,6 +348,8 @@ func take_damage(amount: float, direction := Vector2.ZERO) -> void:
 			_brute_visual.play_hurt()
 		elif _ordinary_visual != null:
 			_ordinary_visual.play_hurt()
+		elif _infected_form_visual != null:
+			_infected_form_visual.play_hurt()
 
 
 func _show_slime_hit(direction: Vector2, lethal: bool) -> void:
@@ -337,6 +361,8 @@ func _show_slime_hit(direction: Vector2, lethal: bool) -> void:
 		height = BRUTE_VISUAL.WORLD_HEIGHT
 	elif _ordinary_visual != null:
 		height = ORDINARY_VISUAL.ART.STANDING_HEIGHT * ORDINARY_VISUAL.PIXEL_SCALE
+	elif _infected_form_visual != null:
+		height = _infected_form_visual.body_height()
 	fluids.hit(self, COMBAT_FLUIDS.Fluid.SLIME, direction, lethal, height)
 
 
@@ -344,6 +370,8 @@ func _leave_slime_pool() -> void:
 	var fluids = COMBAT_FLUIDS.for_actor(self)
 	if fluids != null:
 		var pose: Sprite2D = _brute_visual if _brute_visual != null else _ordinary_visual
+		if _infected_form_visual != null:
+			pose = _infected_form_visual
 		fluids.settled(self, COMBAT_FLUIDS.Fluid.SLIME, pose)
 
 
@@ -353,6 +381,7 @@ func _die() -> void:
 		return
 
 	is_dead = true
+	_cancel_pounce()
 	current_health = 0.0
 	is_selected = false
 	has_target = false
@@ -394,6 +423,9 @@ func _die() -> void:
 	elif _ordinary_visual != null:
 		_ordinary_visual.death_finished.connect(_leave_slime_pool, CONNECT_ONE_SHOT)
 		_ordinary_visual.play_death()
+	elif _infected_form_visual != null:
+		_infected_form_visual.death_finished.connect(_leave_slime_pool, CONNECT_ONE_SHOT)
+		_infected_form_visual.play_death()
 	else:
 		death_marker_a.show()
 		death_marker_b.show()
@@ -475,6 +507,7 @@ func cancel_horde_order() -> void:
 
 
 func _prepare_for_player_order() -> void:
+	_cancel_pounce()
 	follows_horde_order = false
 	if melee_route != null:
 		melee_route.cancel()
@@ -519,7 +552,12 @@ func on_encounter_ended(villager: Node) -> void:
 
 func engage_defender(defender: Node2D) -> bool:
 	# A nearby autonomous defender uses the same encounter/timer contract as aggro.
-	if is_dead or global_position.distance_to(defender.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(defender, true): return false
+	if (
+		is_dead or _pounce_elapsed >= 0.0
+		or global_position.distance_to(defender.global_position) > INFECTION_DISTANCE
+		or not _has_line_of_sight(defender, true)
+	):
+		return false
 	if is_instance_valid(aggro_target) and aggro_target != defender:
 		# Additional nearby defenders use their own existing attack timers; the
 		# zombie retains its current opponent rather than receiving a global order.
@@ -538,7 +576,13 @@ func _on_encounter_attack_timer_timeout() -> void:
 		return
 	if not aggro_target.call("is_encounter_owner", self):
 		return
-	if not _barricade_on_approach(aggro_target).is_empty() or ((is_brute or is_instance_valid(interior_building)) and (global_position.distance_to(aggro_target.global_position) > INFECTION_DISTANCE or not _has_line_of_sight(aggro_target, true))):
+	var check_melee_reach := is_brute or _is_mission_runner() or is_instance_valid(interior_building)
+	if not _barricade_on_approach(aggro_target).is_empty() or (
+		check_melee_reach and (
+			global_position.distance_to(aggro_target.global_position) > INFECTION_DISTANCE
+			or not _has_line_of_sight(aggro_target, true)
+		)
+	):
 		aggro_target.leave_encounter(self)
 		return
 
@@ -647,6 +691,7 @@ func _update_aggro_target(delta: float) -> bool:
 
 func _pursue_aggro_target(delta: float, ordered := false) -> bool:
 	var target := aggro_target
+	var distance := global_position.distance_to(target.global_position)
 	var obstruction := _barricade_on_approach(target)
 	if not obstruction.is_empty():
 		if target.is_encounter_owner(self):
@@ -656,12 +701,17 @@ func _pursue_aggro_target(delta: float, ordered := false) -> bool:
 			_advance_to_barricade(obstruction, delta)
 		return true
 	if target.is_encounter_owner(self):
-		if not ordered or _has_line_of_sight(target):
+		var can_stay := not ordered or _has_line_of_sight(target)
+		if _is_mission_runner():
+			can_stay = distance <= INFECTION_DISTANCE and _has_line_of_sight(target, true)
+		if can_stay:
 			has_target = false
 			return false
 		target.leave_encounter(self)
 		aggro_target = target
-	if global_position.distance_to(target.global_position) <= INFECTION_DISTANCE:
+	if delta > 0.0 and _try_begin_pounce(target, distance):
+		return true
+	if distance <= INFECTION_DISTANCE:
 		if (not ordered or _has_line_of_sight(target)) and target.begin_encounter(zombie_visual.color, self):
 			has_target = false
 			velocity = Vector2.ZERO
@@ -677,6 +727,9 @@ func _pursue_aggro_target(delta: float, ordered := false) -> bool:
 
 
 func _start_encounter_attack_timer() -> void:
+	if _is_mission_runner() and not is_instance_valid(interior_building):
+		_last_pounce_target = aggro_target
+		_pounce_closed_gap = true
 	if melee_route != null:
 		melee_route.cancel()
 	if detour_remaining > 0.0 and has_player_order:
@@ -686,6 +739,95 @@ func _start_encounter_attack_timer() -> void:
 	attack_timer.wait_time = effective_attack_interval()
 	# Repeated contact is not a new attack cycle.
 	if attack_timer.is_stopped(): attack_timer.start()
+
+
+func _is_mission_runner() -> bool:
+	return _infected_form_visual != null and zombie_form == PROGRESSION.HOUND
+
+
+func _update_pounce_readiness() -> void:
+	if not is_instance_valid(_last_pounce_target):
+		return
+	if global_position.distance_to(_last_pounce_target.global_position) < POUNCE_REARM_DISTANCE:
+		_pounce_closed_gap = true
+	elif _pounce_closed_gap:
+		_last_pounce_target = null
+
+
+func _try_begin_pounce(target: Node2D, distance: float) -> bool:
+	if (
+		not _is_mission_runner() or target == _last_pounce_target
+		or distance <= INFECTION_DISTANCE or distance > POUNCE_RANGE
+		or is_instance_valid(interior_building) or not $EncounterAttackTimer.is_stopped()
+		or not (target.is_available_for_infection() or target.can_join_encounter())
+		or not _has_line_of_sight(target, true)
+	):
+		return false
+
+	var motion := global_position.direction_to(target.global_position) * (distance - POUNCE_LANDING_DISTANCE)
+	if test_move(global_transform, motion):
+		return false
+	var map := navigation_agent.get_navigation_map()
+	if not map.is_valid() or NavigationServer2D.map_get_iteration_id(map) == 0:
+		return false
+	var samples := ceili(motion.length() / 4.0)
+	for index in range(1, samples + 1):
+		var point := global_position + motion * (float(index) / samples)
+		if NavigationServer2D.map_get_closest_point(map, point).distance_squared_to(point) > 1.0:
+			return false
+
+	if melee_route != null:
+		melee_route.cancel()
+	_cancel_crowd_displacement()
+	has_target = false
+	detour_remaining = 0.0
+	velocity = Vector2.ZERO
+	navigation_agent.velocity = Vector2.ZERO
+	_pounce_origin = global_position
+	_pounce_motion = motion
+	_pounce_elapsed = 0.0
+	_last_pounce_target = target
+	_pounce_closed_gap = distance < POUNCE_REARM_DISTANCE
+	_infected_form_visual.show_pounce(motion, 0.0, 0.0)
+	return true
+
+
+func _advance_pounce(delta: float) -> void:
+	var target := aggro_target
+	if not is_instance_valid(target) or not target.is_alive() or is_instance_valid(target.interior_building):
+		_cancel_pounce()
+		return
+	_pounce_elapsed = minf(_pounce_elapsed + delta, POUNCE_CONTACT)
+	var flight := clampf(inverse_lerp(POUNCE_TAKEOFF, POUNCE_CONTACT, _pounce_elapsed), 0.0, 1.0)
+	var travel := smoothstep(0.0, 1.0, flight)
+	var motion := _pounce_origin + _pounce_motion * travel - global_position
+	var collision := move_and_collide(motion) if not motion.is_zero_approx() else null
+	if collision != null and collision.get_collider() != target:
+		_cancel_pounce()
+		return
+	if collision == null and _pounce_elapsed < POUNCE_CONTACT:
+		_infected_form_visual.show_pounce(_pounce_motion, _pounce_elapsed / POUNCE_TAKEOFF, flight)
+		queue_redraw()
+		return
+
+	_pounce_elapsed = -1.0
+	_infected_form_visual.finish_pounce(_pounce_motion)
+	queue_redraw()
+	if (
+		global_position.distance_to(target.global_position) <= INFECTION_DISTANCE
+		and _has_line_of_sight(target, true)
+		and target.begin_encounter(zombie_visual.color, self)
+		and not is_dead and aggro_target == target and target.is_encounter_owner(self)
+	):
+		_start_encounter_attack_timer()
+		target.receive_zombie_attack(attack_damage, infection_chance, self)
+
+
+func _cancel_pounce() -> void:
+	if _pounce_elapsed >= 0.0:
+		_pounce_elapsed = -1.0
+		_infected_form_visual.cancel_pounce()
+		queue_redraw()
 
 
 func _set_aggro_destination() -> void:
@@ -821,6 +963,10 @@ func _physics_process(delta: float) -> void:
 	barricade_attack_remaining = maxf(barricade_attack_remaining - delta, 0.0)
 	if is_dead or is_instance_valid(building_task):
 		return
+	if _pounce_elapsed >= 0.0:
+		_advance_pounce(delta)
+		return
+	_update_pounce_readiness()
 	if detour_remaining > 0.0:
 		detour_remaining = maxf(detour_remaining - delta, 0.0)
 		if detour_remaining == 0.0 or global_position.distance_to(detour_point) <= navigation_agent.target_desired_distance:
@@ -1030,7 +1176,7 @@ func _is_waiting_for_crowd_to_yield(direction: Vector2) -> bool:
 
 
 func _on_navigation_agent_velocity_computed(safe_velocity: Vector2) -> void:
-	if is_instance_valid(building_task):
+	if is_instance_valid(building_task) or _pounce_elapsed >= 0.0:
 		return
 	if not is_dead and melee_route != null and melee_route.last_update == Engine.get_physics_frames():
 		return

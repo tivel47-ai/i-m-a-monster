@@ -59,6 +59,7 @@ var _seen: Dictionary = {}
 var _registered: Dictionary = {}
 var _debug_layer: CanvasLayer
 var _debug_label: Label
+var _debug_overlay_suppressed := false
 var bell_activated: bool = false
 var bell_source := BellSource.NONE
 @onready var bell_audio := get_node_or_null("BellAudio") as AudioStreamPlayer
@@ -249,11 +250,16 @@ func _activate_bell(source: BellSource) -> bool:
 	return true
 
 
+func set_debug_overlay_suppressed(suppressed: bool) -> void:
+	_debug_overlay_suppressed = suppressed
+	_update_debug()
+
+
 func _update_debug() -> void:
 	if not is_instance_valid(_debug_label):
 		return
-	_debug_layer.visible = debug_enabled
-	if debug_enabled:
+	_debug_layer.visible = debug_enabled and not _debug_overlay_suppressed
+	if _debug_layer.visible:
 		_debug_label.text = "Village Alert: %s\nDefense danger: %.1f / %.0f\nGlobal decay: %s" % [
 			Level.keys()[level], danger, danger_threshold, "disabled"]
 

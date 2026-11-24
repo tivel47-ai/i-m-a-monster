@@ -24,9 +24,9 @@
 [ext_resource type="Script" uid="uid://drdsjwob36s08" path="res://scripts/church_door_visual.gd" id="43_church_door_visual"]
 [ext_resource type="PackedScene" path="res://scenes/square_alarm_bell.tscn" id="44_square_alarm_bell"]
 [ext_resource type="Script" uid="uid://7fauhg37d10t" path="res://scripts/combat_fluids.gd" id="45_combat_fluids"]
+[ext_resource type="Script" uid="uid://dj153o87slaw3" path="res://scripts/mission_one_boundary_art.gd" id="boundary_art"]
 [ext_resource type="PackedScene" path="res://scenes/mission_one_guard_post.tscn" id="guard_post_scene"]
 [ext_resource type="PackedScene" path="res://scenes/mission_one_tavern.tscn" id="tavern_scene"]
-[ext_resource type="Script" path="res://scripts/mission_one_boundary_art.gd" id="boundary_art"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_church_door"]
 shader = ExtResource("42_church_door_shader")
@@ -63,6 +63,7 @@ manual_victory_finish = true
 metadata/local_melee_routing = true
 metadata/ordinary_zombie_sprites = true
 metadata/brute_sprites = true
+metadata/infected_form_sprites = true
 metadata/peasant_sprites = true
 metadata/artisan_sprites = true
 metadata/guard_sprites = true
@@ -1995,55 +1996,55 @@ points = PackedVector2Array(-4, -3, 4, -3)
 width = 2.0
 default_color = Color(0.2627451, 0.2901961, 0.2627451, 1)
 
-[node name="Grave8" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" groups=["simulation_solids"]]
+[node name="Grave8" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=727795546 groups=["simulation_solids"]]
 position = Vector2(1615, 375)
 rotation = 0.12
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave8"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave8" unique_id=606738551]
 visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave8"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave8" unique_id=30351180]
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
-[node name="Grave9" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" groups=["simulation_solids"]]
+[node name="Grave9" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=1036348358 groups=["simulation_solids"]]
 position = Vector2(1707, 375)
 rotation = -0.12
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave9"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave9" unique_id=2142598625]
 visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave9"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave9" unique_id=1516819148]
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
-[node name="Grave10" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" groups=["simulation_solids"]]
+[node name="Grave10" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=1131417939 groups=["simulation_solids"]]
 position = Vector2(1785, 375)
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave10"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave10" unique_id=1360148760]
 visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave10"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave10" unique_id=791746977]
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
-[node name="Grave11" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" groups=["simulation_solids"]]
+[node name="Grave11" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=597558425 groups=["simulation_solids"]]
 position = Vector2(1877, 375)
 rotation = 0.12
 collision_mask = 0
 
-[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave11"]
+[node name="Footprint" type="Polygon2D" parent="NavigationRegion2D/Buildings/Public/Grave11" unique_id=1497073016]
 visible = false
 color = Color(0.48235294, 0.49411765, 0.4392157, 1)
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave11"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Buildings/Public/Grave11" unique_id=1247197579]
 polygon = PackedVector2Array(-7, -10, 7, -10, 7, 10, -7, 10)
 
 [node name="Well" type="StaticBody2D" parent="NavigationRegion2D/Buildings/Public" unique_id=295689890 groups=["simulation_solids"]]
@@ -4524,7 +4525,7 @@ polygon = PackedVector2Array(-6, -988, 6, -988, 6, 988, -6, 988)
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Boundaries/Edge3" unique_id=1700235793]
 polygon = PackedVector2Array(-6, -988, 6, -988, 6, 988, -6, 988)
 
-[node name="CemeteryAndFences" type="Node2D" parent="NavigationRegion2D"]
+[node name="CemeteryAndFences" type="Node2D" parent="NavigationRegion2D" unique_id=261543416]
 script = ExtResource("boundary_art")
 
 [node name="VillagePointsOfInterest" type="Node2D" parent="." unique_id=2097212991]
@@ -4884,7 +4885,7 @@ allowed_roles = PackedStringArray()
 [node name="WorkFieldsWest" parent="ActivityZones" unique_id=1427276529 groups=["village_activity_zones"] instance=ExtResource("6_58qfh")]
 position = Vector2(238.75, 1538.75)
 color = Color(1, 1, 1, 0)
-polygon = PackedVector2Array(-77.75, -138.75, 95.25, -141.75, 97.25, 136.25, -80.75, 138.25)
+polygon = PackedVector2Array(-84.75, -145.75, 102.25, -144.75, 102.25, 143.25, -84.75, 143.25)
 activity = 1
 zone_id = &"WorkFieldsWest"
 district_id = &"farm"
