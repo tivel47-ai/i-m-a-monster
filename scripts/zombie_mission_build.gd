@@ -1,6 +1,12 @@
 extends RefCounted
 
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
+const LEGACY_FORMS := {
+	PROGRESSION.BRUTE: {"health": 2.0, "speed": 0.65, "damage": 1.5, "interval": 2.0, "infection": 0.02},
+	PROGRESSION.HOUND: {"health": 0.70, "speed": 1.25, "damage": 0.70, "interval": 1.0, "infection": 0.15},
+	PROGRESSION.CARRIER: {"health": 1.25, "speed": 0.80, "damage": 0.50, "interval": 1.0, "infection": 0.25},
+}
 
 var build: Dictionary
 var hunger: Dictionary = {}
@@ -16,11 +22,13 @@ var queued_abilities: Array[String] = []
 var virus_earned := 0
 var revealed_development := false
 var _character_width: float
+var _unit_balance_v03: bool
 var _developer_abilities: Array[String] = []
 
 
-func _init(saved_build: Dictionary, character_width: float) -> void:
+func _init(saved_build: Dictionary, character_width: float, unit_balance_v03 := false) -> void:
 	_character_width = character_width
+	_unit_balance_v03 = unit_balance_v03
 	build = {"paid": saved_build.paid.duplicate(true), "slots": saved_build.slots.duplicate()}
 	for id in build.slots:
 		if id.is_empty() or PROGRESSION.level(build, id) == 0:
@@ -77,7 +85,7 @@ func radius_for(id: String) -> float:
 
 
 func prepare_zombie(zombie: Node, converted: bool) -> void:
-	apply_form(zombie, PROGRESSION.choose_form(build, randf()) if converted else "")
+	apply_form(zombie, PROGRESSION.choose_form(build, randf()) if converted else "", _unit_balance_v03)
 	zombie.max_health *= 1.0 + PROGRESSION.NODES[PROGRESSION.FLESH].hp_per_level * PROGRESSION.level(build, PROGRESSION.FLESH)
 	zombie.speed_modifiers[PROGRESSION.TENDONS] = PROGRESSION.NODES[PROGRESSION.TENDONS].speed_per_level * PROGRESSION.level(build, PROGRESSION.TENDONS)
 	if not zombie.is_brute:
@@ -85,12 +93,21 @@ func prepare_zombie(zombie: Node, converted: bool) -> void:
 	zombie.entrance_damage_bonus = PROGRESSION.NODES[PROGRESSION.GROWTHS].entrance_per_level * PROGRESSION.level(build, PROGRESSION.GROWTHS)
 
 
-static func apply_form(zombie: Node, id: String) -> void:
+static func apply_form(zombie: Node, id: String, unit_balance_v03 := false) -> void:
 	zombie.zombie_form = id
 	zombie.is_brute = id == PROGRESSION.BRUTE
+	if unit_balance_v03:
+		var profile: Dictionary = BALANCE.ZOMBIES[id]
+		zombie.max_health = profile.health
+		zombie.move_speed = profile.speed
+		zombie.attack_damage = profile.damage
+		zombie.attack_interval = profile.interval
+		zombie.infection_chance = profile.infection
+		return
+	# Shared scenes and standalone fixtures keep their original relative form stats.
 	if id.is_empty():
 		return
-	var form: Dictionary = PROGRESSION.NODES[id]
+	var form: Dictionary = LEGACY_FORMS[id]
 	zombie.max_health *= form.health
 	zombie.move_speed *= form.speed
 	zombie.attack_damage *= form.damage

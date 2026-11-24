@@ -6,6 +6,7 @@ const ARTISAN_ATLAS = preload("res://assets/sprites/characters/artisan/frames.pn
 const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 const CHURCH_CHARACTER_VISUAL = preload("res://scripts/church_character_visual.gd")
 const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
+const MISSION_BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
 var melee_route: LOCAL_MELEE_ROUTE
 var _body_sprite: Sprite2D
 var _civilian_visual: PEASANT_VISUAL
@@ -119,6 +120,7 @@ var reinforcement_squad: Node
 var guard_ai: Node
 var escort: Node
 var priest_ai: Node
+var _balance_profile: Dictionary = {}
 @onready var priest_guard = get_node_or_null("PriestGuard")
 
 @onready var polygon: Polygon2D = $Polygon2D
@@ -140,13 +142,43 @@ func private_shelter_marker() -> Node2D:
 	return get_node_or_null(home_point_path) as Node2D if not home_point_path.is_empty() else null
 
 
+func configure_mission_balance() -> void:
+	var role := StringName(get_meta("reinforcement_role", get_meta("village_role", "")))
+	_balance_profile = MISSION_BALANCE.HUMANS.get(role, {})
+	if _balance_profile.is_empty():
+		return
+	max_health = _balance_profile.health
+	attack_damage = _balance_profile.damage
+	attack_interval = _balance_profile.interval
+	move_speed = _balance_profile.peaceful
+
+
+func tactical_move_speed(fallback: float) -> float:
+	return _balance_profile.get("tactical", fallback)
+
+
+func apply_armed_combat_profile() -> void:
+	if not _balance_profile.has("armed_damage"):
+		return
+	attack_damage = _balance_profile.armed_damage
+	attack_interval = _balance_profile.armed_interval
+	if not encounter_attack_timer.is_stopped():
+		var elapsed := encounter_attack_timer.wait_time - encounter_attack_timer.time_left
+		encounter_attack_timer.start(maxf(attack_interval - elapsed, 0.01))
+	encounter_attack_timer.wait_time = attack_interval
+
+
 func _ready() -> void:
 	if LOCAL_MELEE_ROUTE.enabled_for(self):
 		melee_route = LOCAL_MELEE_ROUTE.new()
 	add_to_group("activity_zone_residents")
 	current_health = maxf(max_health, 0.0)
+	if not _balance_profile.is_empty():
+		navigation_agent.max_speed = move_speed
+		threat_reaction.fleeing_speed = _balance_profile.get("fleeing", threat_reaction.fleeing_speed)
 	encounter_attack_timer.name = "EncounterAttackTimer"
-	encounter_attack_timer.wait_time = maxf(attack_interval, 0.01)
+	if _can_counterattack():
+		encounter_attack_timer.wait_time = maxf(attack_interval, 0.01)
 	encounter_attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(encounter_attack_timer)
 	_setup_body_sprite()
@@ -843,7 +875,7 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 		converted_color = result_color
 	if not encounter_participants.has(zombie):
 		encounter_participants.append(zombie)
-		if priest_routine == null and encounter_attack_timer.is_stopped():
+		if _can_counterattack() and encounter_attack_timer.is_stopped():
 			encounter_attack_timer.start()
 	if starting_encounter:
 		encounter_started.emit(zombie)
@@ -898,8 +930,12 @@ func _on_encounter_attack_timer_timeout() -> void:
 	participant.call("take_damage", attack_damage, participant.global_position - global_position)
 
 
+func _can_counterattack() -> bool:
+	return priest_routine == null and get_meta("village_role", "") != "priest"
+
+
 func _encounter_attack_target() -> Node2D:
-	if priest_routine != null or not is_alive():
+	if not _can_counterattack() or not is_alive():
 		return null
 	for participant in encounter_participants:
 		if (

@@ -85,6 +85,7 @@ var next_shot := 0.0
 @onready var actor = get_parent()
 
 func _ready() -> void:
+	tactical_speed = actor.tactical_move_speed(tactical_speed)
 	rng.randomize()
 	visibility_phase = actor.get_instance_id() % VISIBILITY_REFRESH_STEPS
 	next_decision = now() + _decision_delay()

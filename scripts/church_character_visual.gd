@@ -210,7 +210,8 @@ func _is_running(speed: float) -> bool:
 	if is_escort:
 		return speed > _actor.move_speed + 8.0 and speed >= _actor.priest_guard.tactical_speed * 0.65
 	var reaction: Node = _actor.threat_reaction
-	return reaction.reaction_state in [reaction.Reaction.FLEEING, reaction.Reaction.SEEKING_SHELTER] or speed >= reaction.fleeing_speed * 0.8
+	var tactical_threshold: float = _actor.tactical_move_speed(reaction.fleeing_speed) * 0.8
+	return reaction.reaction_state in [reaction.Reaction.FLEEING, reaction.Reaction.SEEKING_SHELTER] or speed >= tactical_threshold
 
 
 func _aim(heading: Vector2, hysteresis := true) -> void:

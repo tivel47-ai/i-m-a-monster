@@ -23,6 +23,7 @@ const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
 const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 const PRIEST_ROUTINE = preload("res://scripts/priest_routine.gd")
 const PRIEST_GUARD_ROUTES = preload("res://scripts/priest_guard_routes.gd")
+@export var unit_balance_v03 := false
 @export var zombie_infection_enabled := false
 @export var dark_fantasy_hud := false
 @export var monster_roster_enabled := false
@@ -96,7 +97,7 @@ func _make_ability_runtime(build: Dictionary) -> ZOMBIE_MISSION_BUILD:
 	var standard := ZOMBIE_SCENE.instantiate()
 	var width: float = standard.get_node("CollisionShape2D").shape.size.x
 	standard.free()
-	return ZOMBIE_MISSION_BUILD.new(build, width)
+	return ZOMBIE_MISSION_BUILD.new(build, width, unit_balance_v03)
 
 
 func ability_runtime() -> ZOMBIE_MISSION_BUILD:
@@ -113,6 +114,16 @@ func take_guard_appearance() -> StringName:
 			_guard_appearances[i] = _guard_appearances[swap]
 			_guard_appearances[swap] = appearance
 	return _guard_appearances.pop_back()
+
+
+func _enter_tree() -> void:
+	if not unit_balance_v03:
+		return
+	for unit in find_children("*", "CharacterBody2D", true, false):
+		if unit.has_method("configure_mission_balance"):
+			unit.configure_mission_balance()
+		elif mission_build == null and unit.is_in_group("player_units"):
+			ZOMBIE_MISSION_BUILD.apply_form(unit, unit.zombie_form, true)
 
 
 func _ready() -> void:
@@ -483,7 +494,7 @@ func developer_place(kind: String, world_position: Vector2) -> bool:
 	if kind == "zombie" or kind in ZOMBIE_PROGRESSION.FORMS:
 		var zombie := ZOMBIE_SCENE.instantiate()
 		zombie.position = to_local(position_on_map)
-		ZOMBIE_MISSION_BUILD.apply_form(zombie, "" if kind == "zombie" else kind)
+		ZOMBIE_MISSION_BUILD.apply_form(zombie, "" if kind == "zombie" else kind, unit_balance_v03)
 		add_child(zombie)
 		if horde_commands != null:
 			horde_commands.inherit(zombie)
@@ -505,6 +516,8 @@ func _developer_place_human(kind: String, point: Vector2) -> void:
 		_setup_developer_resident(resident, kind)
 	resident.position = to_local(point)
 	resident.immediate_combat_conversion = zombie_infection_enabled
+	if unit_balance_v03:
+		resident.configure_mission_balance()
 	add_child(resident, true)
 	villagers.append(resident)
 	resident.converted.connect(_on_resident_converted)
@@ -558,8 +571,9 @@ func _setup_developer_resident(resident: Node, kind: String) -> void:
 
 
 func _setup_developer_priest_guard(resident: Node, point: Vector2) -> void:
-	resident.max_health = 150.0
-	resident.attack_damage = 20.0
+	if not unit_balance_v03:
+		resident.max_health = 150.0
+		resident.attack_damage = 20.0
 	resident.home_point_path = NodePath("../VillagePointsOfInterest/Church")
 	var zones: Array[NodePath] = [NodePath("../ActivityZones/SocialChurch")]
 	resident.activity_zone_paths = zones
@@ -898,6 +912,8 @@ func _on_resident_converted(resident: Node) -> void:
 	new_zombie.position = to_local(spawn_position)
 	if mission_build != null:
 		mission_build.prepare_zombie(new_zombie, true)
+	elif unit_balance_v03:
+		ZOMBIE_MISSION_BUILD.apply_form(new_zombie, "", true)
 	add_child(new_zombie)
 	if resident.infection_source != resident.InfectionSource.PLAYER_ABILITY:
 		new_zombie.get_node("Polygon2D").color = resident.get_node("Polygon2D").color
@@ -962,6 +978,8 @@ func _spawn_reinforcement(role: StringName, point: Vector2, squad: Node) -> Node
 	soldier.reinforcement_squad = squad
 	soldier.defense_ranged_weapon = role == &"archer"
 	soldier.immediate_combat_conversion = zombie_infection_enabled
+	if unit_balance_v03:
+		soldier.configure_mission_balance()
 	var colors := {&"swordsman": Color("#8b9fb1"), &"spearman": Color("#778e9c"), &"archer": Color("#a5af74")}
 	soldier.get_node("Polygon2D").color = colors[role]
 	add_child(soldier, true)

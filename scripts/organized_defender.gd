@@ -136,7 +136,7 @@ func move_to(point: Vector2, delta: float, fast: bool = false, remember_unreacha
 	return result
 
 func movement_speed(fast: bool) -> float:
-	var speed = actor.move_speed
+	var speed = actor.tactical_move_speed(actor.move_speed)
 	if actor.escort != null: speed = actor.escort.movement_speed
 	if actor.guard_ai != null:
 		speed = actor.guard_ai.tactical_speed

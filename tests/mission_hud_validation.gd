@@ -153,15 +153,11 @@ func check_monster_roster() -> void:
 	for row in roster.get_children().slice(1):
 		var name: String = row.get_child(1).text
 		var icon: TextureRect = row.get_child(0)
-		if name in ["Зомби", "Громила"]:
-			var atlas: Texture2D = units[5].get_node("BruteVisual").texture if name == "Громила" \
-				else ART.TURN[ART.Appearance.PLAIN]
-			var portrait := icon.texture as AtlasTexture
-			check(portrait != null and portrait.atlas == atlas and portrait.region.has_area(),
-				"Sprite portrait uses the representative atlas for the unit type: " + name)
-		else:
-			check(icon.texture == null and icon.draw.get_connections().size() == 1,
-				"Creature without sprites draws a fallback icon: " + name)
+		var representative: int = {"Зомби": 0, "Громила": 5, "Бегун": 6, "Носитель": 7}[name]
+		var expected := units[representative].get_roster_portrait() as AtlasTexture
+		var portrait := icon.texture as AtlasTexture
+		check(expected != null and portrait != null and portrait.atlas == expected.atlas and portrait.region == expected.region,
+			"Sprite portrait uses the representative atlas and crop for the unit type: " + name)
 		rows[name] = row.get_child(2).text
 	check(rows == {"Зомби": "× 5", "Громила": "× 1", "Бегун": "× 1", "Носитель": "× 1"},
 		"Roster keeps all appearances in their single ordinary type row")

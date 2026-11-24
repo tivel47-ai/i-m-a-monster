@@ -1,5 +1,6 @@
 extends RefCounted
 
+const BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
 const SAVE_PATH := "user://zombie_progression.cfg"
 const SLOT_COUNT := 10
 const FLESH := "tough_flesh"
@@ -24,9 +25,8 @@ const NODES := {
 		"tree_position": Vector2(0.163, 0.122),
 		"icon": preload("res://assets/ui/zombie_style/brute.png"),
 		"title": "Громила", "costs": [25], "requires": {FLESH: 2},
-		"unlock": "initial_unlocked", "chance": 0.10, "health": 2.0, "speed": 0.65,
-		"damage": 1.5, "interval": 2.0, "splash": 0.4, "radius": 1.5,
-		"knockback": 0.5, "infection": 0.02,
+		"unlock": "initial_unlocked", "chance": 0.10,
+		"splash": 0.4, "radius": 1.5, "knockback": 0.5,
 	},
 	HUNGER: {
 		"tree_position": Vector2(0.726, 0.716),
@@ -60,14 +60,12 @@ const NODES := {
 	HOUND: {
 		"tree_position": Vector2(0.94, 0.70),
 		"title": "Бегун", "costs": [30], "requires": {TENDONS: 2},
-		"chance": 0.08, "health": 0.70, "speed": 1.25, "damage": 0.70,
-		"interval": 1.0, "infection": 0.15, "icon": preload("res://assets/ui/zombie_style/hound.png"),
+		"chance": 0.08, "icon": preload("res://assets/ui/zombie_style/hound.png"),
 	},
 	CARRIER: {
 		"tree_position": Vector2(0.56, 0.04),
 		"title": "Носитель", "costs": [40], "requires": {SALIVA: 2},
-		"chance": 0.06, "health": 1.25, "speed": 0.80, "damage": 0.50,
-		"interval": 1.0, "infection": 0.25, "icon": preload("res://assets/ui/zombie_style/carrier.png"),
+		"chance": 0.06, "icon": preload("res://assets/ui/zombie_style/carrier.png"),
 	},
 	FORTITUDE: {
 		"tree_position": Vector2(0.30, 0.70),
@@ -146,9 +144,14 @@ static func level(build: Dictionary, id: String) -> int:
 static func effect_text(id: String, rank: int) -> String:
 	match id:
 		FLESH: return "+%d%% к максимуму HP всех форм" % roundi(NODES[id].hp_per_level * rank * 100)
-		BRUTE: return "10% шанс появления при обращении. Удар по площади и отталкивание цели."
-		HOUND: return "8% при обращении · HP 70% · скорость 125% · урон 70% · заражение 15% до пассивов."
-		CARRIER: return "6% при обращении · HP 125% · скорость 80% · урон 50% · заражение 25% до пассивов."
+		BRUTE, HOUND, CARRIER:
+			var stats: Dictionary = BALANCE.ZOMBIES[id]
+			var description := "%d%% при обращении · %d HP · скорость %d · %d урона каждые %s с · заражение %d%% до пассивов." % [
+				roundi(NODES[id].chance * 100), stats.health, stats.speed, stats.damage,
+				str(stats.interval).replace(".", ","), roundi(stats.infection * 100)]
+			if id == BRUTE:
+				description += " Удар по площади и отталкивание цели."
+			return description
 		TENDONS: return "+%d%% скорости всех форм от базовой скорости формы" % (rank * 2)
 		SALIVA: return "+%d п.п. заражения обычных зомби, Бегунов и Носителей. Громила сохраняет 2%%." % rank
 		GROWTHS: return "+%d%% урона дверям и баррикадам всех форм" % (rank * 5)

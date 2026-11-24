@@ -21,7 +21,7 @@ func run() -> void:
 	check(map.total_residents == 44 and ceili(map.total_residents * map.TARGET_PERCENT / 100.0) == 36, "Priest guards are included in the 36-of-44 objective")
 	for actor in guards:
 		check(actor.guard_ai == null and actor.escort == null and actor.guard_patrol == null, "Protector excluded from guard reports, recruitment, post duty: " + actor.name)
-		check(actor.max_health == 150.0 and actor.attack_damage == 20.0 and actor.get_node("CollisionShape2D").shape.size == Vector2(7.8,15.6), "Current scene guard combat overrides and physical size preserved")
+		check(actor.max_health == 180.0 and actor.attack_damage == 30.0 and actor.get_node("CollisionShape2D").shape.size == Vector2(7.8,15.6), "Personal guard uses v0.3 combat profile and preserves physical size")
 		var clear := true
 		for point in actor.priest_guard.patrol_points:
 			var valid = body_clear(point,actor.get_node("CollisionShape2D").shape) and NavigationServer2D.map_get_closest_point(nav,point).distance_to(point) < 1

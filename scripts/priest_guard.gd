@@ -23,6 +23,7 @@ var escort_heading: Vector2 = Vector2.UP
 @onready var priest = get_node_or_null(priest_path)
 
 func _ready() -> void:
+	tactical_speed = actor.tactical_move_speed(tactical_speed)
 	if patrol_points.is_empty():
 		var map := get_node_or_null("../../..") as Node2D
 		if map != null: patrol_points = ROUTES.route_for(map, slot)

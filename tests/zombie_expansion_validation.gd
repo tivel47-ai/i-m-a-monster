@@ -41,6 +41,8 @@ func spawn_form(runtime: BUILD, form: String) -> Node2D:
 			break
 	check(found, "Found deterministic conversion roll for " + form)
 	var unit := ZOMBIE.instantiate()
+	if form.is_empty():
+		runtime.prepare_zombie(unit, false)
 	runtime.prepare_zombie(unit, true)
 	root.add_child(unit)
 	unit.set_physics_process(false)
@@ -83,37 +85,39 @@ func run() -> void:
 	only_brute.paid.erase(P.CARRIER)
 	check(P.choose_form(only_brute, 0.12).is_empty() and P.choose_form(only_brute, 0.20).is_empty()
 		and P.choose_form(only_brute, 0.05) == P.BRUTE, "Unowned shares return to ordinary zombies without changing Brute")
-	var runtime := BUILD.new(profile.state, 7.8)
+	var runtime := BUILD.new(profile.state, 7.8, true)
 	var ordinary := spawn_form(runtime, "")
 	var brute := spawn_form(runtime, P.BRUTE)
 	var hound := spawn_form(runtime, P.HOUND)
 	var carrier := spawn_form(runtime, P.CARRIER)
-	check(is_equal_approx(ordinary.max_health, 150.0) and is_equal_approx(ordinary.infection_chance, 0.20), "Ordinary zombie receives Flesh V and Saliva V")
-	check(brute.is_brute and is_equal_approx(brute.max_health, 300.0) and is_equal_approx(brute.attack_damage, 30.0)
-		and is_equal_approx(brute.infection_chance, 0.02) and is_equal_approx(brute.attack_interval, 2.0), "Brute retains original combat parameters and 2% infection")
-	check(hound.zombie_form == P.HOUND and not hound.is_brute and is_equal_approx(hound.max_health, 105.0)
-		and is_equal_approx(hound.move_speed, 125.0) and is_equal_approx(hound.attack_damage, 14.0)
-		and is_equal_approx(hound.infection_chance, 0.20), "Hound has its approved form and passive parameters")
-	check(carrier.zombie_form == P.CARRIER and not carrier.is_brute and is_equal_approx(carrier.max_health, 187.5)
-		and is_equal_approx(carrier.move_speed, 80.0) and is_equal_approx(carrier.attack_damage, 10.0)
-		and is_equal_approx(carrier.infection_chance, 0.30), "Carrier has its approved form and passive parameters")
-	check(is_equal_approx(brute.movement_speed(), 71.5) and is_equal_approx(hound.movement_speed(), 137.5), "Tendons add speed relative to each form's base")
-	check(is_equal_approx(brute.entrance_damage(), 37.5) and is_equal_approx(ordinary.entrance_damage(), 25.0)
-		and ordinary.attack_damage == 20.0, "Bone growths increase entrance damage without changing resident damage")
+	check(is_equal_approx(ordinary.max_health, 225.0) and is_equal_approx(ordinary.infection_chance, 0.13),
+		"Preparing an ordinary zombie twice applies Flesh V and Saliva V once")
+	check(brute.is_brute and is_equal_approx(brute.max_health, 450.0) and is_equal_approx(brute.attack_damage, 42.0)
+		and is_equal_approx(brute.infection_chance, 0.02) and is_equal_approx(brute.attack_interval, 2.4), "Brute uses v0.3 combat parameters and retains 2% infection")
+	check(hound.zombie_form == P.HOUND and not hound.is_brute and is_equal_approx(hound.max_health, 143.75)
+		and is_equal_approx(hound.move_speed, 108.0) and is_equal_approx(hound.attack_damage, 15.0)
+		and is_equal_approx(hound.infection_chance, 0.11), "Hound has its approved form and passive parameters")
+	check(carrier.zombie_form == P.CARRIER and not carrier.is_brute and is_equal_approx(carrier.max_health, 287.5)
+		and is_equal_approx(carrier.move_speed, 48.0) and is_equal_approx(carrier.attack_damage, 13.0)
+		and is_equal_approx(carrier.infection_chance, 0.21), "Carrier has its approved form and passive parameters")
+	check(is_equal_approx(ordinary.movement_speed(), 63.8) and is_equal_approx(brute.movement_speed(), 41.8)
+		and is_equal_approx(hound.movement_speed(), 118.8) and is_equal_approx(carrier.movement_speed(), 52.8), "Tendons add speed relative to each form's base")
+	check(is_equal_approx(brute.entrance_damage(), 52.5) and is_equal_approx(ordinary.entrance_damage(), 26.25)
+		and ordinary.attack_damage == 21.0, "Bone growths increase entrance damage without changing resident damage")
 	ordinary.apply_racial_effect(P.FORTITUDE, P.NODES[P.FORTITUDE].effects[4])
 	var health_before: float = ordinary.current_health
 	ordinary.take_damage(20.0)
 	check(is_equal_approx(health_before - ordinary.current_health, 15.4), "Fortitude V reduces actual incoming damage by 23% without healing")
 	ordinary.apply_hunger(0.33, 14.0)
 	ordinary.apply_racial_effect(P.SPASM, P.NODES[P.SPASM].effects[4])
-	check(is_equal_approx(ordinary.movement_speed(), 128.0) and is_equal_approx(ordinary.effective_attack_interval(), 1.0 / 1.23),
+	check(is_equal_approx(ordinary.movement_speed(), 74.24) and is_equal_approx(ordinary.effective_attack_interval(), 1.4 / 1.23),
 		"Hunger, tendons and spasm add speed modifiers; attack frequency uses the reciprocal interval")
 	ordinary.apply_racial_effect(P.SPASM, P.NODES[P.SPASM].effects[4])
 	check(is_equal_approx(ordinary.attack_frequency_bonus, 0.23) and is_equal_approx(ordinary.racial_timers[P.SPASM].time_left, 10.0), "Repeated spasm refreshes duration without stacking")
 	ordinary._expire_racial_effect(P.SPASM)
 	ordinary._expire_racial_effect(P.FORTITUDE)
-	check(ordinary.damage_reduction == 0.0 and ordinary.effective_attack_interval() == 1.0
-		and is_equal_approx(ordinary.movement_speed(), 143.0), "Expiring new buffs preserves hunger and tendons")
+	check(ordinary.damage_reduction == 0.0 and ordinary.effective_attack_interval() == 1.4
+		and is_equal_approx(ordinary.movement_speed(), 82.94), "Expiring new buffs preserves hunger and tendons")
 	for unit in [ordinary, brute, hound, carrier]:
 		unit.queue_free()
 	await process_frame
@@ -216,8 +220,8 @@ func check_entrances(mission: Node2D, runtime: BUILD) -> void:
 	building.order_assault(unit)
 	building.set_physics_process(false)
 	building._update_attackers(1.0 / 60.0)
-	check(is_equal_approx(building.door_hp, 75.0)
-		and is_equal_approx(building.attackers[unit].next_hit - building._elapsed, 1.0 / 1.23),
+	check(is_equal_approx(building.door_hp, 73.75)
+		and is_equal_approx(building.attackers[unit].next_hit - building._elapsed, 1.4 / 1.23),
 		"Actual exterior assault uses bone growth damage and spasm attack interval")
 	building.cancel_assault(unit)
 	building.door_hp = 100.0
@@ -230,8 +234,8 @@ func check_entrances(mission: Node2D, runtime: BUILD) -> void:
 	building._crossing_lane = 0.0
 	building._next_exit_hit = 0.0
 	building._advance_crossing(1.0 / 60.0)
-	check(is_equal_approx(building.door_hp, 75.0)
-		and is_equal_approx(building._next_exit_hit - building._elapsed, 1.0 / 1.23),
+	check(is_equal_approx(building.door_hp, 73.75)
+		and is_equal_approx(building._next_exit_hit - building._elapsed, 1.4 / 1.23),
 		"Actual inside exit attack uses the same growth damage and spasm interval")
 
 

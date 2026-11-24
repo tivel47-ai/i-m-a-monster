@@ -58,6 +58,7 @@ var rng = RandomNumberGenerator.new()
 @onready var actor = get_parent()
 
 func _ready() -> void:
+	movement_speed = actor.tactical_move_speed(movement_speed)
 	rng.randomize()
 	reporter = REPORTER.new(self)
 	actor.defense.alert.level_changed.connect(_alert_changed)
@@ -77,7 +78,7 @@ func arm(at_church: bool = false) -> void:
 	if weapons.is_empty(): weapons = [&"club"]
 	weapon = weapons[rng.randi_range(0, weapons.size() - 1)]
 	actor.set_meta("civilian_weapon", weapon)
-	# Equipment identity only; existing attack attributes/timers remain unchanged.
+	actor.apply_armed_combat_profile()
 
 func invite(guard: Node, investigation: bool = false, eyewitness: bool = false) -> bool:
 	var now: float = actor.defense.elapsed

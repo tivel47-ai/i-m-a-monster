@@ -868,7 +868,7 @@ func _distance_from_blocked_allies(point: Vector2, allies: Array[Node2D]) -> flo
 func _advance_to_melee(actor: CharacterBody2D, target: Node2D, delta: float) -> bool:
 	var zombie := actor.is_in_group("player_units")
 	var reach: float = actor.INFECTION_DISTANCE if zombie else target.INFECTION_DISTANCE
-	var speed: float = actor.movement_speed() if zombie else actor.move_speed
+	var speed: float = actor.movement_speed() if zombie else actor.tactical_move_speed(actor.move_speed)
 	var previous: Vector2 = _melee_positions.get(actor, Vector2.INF)
 	var stalled := _stalled(actor)
 	if previous.is_finite() and _melee_position_clear(actor, target, previous, reach - 0.5) and not stalled:

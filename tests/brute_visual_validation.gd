@@ -36,7 +36,7 @@ func _run() -> void:
 		quit(1)
 		return
 	_check(brute.get_node("CollisionShape2D").shape.size == Vector2(7.8, 15.6)
-		and brute.attack_damage == 30.0 and brute.attack_interval == 2.0, "Collider and combat stats match the form")
+		and brute.attack_damage == 42.0 and brute.attack_interval == 2.4, "Collider and combat stats match the form")
 	visual._show_idle()
 	_check(_frame_id(visual) in ART.IDLE_BREATHING, "Brute begins with the breathing cycle")
 	visual._idle_time = 5.56
@@ -110,6 +110,7 @@ func _run() -> void:
 		"Damage during windup applies without interrupting or rolling a recoil")
 	var varied := {}
 	for attack in 3:
+		target.current_health = target.max_health
 		var variant := visual._next_attack
 		var before: float = target.current_health
 		brute._on_encounter_attack_timer_timeout()

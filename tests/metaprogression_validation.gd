@@ -166,6 +166,8 @@ func _first_run() -> void:
 	for resident in mission.villagers:
 		if mission.mission_state != mission.MissionState.WON and resident.is_alive():
 			resident.take_damage(1000.0)
+	app._pause()
+	app._finish_mission()
 	await process_frame
 	check(app.screen == app.Screen.RESULTS and app.progression.state.initial_unlocked
 		and "Открыты улучшения" not in app.result_text.text and "Всего Вируса: 2" in app.result_text.text
@@ -385,10 +387,10 @@ func _exercise_mission_build() -> void:
 	combat._on_transformation_timer_timeout()
 	born = get_nodes_in_group("player_units").filter(func(unit): return unit not in existing)
 	check(born.size() == 1 and born[0].is_brute, "The same conversion roll gives the same form for combat infection")
-	check(is_instance_valid(brute) and brute.is_brute and is_equal_approx(brute.current_health, 264.0)
-		and is_equal_approx(brute.move_speed, 65.0) and brute.attack_damage == 30.0
-		and brute.attack_interval == 2.0 and brute.infection_chance == 0.02
-		and is_equal_approx(ordinary.current_health, 132.0), "Converted Brute and ordinary zombie get form-specific stats and additive Flesh II")
+	check(is_instance_valid(brute) and brute.is_brute and is_equal_approx(brute.current_health, 396.0)
+		and is_equal_approx(brute.move_speed, 38.0) and brute.attack_damage == 42.0
+		and brute.attack_interval == 2.4 and brute.infection_chance == 0.02
+		and is_equal_approx(ordinary.current_health, 198.0), "Converted Brute and ordinary zombie get form-specific stats and additive Flesh II")
 	check(runtime.available_uses == 3 and runtime.hunger_slot == 2
 		and is_equal_approx(runtime.hunger_radius, 3.6 * 7.8), "Mission reads the committed slot, rank and world-space radius")
 	_click_control(hud.infection_button)
@@ -476,10 +478,10 @@ func _exercise_mission_build() -> void:
 	check(paused and runtime.queued_points.size() == 2, "Leaving the Esc menu preserves the tactical pause")
 	_key(KEY_SPACE)
 	check(not paused and runtime.targeting and runtime.available_uses == 1 and runtime.queued_points.is_empty()
-		and is_equal_approx(ordinary.movement_speed(), 129.0) and is_equal_approx(brute.movement_speed(), 83.85),
+		and is_equal_approx(ordinary.movement_speed(), 74.82) and is_equal_approx(brute.movement_speed(), 49.02),
 		"Resume executes both reservations without another debit and keeps unfinished targeting")
 	ordinary.speed_modifiers["test_slow"] = -0.20
-	check(is_equal_approx(ordinary.movement_speed(), 109.0), "Independent speed modifiers add")
+	check(is_equal_approx(ordinary.movement_speed(), 63.22), "Independent speed modifiers add")
 	var late := _spawn_zombie(Vector2(230, 900))
 	check(late.hunger_timer == null, "Late arrival gains no aura")
 	ordinary.global_position = Vector2(255, 900)
@@ -498,7 +500,7 @@ func _exercise_mission_build() -> void:
 	mission.toggle_tactical_pause()
 	_click_world(ordinary.global_position)
 	check(runtime.available_uses == 0 and not runtime.targeting and is_equal_approx(ordinary.hunger_timer.time_left, 12.0)
-		and is_equal_approx(ordinary.movement_speed(), 109.0), "Running cast refreshes duration without stacking and spends final use")
+		and is_equal_approx(ordinary.movement_speed(), 63.22), "Running cast refreshes duration without stacking and spends final use")
 	check(hunger_button.disabled and hunger_button.icon != null and hud.hunger_slot_uses.text == "0",
 		"The icon stays visible and the slot becomes inactive after the last use")
 	await _check_brute_hit(brute)
@@ -528,8 +530,8 @@ func _check_brute_hit(brute: Node2D) -> void:
 	brute.infection_chance = 0.0
 	primary.begin_encounter(Color.GREEN, brute)
 	brute._brute_hit(primary)
-	check(primary.current_health == 70.0 and splash_a.current_health == 88.0
-		and splash_b.current_health == 88.0 and outside.current_health == 100.0, "Primary and multiple splash targets receive their own damage exactly once")
+	check(primary.current_health == 58.0 and is_equal_approx(splash_a.current_health, 83.2)
+		and is_equal_approx(splash_b.current_health, 83.2) and outside.current_health == 100.0, "Primary and multiple splash targets receive their own damage exactly once")
 	check(primary.global_position.x > 422.0 and splash_a.global_position == Vector2(422, 910)
 		and splash_b.global_position == Vector2(422, 890), "Only the primary target is knocked back")
 	var wall := StaticBody2D.new()

@@ -55,6 +55,7 @@ border_color = Color(0.45, 0.85, 1, 0.95)
 
 [node name="VillageSimulationMap" type="Node2D" unique_id=1788305390]
 script = ExtResource("1_4nt34")
+unit_balance_v03 = true
 zombie_infection_enabled = true
 dark_fantasy_hud = true
 monster_roster_enabled = true
@@ -5909,13 +5910,9 @@ public_zone_paths = Array[NodePath]([NodePath("../../../ActivityZones/SocialSqua
 
 [node name="PriestGuard1" parent="Villagers" unique_id=146451119 instance=ExtResource("31_priest_guard")]
 position = Vector2(1440, 557)
-max_health = 150.0
-attack_damage = 20.0
 
 [node name="PriestGuard2" parent="Villagers" unique_id=265768842 instance=ExtResource("31_priest_guard")]
 position = Vector2(1350, 580)
-max_health = 150.0
-attack_damage = 20.0
 
 [node name="PriestGuard" parent="Villagers/PriestGuard2" index="9"]
 slot = 1
