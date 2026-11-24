@@ -70,6 +70,7 @@ metadata/artisan_sprites = true
 metadata/guard_sprites = true
 metadata/church_character_sprites = true
 metadata/guard_group_combat = true
+metadata/directional_unit_vision = true
 metadata/map_size = Vector2(3000, 2000)
 
 [node name="Ground" type="Polygon2D" parent="." unique_id=1971172188]

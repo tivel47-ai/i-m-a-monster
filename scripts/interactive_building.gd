@@ -946,9 +946,16 @@ func _nearest_reachable(actor: Node2D, candidates: Array[Node2D], living_residen
 		if living_residents and (candidate.current_health <= 0.0 or not (candidate.is_available_for_infection() or candidate.can_join_encounter())):
 			continue
 		var distance := actor.global_position.distance_squared_to(candidate.global_position)
-		if distance < best and (_line_clear(actor, candidate) or not _path(actor.global_position, candidate.global_position, layout.map, BuildingInterior.NAV_CLEARANCE).is_empty()):
-			best = distance
-			target = candidate
+		if distance >= best:
+			continue
+		if actor.unit_vision != null:
+			var in_contact: bool = living_residents and candidate.is_encounter_owner(actor) and distance <= actor.INFECTION_DISTANCE * actor.INFECTION_DISTANCE
+			if (not in_contact and not actor.unit_vision.contains(candidate.global_position)) or not _line_clear(actor, candidate):
+				continue
+		elif not _line_clear(actor, candidate) and _path(actor.global_position, candidate.global_position, layout.map, BuildingInterior.NAV_CLEARANCE).is_empty():
+			continue
+		best = distance
+		target = candidate
 	return target
 
 
@@ -964,6 +971,8 @@ func _shoot(actor: Node2D, target: Node2D) -> void:
 	var bolt := PROJECTILE.new()
 	bolt.position = mission.to_local(actor.global_position)
 	bolt.direction = actor.global_position.direction_to(target.global_position)
+	if actor.unit_vision != null:
+		actor.unit_vision.face(bolt.direction)
 	bolt.damage = actor.attack_damage
 	bolt.speed = actor.defense_projectile_speed
 	bolt.remaining = actor.defense_weapon_range

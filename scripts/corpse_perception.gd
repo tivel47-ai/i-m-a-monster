@@ -21,7 +21,7 @@ func _physics_process(delta: float) -> void:
 		var body = alert.corpses[id].get_ref()
 		if not is_instance_valid(body) or body.infection_state != body.InfectionState.DEAD:
 			continue
-		if not actor.defense.visible(actor, body, actor.threat_detection.detection_radius):
+		if not actor.threat_detection.can_see(body):
 			continue
 		if not known.has(id):
 			known[id] = {"kind": "corpse", "incident": id, "point": body.global_position,

@@ -321,7 +321,7 @@ func sense() -> void:
 		actor.defense.alert.observe_combat(actor, ally)
 	# A target's death is only resolved when directly visible at this location.
 	for other in candidates:
-		if other.has_method("is_alive") and not other.is_alive() and actor.defense.visible(actor, other, actor.threat_detection.detection_radius):
+		if other.has_method("is_alive") and not other.is_alive() and actor.threat_detection.can_see(other):
 			for task in memory.tasks.duplicate():
 				if task.incident == other.get_instance_id(): memory.finish(task, "completed", "personally observed death")
 
@@ -851,7 +851,9 @@ func update_ai(delta: float) -> bool:
 	if Engine.get_physics_frames() % VISIBILITY_REFRESH_STEPS == visibility_phase:
 		visible_enemies = visible_enemies.filter(actor.threat_detection._is_visible_target)
 	else:
-		visible_enemies = visible_enemies.filter(func(enemy): return actor.threat_detection._is_valid_zombie(enemy))
+		visible_enemies = visible_enemies.filter(func(enemy):
+			return actor.threat_detection._is_valid_zombie(enemy) and (
+				actor.unit_vision == null or actor.unit_vision.contains(enemy.global_position)))
 	for enemy in visible_enemies:
 		if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 			enemy.engage_defender(actor) # self-defense also applies at pursuit/retreat limits
@@ -861,7 +863,7 @@ func update_ai(delta: float) -> bool:
 		# Contact ends when the opponent physically leaves melee, including a
 		# player-ordered zombie; no frozen, remote encounter damage.
 		for enemy in actor.encounter_participants.duplicate():
-			if not is_instance_valid(enemy) or not actor.threat_detection._is_visible_target(enemy) or actor.global_position.distance_to(enemy.global_position) > enemy.INFECTION_DISTANCE + actor.arrival_tolerance:
+			if not actor.threat_detection.has_melee_contact(enemy):
 				actor.leave_encounter(enemy)
 			elif actor.defense.guard_group_combat and enemy.get_instance_id() == pursuit_target:
 				# Melee with the pursued enemy pauses the clock without renewing the chase.

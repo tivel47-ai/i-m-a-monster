@@ -144,6 +144,10 @@ func _physics_process(delta: float) -> void:
 		_show_idle()
 
 
+func vision_direction() -> int:
+	return posmod(_direction + 1, 16) >> 1
+
+
 func play_attack(direction: Vector2, interval: float) -> void:
 	if _clip >= Clip.FALL_FORWARD:
 		return

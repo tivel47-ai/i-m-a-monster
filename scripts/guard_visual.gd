@@ -107,6 +107,10 @@ func _physics_process(delta: float) -> void:
 	_show_frame(int(_phase * 4.0), DIRECTIONAL_IDLE_ROW)
 
 
+func vision_direction() -> int:
+	return _direction
+
+
 func play_impact(heading: Vector2, interval: float) -> void:
 	if _death_time >= 0.0:
 		return

@@ -96,6 +96,10 @@ func _physics_process(delta: float) -> void:
 		_show_idle()
 
 
+func vision_direction() -> int:
+	return _direction
+
+
 func play_attack(direction: Vector2, interval: float) -> void:
 	if _clip_row >= ART.Clip.DEATH_FORWARD:
 		return

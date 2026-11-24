@@ -111,6 +111,10 @@ func _physics_process(delta: float) -> void:
 		_show_idle()
 
 
+func vision_direction() -> int:
+	return _movement_direction()
+
+
 func play_impact(heading: Vector2, interval: float) -> void:
 	if not is_escort or _action == Action.DEATH:
 		return

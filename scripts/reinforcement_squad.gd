@@ -317,7 +317,7 @@ func _point_along_route(offset: float) -> Vector2:
 func update_soldier(guard: Node, delta: float) -> bool:
 	var actor: Node2D = guard.actor
 	for enemy in actor.encounter_participants.duplicate():
-		if not actor.threat_detection._is_visible_target(enemy) or actor.global_position.distance_to(enemy.global_position) > enemy.INFECTION_DISTANCE + actor.arrival_tolerance:
+		if not actor.threat_detection.has_melee_contact(enemy):
 			actor.leave_encounter(enemy)
 	if get_tree().get_first_node_in_group("player_units") != null:
 		for enemy in actor.threat_detection.nearby_threats():

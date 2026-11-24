@@ -52,7 +52,7 @@ The first large village has approximately 30 inhabitants: 19 peasants, 5 artisan
 
 A guard acts on personal observation, physically/audibly received reports, and plausible inference. There is no omniscient shared enemy tracker. Guards do not automatically know every zombie's position, distant combat outcomes, a lost target's current location, another guard's decisions, or the incident location merely because the village bell rang. Reports may be old, incomplete, uncertain, or inaccurate. Remembering a reference to an actor must not grant continuing access to hidden coordinates.
 
-General villager perception uses approximately 360-degree detection, line-of-sight checks, reaction delay, and variation in recognition/reaction. Buildings and obstacles block vision. Guards retain these foundations while applying their own tactical reasoning. A bell conveys danger awareness, not personal visual recognition or exact monster positions.
+В Миссии №1 личное восприятие стражи использует передний полукруг в 180° радиусом 250 игровых единиц. Здания и препятствия перекрывают линию видимости. Задержка распознавания и тактическая оценка сохраняются. Колокол сообщает об опасности, личное наблюдение и координаты врага требуют отдельных сведений.
 
 ### 2.2 B2 — Reasonable Defender
 
@@ -103,7 +103,7 @@ Even defeating one zombie does not automatically require ringing the bell. Consi
 
 В миссии №1 одиночный стражник считает двоих зомби превосходящей угрозой. При двух и более боеспособных защитниках группа допускает перевес в одного зомби. Риск добивания оценивается отдельно по противникам в дистанции удара, которые могут атаковать этого стражника. Для смены решения об опасности оценка должна сохраняться не менее 0,35 с между проверками. Начатый тактический отход имеет прежнее окно в 2 с, а физический контакт сразу включает самозащиту.
 
-Радиус обнаружения обычной стражи и охраны священника в миссии №1 составляет 115% от базового значения. Обзор использует прежние проверки видимости и распознавания.
+Обычная стража, личная охрана и подкрепление используют [единые правила зрения жителей](game_design.md#зрение-юнитов-в-миссии-1). Во время начавшегося ближнего боя контакт проверяется по дистанции и преградам.
 
 Choose a destination dynamically from accessible navigation paths, relative safety, known allies, defensibility, obstacles, environmental danger, and the current situation. It may be near another guard, a post, a passage, or another relatively safe position. There is no rigid universal location list that always selects the same category. Unreachable destinations are invalid. Reevaluate when conditions change; retreat does not grant new information about unseen threats or allies.
 

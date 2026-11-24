@@ -183,7 +183,7 @@ func _show_pose(actor: Node2D, pose: int) -> Vector2:
 		hands = CIVILIAN_HANDS
 		row = maxi(0, CIVILIAN_ROLES.find(role))
 	var frame := Rect2(Vector2(pose, row) * CELL, CELL)
-	actor.show_bell_pose(atlas, frame, FEET)
+	actor.show_bell_pose(atlas, frame, FEET, global_position - actor.global_position)
 	if pose == 0 or pose == 4: return REST_ROPE_END
 	var hand: Vector2 = hands[row][pose - 1]
 	var contact := (hand - FEET) * POSE_SCALE + Vector2(0.0, HUMAN_VISUAL.FEET_Y)

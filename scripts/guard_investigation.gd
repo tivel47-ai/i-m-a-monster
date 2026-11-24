@@ -98,7 +98,7 @@ func sense() -> void:
 		report.point = enemy.global_position
 	for id in observed:
 		var enemy = observed[id].get_ref()
-		if is_instance_valid(enemy) and guard.actor.defense.visible(guard.actor, enemy, guard.actor.threat_detection.detection_radius) and not enemy.is_alive():
+		if is_instance_valid(enemy) and not enemy.is_alive() and guard.actor.threat_detection.can_see(enemy):
 			defeated[id] = true
 			# A corpse is evidence only while personally visible.
 			if guard.memory.incidents.has(id): guard.memory.incidents.erase(id)

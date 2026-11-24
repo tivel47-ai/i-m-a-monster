@@ -244,6 +244,8 @@ func shoot(enemy: Node2D) -> bool:
 		var bolt = PROJECTILE.new()
 		bolt.position = actor.global_position
 		bolt.direction = actor.global_position.direction_to(enemy.global_position)
+		if actor.unit_vision != null:
+			actor.unit_vision.face(bolt.direction)
 		bolt.damage = actor.attack_damage
 		bolt.speed = actor.defense_projectile_speed
 		bolt.remaining = actor.defense_weapon_range
@@ -542,6 +544,7 @@ func sample_fortified_threats() -> void:
 
 func fortified_target_in_range(enemy: Variant, post: Vector2) -> bool:
 	if not is_instance_valid(enemy) or not enemy.is_alive() or is_instance_valid(enemy.interior_building): return false
+	if actor.unit_vision != null and not actor.unit_vision.contains(enemy.global_position): return false
 	if formation.sector(enemy.global_position) != formation.sector(post): return false
 	if ranged():
 		return actor.global_position.distance_to(post) <= actor.arrival_tolerance and actor.global_position.distance_to(enemy.global_position) <= actor.defense_weapon_range
@@ -568,7 +571,10 @@ func update_fortified(delta: float) -> bool:
 			actor.leave_encounter(enemy)
 	if not actor.is_in_collision() and actor.priest_routine == null and actor.threat_detection.detection_enabled:
 		for enemy in formation.exterior_monsters():
-			if is_instance_valid(enemy) and actor.global_position.distance_squared_to(enemy.global_position) <= enemy.INFECTION_DISTANCE * enemy.INFECTION_DISTANCE and enemy.engage_defender(actor):
+			if (is_instance_valid(enemy)
+				and actor.global_position.distance_squared_to(enemy.global_position) <= enemy.INFECTION_DISTANCE * enemy.INFECTION_DISTANCE
+				and (actor.unit_vision == null or actor.threat_detection._is_visible_target(enemy))
+				and enemy.engage_defender(actor)):
 				break
 	if actor.is_in_collision():
 		mode = "hold_contact"

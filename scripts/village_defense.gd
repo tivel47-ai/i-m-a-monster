@@ -45,7 +45,7 @@ func initialize(residents: Array[Node], village_alert: Node) -> void:
 
 func register_resident(actor: Node) -> void:
 	actor.defense = self
-	if guard_group_combat and (actor.guard_patrol != null or actor.priest_guard != null):
+	if actor.unit_vision == null and guard_group_combat and (actor.guard_patrol != null or actor.priest_guard != null):
 		actor.threat_detection.radius_multiplier = 1.15
 	var perception = actor.get_node_or_null("CorpsePerception")
 	if perception == null:

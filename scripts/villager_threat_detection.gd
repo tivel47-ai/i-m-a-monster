@@ -7,6 +7,8 @@ enum Awareness { UNAWARE, RECOGNIZING, AWARE }
 @export var detection_enabled: bool = true
 @export var detection_radius: float = 150.0:
 	get:
+		if is_instance_valid(villager) and villager.unit_vision != null:
+			return villager.unit_vision.radius
 		return detection_radius * radius_multiplier
 @export var recognition_delay_min: float = 0.5
 @export var recognition_delay_max: float = 1.0
@@ -98,15 +100,32 @@ func _is_valid_zombie(target: Variant) -> bool:
 
 
 func _is_visible_target(target: Variant) -> bool:
-	if not _is_valid_zombie(target) or detection_radius <= 0.0:
+	return _is_valid_zombie(target) and can_see(target)
+
+
+func can_see(target: Node2D) -> bool:
+	if not is_instance_valid(target):
 		return false
-	if global_position.distance_squared_to(target.global_position) > detection_radius * detection_radius:
+	if villager.unit_vision != null:
+		if villager.interior_building != target.get("interior_building") or not villager.unit_vision.contains(target.global_position):
+			return false
+	elif detection_radius <= 0.0 or global_position.distance_squared_to(target.global_position) > detection_radius * detection_radius:
 		return false
+	return _line_clear(target)
+
+
+func _line_clear(target: Node2D) -> bool:
 	# Same vision blockers as zombie LOS: solid bodies on layer 1.
 	var ray := PhysicsRayQueryParameters2D.create(global_position, target.global_position)
 	ray.collision_mask = 1
 	ray.exclude = [villager.get_rid()]
 	return get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
+
+
+func has_melee_contact(target: Variant) -> bool:
+	return (_is_valid_zombie(target)
+		and global_position.distance_to(target.global_position) <= target.INFECTION_DISTANCE + villager.arrival_tolerance
+		and (can_see(target) if villager.unit_vision == null else _line_clear(target)))
 
 
 func _nearest_visible_zombie(formation: Node = null) -> Node2D:
@@ -137,7 +156,11 @@ func nearby_threats() -> Array[Node2D]:
 
 
 func get_recognized_target() -> Node2D:
-	return recognized_target if _is_valid_zombie(recognized_target) else null
+	if not _is_valid_zombie(recognized_target):
+		return null
+	if villager.unit_vision != null and not villager.unit_vision.contains(recognized_target.global_position):
+		return null
+	return recognized_target
 
 
 func reset_awareness() -> void:

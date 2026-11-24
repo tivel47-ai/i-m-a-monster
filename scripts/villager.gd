@@ -7,7 +7,9 @@ const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 const CHURCH_CHARACTER_VISUAL = preload("res://scripts/church_character_visual.gd")
 const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
 const MISSION_BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
+const UNIT_VISION = preload("res://scripts/unit_vision.gd")
 var melee_route: LOCAL_MELEE_ROUTE
+var unit_vision: UNIT_VISION
 var _body_sprite: Sprite2D
 var _civilian_visual: PEASANT_VISUAL
 var _guard_visual: GUARD_VISUAL
@@ -182,6 +184,8 @@ func _ready() -> void:
 	encounter_attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(encounter_attack_timer)
 	_setup_body_sprite()
+	unit_vision = UNIT_VISION.attach(self, _body_sprite, UNIT_VISION.RESIDENT_RADIUS,
+		priest_routine != null or get_meta("village_role", "") == "priest")
 	if current_health == 0.0:
 		_die()
 
@@ -250,7 +254,9 @@ func bell_pose_role() -> StringName:
 	return StringName(get_meta("village_role", "peasant"))
 
 
-func show_bell_pose(atlas: Texture2D, frame: Rect2, feet: Vector2) -> void:
+func show_bell_pose(atlas: Texture2D, frame: Rect2, feet: Vector2, direction := Vector2.ZERO) -> void:
+	if unit_vision != null:
+		unit_vision.face_for_pose(direction)
 	if _bell_pose == null:
 		_bell_pose = Sprite2D.new()
 		_bell_pose.name = "BellPullPose"
@@ -273,6 +279,8 @@ func show_bell_pose(atlas: Texture2D, frame: Rect2, feet: Vector2) -> void:
 
 func clear_bell_pose() -> void:
 	if _bell_pose == null or not _bell_pose.visible: return
+	if unit_vision != null:
+		unit_vision.face_for_pose(Vector2.ZERO)
 	_bell_pose.hide()
 	if infection_state == InfectionState.CONVERTED: return
 	if _body_sprite == null:
@@ -927,6 +935,8 @@ func _on_encounter_attack_timer_timeout() -> void:
 		_guard_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	elif _civilian_visual != null:
 		_civilian_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
+	elif unit_vision != null:
+		unit_vision.face(participant.global_position - global_position)
 	participant.call("take_damage", attack_damage, participant.global_position - global_position)
 
 

@@ -273,6 +273,7 @@ func build() -> void:
 	village.name = "VillageSimulationMap"
 	village.set_meta("local_melee_routing", true)
 	village.set_meta("guard_group_combat", true)
+	village.set_meta("directional_unit_vision", true)
 	village.set_meta("church_character_sprites", true)
 	village.set_meta("map_size", Vector2(3000,2000))
 	var ground := patch(village,"Ground",Vector2(1500,1000),Vector2(3000,2000),Color.WHITE)

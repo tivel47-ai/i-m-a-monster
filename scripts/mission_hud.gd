@@ -47,6 +47,7 @@ var developer_button: Button
 var developer_panel: PanelContainer
 var developer_tool_label: Label
 var developer_ability_popup: PopupMenu
+var developer_vision_toggle: CheckButton
 
 
 func _ready() -> void:
@@ -488,6 +489,11 @@ func _build_developer_tools() -> void:
 	refill.text = "Восстановить заряды"
 	refill.pressed.connect(mission.developer_restore_charges)
 	box.add_child(refill)
+	developer_vision_toggle = CheckButton.new()
+	developer_vision_toggle.text = "Показать обзор юнитов"
+	developer_vision_toggle.visible = mission.get_meta("directional_unit_vision", false)
+	developer_vision_toggle.toggled.connect(mission.set_developer_vision)
+	box.add_child(developer_vision_toggle)
 	_label(box, "Этап оповещения", 14)
 	var alert: Node = mission.get_node("VillageAlert")
 	var stages := OptionButton.new()
@@ -569,6 +575,7 @@ func set_developer_mode(enabled: bool) -> void:
 	developer_button.visible = enabled
 	developer_panel.visible = false
 	developer_ability_popup.hide()
+	developer_vision_toggle.set_pressed_no_signal(mission.developer_vision)
 	if not enabled: _choose_developer_tool("")
 	if _zombie_skin:
 		mission.get_node("VillageAlert").set_debug_overlay_suppressed(not enabled)

@@ -273,7 +273,7 @@ func _combat_started(enemy: Node2D, resident: Node2D) -> void:
 	for observer in get_parent().villagers:
 		if not is_instance_valid(observer) or observer.guard_ai == null or not observer.guard_ai.enabled or not observer.is_alive() or observer.infection_state == observer.InfectionState.TRANSFORMING:
 			continue
-		if observer.threat_detection.detection_enabled and observer.threat_detection._is_visible_target(enemy) and observer.defense.visible(observer, resident, observer.threat_detection.detection_radius):
+		if observer.threat_detection.detection_enabled and observer.threat_detection._is_visible_target(enemy) and observer.threat_detection.can_see(resident):
 			confirm_threat(observer, enemy.get_instance_id())
 			record_danger("combat:%d:%d" % [id, episode], &"combat", id, combat_danger)
 
@@ -325,7 +325,7 @@ func confirm_corpse(guard: Node2D, message: Dictionary, source: Node2D = null) -
 		if civilian or source != guard:
 			guard.guard_ai.investigation.queue_corpse(message)
 	if not civilian and source == guard and not corpse_decisions.get(id, false):
-		if guard.defense.visible(guard, body, guard.threat_detection.detection_radius) and guard.guard_ai.raise_alarm_for_confirmed_death(message):
+		if guard.threat_detection.can_see(body) and guard.guard_ai.raise_alarm_for_confirmed_death(message):
 			corpse_decisions[id] = true
 
 
@@ -348,7 +348,7 @@ func _respond_to_guard_corpse(
 			guard.guard_ai.investigation.queue_corpse(message)
 			guard_corpse_responses[id] = {"guard": weakref(guard), "bell": false}
 		return
-	if guard.defense.visible(guard, body, guard.threat_detection.detection_radius) \
+	if guard.threat_detection.can_see(body) \
 		and guard.guard_ai.raise_alarm_for_confirmed_death(message):
 		guard_corpse_responses[id] = {"guard": weakref(guard), "bell": true}
 
@@ -361,7 +361,7 @@ func observe_corpse(observer: Node2D, message: Dictionary) -> void:
 		return
 	var body = corpses[id].get_ref()
 	if is_instance_valid(body) and body.infection_state == body.InfectionState.DEAD \
-		and observer.defense.visible(observer, body, observer.threat_detection.detection_radius):
+		and observer.threat_detection.can_see(body):
 		_register_corpse(id)
 
 

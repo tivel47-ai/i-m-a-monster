@@ -37,6 +37,7 @@ var mission_build: ZOMBIE_MISSION_BUILD
 var tactical_pause := false
 var menu_paused := false
 var developer_mode := false
+var developer_vision := false
 var developer_spawn := ""
 var _developer_build: ZOMBIE_MISSION_BUILD
 @export var building_rules := BuildingRules.new()
@@ -446,6 +447,7 @@ func set_developer_mode(enabled: bool) -> void:
 	developer_mode = enabled
 	if not enabled:
 		developer_spawn = ""
+		set_developer_vision(false)
 		var runtime := ability_runtime()
 		if runtime != null:
 			runtime.clear_developer_abilities()
@@ -456,6 +458,11 @@ func set_developer_mode(enabled: bool) -> void:
 				_update_pause_state()
 		command_overlay.queue_redraw()
 	if is_instance_valid(mission_hud): mission_hud.set_developer_mode(enabled)
+
+
+func set_developer_vision(enabled: bool) -> void:
+	developer_vision = enabled and developer_mode and get_meta("directional_unit_vision", false)
+	command_overlay.queue_redraw()
 
 
 func developer_add_ability(race: String, id: String) -> bool:
@@ -701,7 +708,7 @@ func cancel_selection() -> void:
 
 func _process(delta: float) -> void:
 	var runtime := ability_runtime()
-	if runtime != null and runtime.targeting:
+	if developer_vision or (runtime != null and runtime.targeting):
 		command_overlay.queue_redraw()
 	if horde_commands != null and horde_commands.assault_quantity > 0:
 		if horde_commands.update_assault(delta, maxf(assault_increment_seconds, 0.01)):
@@ -1099,6 +1106,9 @@ func _update_command_preview(delta: float) -> void:
 	command_overlay.queue_redraw()
 
 func _draw_command_overlay() -> void:
+	if developer_vision:
+		_draw_vision_group(&"activity_zone_residents", Color(0.3, 0.95, 0.36, 0.57))
+		_draw_vision_group(&"player_units", Color(1.0, 0.24, 0.22, 0.7))
 	var runtime := ability_runtime()
 	if runtime != null:
 		for index in runtime.queued_points.size():
@@ -1131,6 +1141,12 @@ func _draw_command_overlay() -> void:
 	for target in marked_command_targets:
 		if is_instance_valid(target) and target.is_alive() and not is_instance_valid(target.interior_building):
 			command_overlay.draw_circle(to_local(target.global_position + Vector2(0, -25)), 3.0, Color.RED)
+
+
+func _draw_vision_group(group: StringName, color: Color) -> void:
+	for actor in get_tree().get_nodes_in_group(group):
+		if is_ancestor_of(actor) and actor.is_alive() and actor.is_visible_in_tree() and actor.unit_vision != null:
+			actor.unit_vision.draw_outline(command_overlay, color)
 
 
 func _notification(what: int) -> void:

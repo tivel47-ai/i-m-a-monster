@@ -16,6 +16,7 @@ const ORDINARY_VISUAL = preload("res://scripts/ordinary_zombie_visual.gd")
 const BRUTE_VISUAL = preload("res://scripts/brute_visual.gd")
 const INFECTED_FORM_VISUAL = preload("res://scripts/infected_form_visual.gd")
 const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
+const UNIT_VISION = preload("res://scripts/unit_vision.gd")
 const POUNCE_RANGE := 3.0 * INFECTION_DISTANCE
 const POUNCE_REARM_DISTANCE := 2.0 * INFECTION_DISTANCE
 const POUNCE_LANDING_DISTANCE := 16.0
@@ -89,6 +90,8 @@ var aggro_target: Node2D
 var aggro_destination_origin: Vector2
 var aggro_candidates: Array[Node2D] = []
 var melee_route: LOCAL_MELEE_ROUTE
+var unit_vision: UNIT_VISION
+var _form_visual: Sprite2D
 var crowd_rest_position: Vector2
 var crowd_is_displaced: bool = false
 var crowd_is_returning: bool = false
@@ -118,6 +121,12 @@ func _ready() -> void:
 	attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(attack_timer)
 	_setup_form_visual()
+	unit_vision = UNIT_VISION.attach(self, _form_visual, UNIT_VISION.ZOMBIE_RADIUS)
+	if unit_vision != null:
+		var aggro_shape: CollisionShape2D = $AggroArea/CollisionShape2D
+		var vision_circle := CircleShape2D.new()
+		vision_circle.radius = unit_vision.radius
+		aggro_shape.shape = vision_circle
 	if current_health == 0.0:
 		_die()
 
@@ -145,6 +154,7 @@ func _setup_form_visual() -> void:
 
 
 func _attach_form_visual(visual: Sprite2D) -> void:
+	_form_visual = visual
 	add_child(visual)
 	zombie_visual.hide()
 	# Keep the starting pose even if the roster first sees this unit mid-animation.
@@ -178,6 +188,8 @@ func _uses_form_sprites(flag: StringName) -> bool:
 
 
 func play_attack_visual(world_point: Vector2) -> void:
+	if unit_vision != null and _form_visual == null:
+		unit_vision.face(world_point - global_position)
 	if _brute_visual != null:
 		# Every caller reports a resolved hit. Only the encounter timer offers a windup.
 		_brute_visual.play_attack(world_point - global_position, effective_attack_interval())
@@ -447,7 +459,7 @@ func is_assaulting_building() -> bool:
 
 func engage_close_exterior_resident() -> bool:
 	for resident in aggro_candidates:
-		if is_instance_valid(resident) and resident.is_alive() and engage_defender(resident):
+		if is_instance_valid(resident) and resident.is_alive() and _in_view(resident) and engage_defender(resident):
 			return true
 	return false
 
@@ -651,7 +663,7 @@ func _update_aggro_target(delta: float) -> bool:
 		aggro_reacquire_delay = maxf(aggro_reacquire_delay - delta, 0.0)
 		return false
 
-	if is_instance_valid(aggro_target) and _has_line_of_sight(aggro_target) and (
+	if is_instance_valid(aggro_target) and (aggro_target.is_encounter_owner(self) or _in_view(aggro_target)) and _has_line_of_sight(aggro_target) and (
 		aggro_target.is_available_for_infection() or aggro_target.is_in_collision()
 	):
 		return _pursue_aggro_target(delta)
@@ -665,7 +677,7 @@ func _update_aggro_target(delta: float) -> bool:
 	var closest_visible_target: Node2D
 	var closest_distance_squared := INF
 	for candidate in aggro_candidates:
-		if not is_instance_valid(candidate) or not _has_line_of_sight(candidate):
+		if not is_instance_valid(candidate) or not _in_view(candidate) or not _has_line_of_sight(candidate):
 			continue
 		if not candidate.has_method("is_available_for_infection"):
 			continue
@@ -920,6 +932,10 @@ func _combat_approach(direction: Vector2) -> Vector2:
 			best = point
 			distance = cost
 	return best
+
+
+func _in_view(target: Node2D) -> bool:
+	return unit_vision == null or unit_vision.contains(target.global_position)
 
 
 func _has_line_of_sight(target: Node2D, for_melee := false) -> bool:
@@ -1349,6 +1365,8 @@ func _try_other_melee_target() -> void:
 	var reach := LOCAL_MELEE_ROUTE.LOCAL_DISTANCE
 	for candidate in candidates:
 		if not is_instance_valid(candidate) or candidate == aggro_target:
+			continue
+		if priority_targets.is_empty() and not _in_view(candidate):
 			continue
 		if global_position.distance_squared_to(candidate.global_position) > reach * reach:
 			continue
