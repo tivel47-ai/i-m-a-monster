@@ -1,7 +1,6 @@
 class_name InteractiveBuilding
 extends Node2D
 
-const PROJECTILE = preload("res://scripts/defender_projectile.gd")
 const ARRIVAL := 1.5
 const REPATH_SECONDS := 0.35
 const SIGNAL_DOOR_MULTIPLIER := 5.0
@@ -43,7 +42,6 @@ var _crossing_stalled := 0.0
 var _next_exit_hit := 0.0
 var _paths: Dictionary = {}
 var _rest: Dictionary = {}
-var _shot_after: Dictionary = {}
 var _worker_retry: Dictionary = {}
 var _vacating: Dictionary = {}
 var _attack_stations: Dictionary = {}
@@ -267,7 +265,6 @@ func _remove_unavailable() -> void:
 func _clear_actor(actor: Variant) -> void:
 	_paths.erase(actor)
 	_rest.erase(actor)
-	_shot_after.erase(actor)
 	_worker_retry.erase(actor)
 	_attack_stations.erase(actor)
 	_melee_positions.erase(actor)
@@ -803,7 +800,10 @@ func _update_battle(delta: float) -> void:
 			continue
 		if resident.defense_ranged_weapon and (resident.guard_ai != null or resident.priest_guard != null) and resident.global_position.distance_to(target.global_position) <= resident.defense_weapon_range and _line_clear(resident, target):
 			_melee_positions.erase(resident)
-			_shoot(resident, target)
+			if resident.has_destination or not resident.velocity.is_zero_approx():
+				resident._stop_movement()
+			else:
+				resident.try_fire_defense_bolt(target)
 		elif not target.engage_defender(resident):
 			_advance_to_melee(resident, target, delta)
 		else:
@@ -974,22 +974,6 @@ func _nearest_reachable(actor: Node2D, candidates: Array[Node2D], living_residen
 func _line_clear(actor: Node2D, target: Node2D) -> bool:
 	var ray := PhysicsRayQueryParameters2D.create(actor.global_position, target.global_position, 1)
 	return get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
-
-
-func _shoot(actor: Node2D, target: Node2D) -> void:
-	if _elapsed < float(_shot_after.get(actor, 0.0)):
-		return
-	_shot_after[actor] = _elapsed + maxf(actor.attack_interval, 0.01)
-	var bolt := PROJECTILE.new()
-	bolt.position = mission.to_local(actor.global_position)
-	bolt.direction = actor.global_position.direction_to(target.global_position)
-	if actor.unit_vision != null:
-		actor.unit_vision.face(bolt.direction)
-	bolt.damage = actor.attack_damage
-	bolt.speed = actor.defense_projectile_speed
-	bolt.remaining = actor.defense_weapon_range
-	bolt.interior_building = self
-	mission.add_child(bolt)
 
 
 func _assign_rest(actor: Node2D) -> void:

@@ -44,6 +44,12 @@ func face(direction: Vector2) -> void:
 		_fallback_angle = snappedf(direction.angle(), DIRECTION_STEP)
 
 
+func face_at_rest(direction: Vector2) -> void:
+	# The last navigation step may have landed after the previous vision tick.
+	_last_position = _actor.global_position
+	face(direction)
+
+
 func face_for_pose(direction: Vector2) -> void:
 	_pose_angle = INF if direction.is_zero_approx() else snappedf(direction.angle(), DIRECTION_STEP)
 

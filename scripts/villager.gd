@@ -1,4 +1,5 @@
 extends CharacterBody2D
+const DEFENDER_PROJECTILE = preload("res://scripts/defender_projectile.gd")
 
 const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PEASANT_VISUAL = preload("res://scripts/peasant_visual.gd")
@@ -53,8 +54,12 @@ enum InfectionSource { NONE, ZOMBIE_COMBAT, PLAYER_ABILITY }
 @export_group("Defensive ranged equipment")
 ## Opt-in equipment; existing maps keep their current melee assignments.
 @export var defense_ranged_weapon: bool = false
+## Negative values preserve the shared attack profile for legacy equipment.
+@export var defense_ranged_damage: float = -1.0
+@export var defense_ranged_interval: float = -1.0
 @export var defense_weapon_range: float = 150.0
 @export var defense_projectile_speed: float = 280.0
+var ranged_ready_at: float = 0.0
 
 @export_group("Peaceful activities")
 @export_enum("Villager", "Peasant", "Craftsman") var civilian_profile: String = "Villager"
@@ -152,6 +157,11 @@ func configure_mission_balance() -> void:
 			guard_variant = MISSION_BALANCE.SHIELD
 		_balance_profile = MISSION_BALANCE.GUARD_VARIANTS[guard_variant]
 		defense_ranged_weapon = guard_variant == MISSION_BALANCE.CROSSBOW
+		if defense_ranged_weapon:
+			defense_ranged_damage = _balance_profile.ranged_damage
+			defense_ranged_interval = _balance_profile.ranged_interval
+			defense_weapon_range = _balance_profile.ranged_distance
+			defense_projectile_speed = _balance_profile.projectile_speed
 	else:
 		_balance_profile = MISSION_BALANCE.HUMANS.get(type_id, {})
 	if _balance_profile.is_empty():
@@ -172,6 +182,38 @@ func guard_pursuit_limit(limit: float) -> float:
 
 func guard_support_priority() -> float:
 	return _balance_profile.get("support_priority", 0.0)
+
+
+func has_mission_crossbow() -> bool:
+	return guard_variant == MISSION_BALANCE.CROSSBOW and _balance_profile.has("ranged_damage")
+
+
+func try_fire_defense_bolt(enemy: Node2D) -> bool:
+	if not defense_ranged_weapon or not is_instance_valid(defense) or not can_process():
+		return false
+	if not is_available_for_infection() or is_in_collision() or has_destination or not velocity.is_zero_approx():
+		return false
+	if not threat_detection._is_visible_target(enemy):
+		return false
+	var offset := enemy.global_position - global_position
+	if offset.length_squared() > defense_weapon_range * defense_weapon_range or offset.is_zero_approx():
+		return false
+	if unit_vision != null:
+		unit_vision.face_at_rest(offset)
+	if defense.elapsed < ranged_ready_at:
+		return true
+	var interval := defense_ranged_interval if defense_ranged_interval >= 0.0 else attack_interval
+	ranged_ready_at = defense.elapsed + maxf(interval, 0.01)
+	var battlefield: Node2D = defense.get_parent()
+	var bolt := DEFENDER_PROJECTILE.new()
+	bolt.position = battlefield.to_local(global_position)
+	bolt.direction = offset.normalized()
+	bolt.damage = defense_ranged_damage if defense_ranged_damage >= 0.0 else attack_damage
+	bolt.speed = defense_projectile_speed
+	bolt.remaining = defense_weapon_range
+	bolt.interior_building = interior_building
+	battlefield.add_child(bolt)
+	return true
 
 
 func apply_armed_combat_profile() -> void:

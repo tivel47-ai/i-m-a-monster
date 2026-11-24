@@ -398,7 +398,7 @@ func test_wave_and_squad() -> void:
 	await frames(3)
 	squad._make_decisions(defense.elapsed)
 	check(squad.mode == squad.Mode.COMBAT and squad.target == intruder, "Personal monster detection interrupts the squad's patrol")
-	check(await until(func(): return ranged_guard.guard_ai.next_shot > 0.0, 90), "A crossbow guard fires a bolt at a shared target")
+	check(await until(func(): return ranged_guard.ranged_ready_at > 0.0, 90), "A crossbow guard fires a bolt at a shared target")
 	squad.pursuit_limit = 25.0
 	squad._make_decisions(defense.elapsed)
 	check(squad.mode == squad.Mode.REGROUP and squad.target == null, "The squad gives up a detected target outside its pursuit limit and regroups")
@@ -482,6 +482,10 @@ func test_formation_ranks() -> void:
 	check(front > 0 and occupied_front == front, "The filled front rank spans the entire available perimeter")
 	var occupied_rows: Array = formation.places.values().map(func(point): return formation._slot_ranks.get(point, -1))
 	check(not occupied_rows.has(-1) and [0, 1, 2].all(occupied_rows.has), "All three barricade-aligned ranks are occupied")
+	var crossbows := defenders.filter(func(actor): return actor.has_mission_crossbow())
+	check(not crossbows.is_empty() and crossbows.all(func(actor):
+		return formation._slot_ranks.get(formation.places.get(actor.get_instance_id()), -1) > 0
+	), "Crossbowmen take rear rank positions when enough slots are available")
 	check(await until(func(): return defenders.all(func(actor): return actor.global_position.distance_to(formation.places.get(actor.get_instance_id(), Vector2.INF)) <= actor.arrival_tolerance + 0.5), 400), "The assembled defenders physically settle on their ranked posts")
 	var reservations: Dictionary = formation.places.duplicate()
 	await frames(65)

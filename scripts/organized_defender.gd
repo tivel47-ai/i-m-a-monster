@@ -1,6 +1,5 @@
 extends RefCounted
 ## Per-resident decisions. All opponents and helpers come from personal, local perception.
-const PROJECTILE = preload("res://scripts/defender_projectile.gd")
 const RESIDENT_BODY_LAYER := 4
 var formation: Node
 var actor: Node2D
@@ -17,7 +16,7 @@ var immediate_until: float = 0.0
 var next_decision: float = 0.0
 var next_position_retry := 0.0
 var next_plan: float = 0.0
-var next_shot: float = 0.0
+var crossbow_return_allowed := false
 var help_sector: int = -1
 var transfer_sector: int = -1
 var help_origin: Vector2 = Vector2.INF
@@ -86,7 +85,8 @@ func sense() -> void:
 			if not seen_since.has(id): seen_since[id] = now() + actor.threat_detection.recognition_delay_max
 			var contact = actor.global_position.distance_to(other.global_position) <= other.INFECTION_DISTANCE
 			var known = contact or other == actor.get_recognized_threat() or actor.encounter_participants.has(other)
-			if actor.guard_ai != null: known = known or actor.guard_ai.visible_enemies.has(other)
+			if actor.guard_ai != null:
+				known = known or actor.guard_ai.visible_enemies.has(other) or remembers_crossbow_threat(other)
 			if known or now() >= float(seen_since[id]): enemies.append(other)
 			elif formation.arrived(actor) and actor.global_position.distance_to(other.global_position) <= formation.intercept_distance:
 				enemies.append(other)
@@ -239,19 +239,60 @@ func ranged() -> bool:
 func shoot(enemy: Node2D) -> bool:
 	if not ranged() or not actor.threat_detection._is_visible_target(enemy): return false
 	if actor.global_position.distance_to(enemy.global_position) > actor.defense_weapon_range: return false
-	halt()
-	if now() >= next_shot:
-		next_shot = now() + maxf(actor.attack_interval, 0.01)
-		var bolt = PROJECTILE.new()
-		bolt.position = actor.global_position
-		bolt.direction = actor.global_position.direction_to(enemy.global_position)
-		if actor.unit_vision != null:
-			actor.unit_vision.face(bolt.direction)
-		bolt.damage = actor.attack_damage
-		bolt.speed = actor.defense_projectile_speed
-		bolt.remaining = actor.defense_weapon_range
-		formation.service.get_parent().add_child(bolt)
-	return true
+	if actor.has_destination or not actor.velocity.is_zero_approx():
+		halt()
+		return true
+	return actor.try_fire_defense_bolt(enemy)
+
+
+func crossbow_in_sector(point: Vector2, post: Vector2) -> bool:
+	return (point.distance_to(post) <= formation.intercept_distance
+		and formation.inside(point) and formation.sector(point) == formation.sector(post))
+
+
+func defend_crossbow_post(post: Vector2, delta: float, decision: bool) -> bool:
+	var crossbow: RefCounted = actor.guard_ai.crossbow
+	var sector: int = formation.sector(post)
+	var allowed := crossbow_in_sector.bind(post)
+	var threat_in_sector := func(point: Vector2) -> bool:
+		return formation.sector(point) == sector
+	var protectors: Array[Node2D] = []
+	if decision and not enemies.is_empty():
+		# Use the nearby physics set, not the list of every defender.
+		for ally in formation.service.nearby(actor, crossbow.TUNING.protection_radius):
+			var peer = formation.controller(ally)
+			if peer != null and formation.arrived(ally) and peer.transfer_sector < 0 and formation.sector(peer.home()) == sector:
+				protectors.append(ally)
+	if crossbow.step(now(), delta, enemies, protectors, [&"defense", post], allowed, move_to.bind(true, false), halt,
+			formation.decision_interval, decision, threat_in_sector):
+		mode = "combat"
+		target = null
+		if not crossbow.goal.is_finite(): next_decision = now()
+		return true
+	if decision and enemies.is_empty():
+		crossbow.end_if_quiet(now(), post)
+	if crossbow.hold_position.is_finite() and not allowed.call(actor.global_position):
+		crossbow.hold_position = Vector2.INF
+	var at_post: bool = actor.global_position.distance_to(post) <= actor.arrival_tolerance
+	if not at_post and crossbow.hold_position.is_finite():
+		if decision:
+			crossbow_return_allowed = crossbow.can_recover(post, now(), enemies, allowed)
+		if crossbow_return_allowed:
+			mode = "return"
+			crossbow_return_allowed = move_to(post, delta, true, false) != actor.NavigationResult.FAILED
+			return true
+	if at_post or crossbow.hold_position.is_finite():
+		if decision: target = choose_fortified_target(post)
+		if fortified_target_in_range(target, post) and shoot(target):
+			mode = "combat"
+			return true
+	if not at_post and crossbow.hold_position.is_finite():
+		halt()
+		return true
+	if at_post:
+		crossbow.hold_position = Vector2.INF
+		crossbow_return_allowed = false
+	return false
 
 func approach_point(enemy: Node2D) -> Vector2:
 	var limit := combat_limit()
@@ -534,7 +575,9 @@ func sample_fortified_threats() -> void:
 			var id: int = enemy.get_instance_id()
 			present[id] = true
 			if not seen_since.has(id): seen_since[id] = now() + actor.threat_detection.recognition_delay_max
-			if enemy == actor.get_recognized_threat() or now() >= float(seen_since[id]) or actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance:
+			if (enemy == actor.get_recognized_threat() or now() >= float(seen_since[id])
+				or actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance
+				or remembers_crossbow_threat(enemy)):
 				enemies.append(enemy)
 	for id in seen_since.keys():
 		if not present.has(id): seen_since.erase(id)
@@ -543,12 +586,18 @@ func sample_fortified_threats() -> void:
 	for point in failed.keys():
 		if now() >= float(failed[point]): failed.erase(point)
 
+func remembers_crossbow_threat(enemy: Node2D) -> bool:
+	return actor.guard_ai != null and actor.guard_ai.crossbow != null and actor.guard_ai.crossbow.remembers(enemy, now())
+
 func fortified_target_in_range(enemy: Variant, post: Vector2) -> bool:
 	if not is_instance_valid(enemy) or not enemy.is_alive() or is_instance_valid(enemy.interior_building): return false
 	if actor.unit_vision != null and not actor.unit_vision.contains(enemy.global_position): return false
 	if formation.sector(enemy.global_position) != formation.sector(post): return false
 	if ranged():
-		return actor.global_position.distance_to(post) <= actor.arrival_tolerance and actor.global_position.distance_to(enemy.global_position) <= actor.defense_weapon_range
+		var crossbow = actor.guard_ai.crossbow if actor.guard_ai != null else null
+		var at_post = actor.global_position.distance_to(post) <= actor.arrival_tolerance
+		return ((at_post or (crossbow != null and crossbow.hold_position.is_finite()))
+			and actor.global_position.distance_to(enemy.global_position) <= actor.defense_weapon_range)
 	var reach: float = actor.guard_pursuit_limit(formation.intercept_distance)
 	return formation.inside(enemy.global_position) and actor.global_position.distance_to(enemy.global_position) <= reach and post.distance_to(enemy.global_position) <= reach
 
@@ -585,6 +634,9 @@ func update_fortified(delta: float) -> bool:
 				and enemy.engage_defender(actor)):
 				break
 	if actor.is_in_collision():
+		if actor.guard_ai != null and actor.guard_ai.crossbow != null:
+			actor.guard_ai.crossbow.note_contact(now())
+			actor.guard_ai.crossbow.interrupt()
 		mode = "hold_contact"
 		target = null
 		halt()
@@ -604,14 +656,11 @@ func update_fortified(delta: float) -> bool:
 		transfer_sector = -1
 		target = null
 	if actor.priest_routine == null and post.is_finite():
-		if decision: target = choose_fortified_target(post)
-		if fortified_target_in_range(target, post):
-			if ranged():
-				mode = "combat"
-				halt()
-				if now() < next_shot or shoot(target): return true
-			elif engage(target, delta):
-				return true
+		if actor.guard_ai != null and actor.guard_ai.crossbow != null:
+			if transfer_sector < 0 and defend_crossbow_post(post, delta, decision): return true
+		else:
+			if decision: target = choose_fortified_target(post)
+			if fortified_target_in_range(target, post) and engage(target, delta): return true
 		target = null
 		if decision and transfer_sector < 0 and formation._reinforcement_flank >= 0 and actor.global_position.distance_to(post) <= actor.arrival_tolerance:
 			var flank: int = formation.reinforcement_target(actor)
@@ -643,6 +692,9 @@ func update(delta: float) -> bool:
 				immediate_until = now() + formation.decision_interval * 2.0
 				if actor.priest_routine == null: enemy.engage_defender(actor)
 	if actor.is_in_collision():
+		if actor.guard_ai != null and actor.guard_ai.crossbow != null:
+			actor.guard_ai.crossbow.note_contact(now())
+			actor.guard_ai.crossbow.interrupt()
 		if dash_until > now() and travel_goal.is_finite(): remember_failure(travel_goal)
 		dash_until = 0.0
 		mode = "hold_contact"
@@ -657,7 +709,10 @@ func update(delta: float) -> bool:
 			target = null
 	var defending = formation.arrived(actor) and (formation.places.has(actor.get_instance_id()) or formation.inside(actor.global_position, formation.intercept_distance))
 	if defending and not formation.places.has(actor.get_instance_id()): formation.position_for(actor)
-	if actor.priest_routine == null:
+	var mission_crossbow: bool = actor.guard_ai != null and actor.guard_ai.crossbow != null
+	if mission_crossbow and defending and formation.places.has(actor.get_instance_id()) and transfer_sector < 0:
+		if defend_crossbow_post(home(), delta, decision): return true
+	if actor.priest_routine == null and not mission_crossbow:
 		if decision or not is_instance_valid(target): target = choose_target(defending)
 		if target != null:
 			# Never let a moving target drag the defender beyond its original local area.
@@ -689,7 +744,7 @@ func update(delta: float) -> bool:
 		formation.release_place(actor)
 		travel(formation.center, delta)
 		return true
-	if defending and actor.priest_routine == null:
+	if defending and actor.priest_routine == null and not mission_crossbow:
 		var rescue = rescue_target()
 		if rescue != null and engage(rescue, delta):
 			mode = "local_rescue"

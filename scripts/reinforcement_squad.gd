@@ -322,6 +322,7 @@ func _point_along_route(offset: float) -> Vector2:
 
 func update_soldier(guard: Node, delta: float) -> bool:
 	var actor: Node2D = guard.actor
+	var crossbow: RefCounted = guard.crossbow
 	for enemy in actor.encounter_participants.duplicate():
 		if not actor.threat_detection.has_melee_contact(enemy):
 			actor.leave_encounter(enemy)
@@ -330,18 +331,56 @@ func update_soldier(guard: Node, delta: float) -> bool:
 			if enemy.global_position.distance_to(actor.global_position) <= enemy.INFECTION_DISTANCE and actor.threat_detection._is_visible_target(enemy):
 				enemy.engage_defender(actor)
 	if actor.is_in_collision():
+		if crossbow != null:
+			crossbow.note_contact(guard.now())
+			crossbow.interrupt()
 		guard.halt()
 		return true
-	if mode == Mode.COMBAT and is_instance_valid(target) and target.is_alive():
+	var ready_target: bool = is_instance_valid(target) and target.is_alive()
+	if mode == Mode.COMBAT and (crossbow != null or ready_target):
 		var limit: float = actor.guard_pursuit_limit(pursuit_limit)
+		if crossbow != null:
+			var within_encounter := func(point: Vector2) -> bool:
+				return encounter_origin.distance_to(point) <= limit
+			var local: Array[Node2D] = guard.visible_enemies.filter(func(enemy):
+				return is_instance_valid(enemy) and enemy.is_alive()
+			)
+			var current_target: Node2D
+			if ready_target and within_encounter.call(target.global_position) and actor.threat_detection._is_visible_target(target):
+				current_target = target
+				if not local.has(target): local.append(target)
+			var companions: Array[Node2D] = guard.local_allies.filter(func(ally):
+				return is_instance_valid(ally) and ally.reinforcement_squad == self and not isolated.has(ally)
+			)
+			if guard.crossbow_disengage(delta, local, companions, [&"squad", get_instance_id()], within_encounter):
+				return true
+			if current_target == null:
+				for enemy in local:
+					if actor.threat_detection._is_visible_target(enemy) and within_encounter.call(enemy.global_position):
+						current_target = enemy
+						break
+			if current_target != null:
+				if not guard.engage_target(current_target, delta, encounter_origin, limit):
+					guard.halt()
+				return true
+			if guard.now() - crossbow.settled_at < decision_interval:
+				guard.halt()
+				return true
 		if encounter_origin.distance_to(target_point) > limit:
 			guard.move_to(encounter_origin, delta)
-		elif actor.threat_detection._is_visible_target(target) and encounter_origin.distance_to(target.global_position) <= limit:
+		elif ready_target and actor.threat_detection._is_visible_target(target) and encounter_origin.distance_to(target.global_position) <= limit:
 			guard.engage_target(target, delta, encounter_origin, limit)
 		else:
 			guard.move_to(target_point, delta)
 	else:
 		var point: Vector2 = goals.get(actor, waypoint)
+		if crossbow != null:
+			crossbow.interrupt()
+			if mode == Mode.MARCH:
+				if guard.visible_enemies.is_empty():
+					crossbow.end_if_quiet(guard.now(), point)
+				else:
+					crossbow.note_contact(guard.now())
 		var pace := -1.0
 		if mode == Mode.MARCH and not _waiting_for_squad():
 			pace = clampf(march_speed + (actor.global_position.distance_to(point) - march_lookahead) * 1.4, march_speed * 0.5, guard.movement_speed())

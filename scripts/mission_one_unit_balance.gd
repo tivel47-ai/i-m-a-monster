@@ -27,5 +27,17 @@ const GUARD_VARIANTS := {
 	SWORD: {"health": 155.0, "damage": 28.0, "interval": 1.1, "peaceful": 35.0, "tactical": 80.0},
 	SPEAR: {"health": 130.0, "damage": 32.0, "interval": 1.4, "peaceful": 35.0, "tactical": 75.0,
 		"support_priority": 25.0},
-	CROSSBOW: {"health": 85.0, "damage": 23.0, "interval": 1.6, "peaceful": 35.0, "tactical": 85.0},
+	CROSSBOW: {"health": 100.0, "damage": 8.0, "interval": 1.6, "peaceful": 35.0, "tactical": 85.0,
+		"ranged_damage": 40.0, "ranged_interval": 2.8, "ranged_distance": 200.0, "projectile_speed": 280.0},
+}
+
+const CROSSBOW_TACTICS := {
+	"preferred_distance": 150.0,
+	"disengage_distance": 60.0,
+	"protection_radius": 150.0,
+	"protection_offset": 35.0,
+	"maneuver_interval": 4.0,
+	"retreat_budget": 120.0,
+	"quiet_seconds": 12.0,
+	"minimum_gain": 10.0,
 }

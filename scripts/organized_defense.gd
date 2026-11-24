@@ -345,6 +345,24 @@ func assign_rank_posts() -> void:
 	if waiting.is_empty(): return
 	var occupied: Array = places.values()
 	var assigned: Array[Node2D] = []
+	# Reserve existing rear positions for arriving ranged specialists.
+	for actor: Node2D in waiting.duplicate():
+		if not actor.has_mission_crossbow(): continue
+		var nearest := INF
+		var selected := Vector2.INF
+		var behavior := controller(actor)
+		for point in slots:
+			var rank: int = _slot_ranks.get(point, -1)
+			if rank < 1 or occupied.has(point) or behavior.failed_point(point): continue
+			var score := actor.global_position.distance_to(point) + (2 - rank) * post_spacing()
+			if score < nearest:
+				nearest = score
+				selected = point
+		if not selected.is_finite(): continue
+		places[actor.get_instance_id()] = selected
+		assigned.append(actor)
+		occupied.append(selected)
+		waiting.erase(actor)
 	for rank in range(3):
 		var options: Array[Vector2] = []
 		for point in slots:
@@ -369,8 +387,8 @@ func assign_rank_posts() -> void:
 			places[actor.get_instance_id()] = point
 			assigned.append(actor)
 		if waiting.is_empty(): break
-	# Existing reservations stay fixed. Uncross routes within the new batch
-	# before anyone starts moving, including routes between different ranks.
+	# Uncross routes within the new batch before anyone starts moving.
+	# Keep ranged specialists behind the front rank where possible.
 	for i in assigned.size():
 		var first := assigned[i]
 		var first_id := first.get_instance_id()
@@ -379,6 +397,8 @@ func assign_rank_posts() -> void:
 			var second_id := second.get_instance_id()
 			var a: Vector2 = places[first_id]
 			var b: Vector2 = places[second_id]
+			if first.has_mission_crossbow() != second.has_mission_crossbow() and ((_slot_ranks[a] == 0) != (_slot_ranks[b] == 0)):
+				continue
 			var current := first.global_position.distance_squared_to(a) + second.global_position.distance_squared_to(b)
 			var swapped := first.global_position.distance_squared_to(b) + second.global_position.distance_squared_to(a)
 			if swapped < current and not controller(first).failed_point(b) and not controller(second).failed_point(a):
@@ -476,7 +496,7 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 					if side != reinforce: continue
 				elif absi(side - own) != 1 or counts[own] <= counts[side]: continue
 			elif reinforce >= 0: continue
-			elif front_rank(point, side) <= front_rank(previous, own) + 1.0: continue
+			elif actor.has_mission_crossbow() or front_rank(point, side) <= front_rank(previous, own) + 1.0: continue
 		var free := true
 		for other in places:
 			if other != id and places[other].distance_to(point) < step * 0.9:
@@ -496,9 +516,12 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 				preferred = formation_world(Vector2(offset, 0))
 			value += point.distance_to(preferred) * 4.0
 		elif protected:
-			value += float(_slot_ranks[point]) * service.last_stand.defense_bounds.size.length() * 2.0
+			var rank: int = _slot_ranks[point]
+			var preference: int = 2 - rank if actor.has_mission_crossbow() else rank
+			value += preference * service.last_stand.defense_bounds.size.length() * 2.0
 		else:
-			value += counts[side] * spacing * 4.0 - front_rank(point, side)
+			var depth := front_rank(point, side)
+			value += counts[side] * spacing * 4.0 + (depth if actor.has_mission_crossbow() else -depth)
 			if reinforce >= 0 and side == reinforce: value -= spacing * 100.0
 		if value < best_score:
 			if not service.reachable(actor, point): continue

@@ -4708,7 +4708,6 @@ mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_selection")
 
 [node name="VillageAlert" parent="." unique_id=732062171 instance=ExtResource("3_mtxfa")]
-debug_enabled = true
 first_corpse_probability = 0.15
 role_based_corpse_alarm = true
 

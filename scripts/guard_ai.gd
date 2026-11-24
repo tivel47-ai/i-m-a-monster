@@ -1,5 +1,5 @@
 extends Node
-const PROJECTILE = preload("res://scripts/defender_projectile.gd")
+const CROSSBOW_TACTICS = preload("res://scripts/crossbow_tactics.gd")
 ## Reasonable Defender. All tactical evidence is local; peaceful patrol stays separate.
 enum State { PATROL, ALERT_PATROL, INVESTIGATE, SEARCH, COMBAT, RETREAT, ASSIST, GROUP_PATROL, RAISE_ALARM, CHURCH_INSPECTION }
 const MEMORY = preload("res://scripts/guard_memory.gd")
@@ -81,11 +81,15 @@ var cohesion_started: float = -1.0
 var bell_elapsed: float = 0.0
 var rng = RandomNumberGenerator.new()
 var investigation: RefCounted
-var next_shot := 0.0
+var crossbow: RefCounted
+var blocked_ranged_approach := 0
+var ranged_approach_retry := 0.0
 @onready var actor = get_parent()
 
 func _ready() -> void:
 	tactical_speed = actor.tactical_move_speed(tactical_speed)
+	if actor.has_mission_crossbow():
+		crossbow = CROSSBOW_TACTICS.new(actor)
 	rng.randomize()
 	visibility_phase = actor.get_instance_id() % VISIBILITY_REFRESH_STEPS
 	next_decision = now() + _decision_delay()
@@ -150,7 +154,7 @@ func mobilize(delta: float) -> bool:
 			for marker in points.get_children():
 				if marker is Marker2D and marker.is_in_group("civilian_social_points") and territory_distance(marker.global_position) <= territory_margin and recruitment_site_safe(marker.global_position) and actor.defense.reachable(actor, marker.global_position): anchors.append(marker.global_position)
 		if anchors.is_empty():
-			var route = actor.guard_patrol._route()
+			var route = actor.guard_patrol._route() if actor.guard_patrol != null else null
 			if route != null:
 				for point in route.world_points():
 					if recruitment_site_safe(point): anchors.append(point)
@@ -308,7 +312,8 @@ func sense() -> void:
 			if not seen_since.has(id):
 				var factor = alert_recognition_factor if actor.defense.alert.level >= actor.defense.alert.Level.SUSPICION else 1.0
 				seen_since[id] = now() + rng.randf_range(actor.threat_detection.recognition_delay_min, actor.threat_detection.recognition_delay_max) * maxf(factor, 0.0)
-			if now() >= float(seen_since[id]) or actor.get_recognized_threat() == other:
+			if (now() >= float(seen_since[id]) or actor.get_recognized_threat() == other
+				or (crossbow != null and crossbow.remembers(other, now()))):
 				visible_enemies.append(other)
 		elif other.has_method("is_alive") and other.is_alive() and actor.defense.visible(actor, other, actor.threat_detection.detection_radius):
 			local_allies.append(other)
@@ -464,31 +469,43 @@ func _try_other_combat_target(enemy: Node2D, delta: float) -> bool:
 		return _combat_target_score(a) < _combat_target_score(b)
 	)
 	for candidate in alternatives.slice(0, 3):
-		if _can_pursue(candidate) and engage_target(candidate, delta, pursuit_origin, actor.guard_pursuit_limit(pursuit_distance)):
+		if (_can_hold_fire(candidate) or _can_pursue(candidate)) and engage_target(candidate, delta, pursuit_origin, actor.guard_pursuit_limit(pursuit_distance)):
 			pursuit_target = candidate.get_instance_id()
 			return true
 	return false
 
 
+func _can_hold_fire(enemy: Node2D) -> bool:
+	return crossbow != null and actor.global_position.distance_to(enemy.global_position) <= actor.defense_weapon_range
+
+
 func engage_target(enemy: Node2D, delta: float, origin: Vector2, limit: float) -> bool:
 	set_state(State.COMBAT)
 	var distance: float = actor.global_position.distance_to(enemy.global_position)
-	if actor.defense_ranged_weapon and distance <= actor.defense_weapon_range:
-		halt()
-		if now() >= next_shot:
-			next_shot = now() + maxf(actor.attack_interval, 0.01)
-			var bolt = PROJECTILE.new()
-			bolt.position = actor.defense.get_parent().to_local(actor.global_position)
-			bolt.direction = actor.global_position.direction_to(enemy.global_position)
-			if actor.unit_vision != null:
-				actor.unit_vision.face(bolt.direction)
-			bolt.damage = actor.attack_damage
-			bolt.speed = actor.defense_projectile_speed
-			bolt.remaining = actor.defense_weapon_range
-			actor.defense.get_parent().add_child(bolt)
-	elif distance <= enemy.INFECTION_DISTANCE:
+	if actor.defense_ranged_weapon:
+		if distance <= actor.defense_weapon_range:
+			return hold_for_bolt(enemy)
+		if crossbow != null:
+			var id := enemy.get_instance_id()
+			if id == blocked_ranged_approach and now() < ranged_approach_retry:
+				return false
+			# Stop at the first firing opportunity instead of closing to melee.
+			var point: Vector2 = enemy.global_position.move_toward(actor.global_position, actor.defense_weapon_range - actor.arrival_tolerance)
+			var result := move_to(point, delta)
+			if result != actor.NavigationResult.FAILED:
+				return true
+			# An obstacle can make the direct firing point unreachable. Follow
+			# the existing approach route and check firing range on each step.
+			if origin.distance_to(enemy.global_position) <= limit:
+				if move_to(actor.defense.combat_approach(actor, enemy, movement_goal), delta) != actor.NavigationResult.FAILED:
+					return true
+			halt()
+			blocked_ranged_approach = id
+			ranged_approach_retry = now() + decision_interval
+			return false
+	if distance <= enemy.INFECTION_DISTANCE:
 		return enemy.engage_defender(actor)
-	elif actor._uses_local_melee_route(enemy):
+	if actor._uses_local_melee_route(enemy):
 		if not actor._advance_melee_route(enemy, movement_speed(), delta, origin, limit):
 			halt()
 			return false
@@ -498,6 +515,32 @@ func engage_target(enemy: Node2D, delta: float, origin: Vector2, limit: float) -
 			halt()
 			return false
 	return true
+
+
+func hold_for_bolt(enemy: Node2D) -> bool:
+	if actor.has_destination or not actor.velocity.is_zero_approx():
+		halt()
+		return true
+	return actor.try_fire_defense_bolt(enemy)
+
+
+func crossbow_disengage(delta: float, enemies: Array[Node2D], allies: Array[Node2D],
+		assignment: Array, allowed: Callable) -> bool:
+	if crossbow == null:
+		return false
+	if crossbow.step(now(), delta, enemies, allies, assignment, allowed, move_to, halt, decision_interval):
+		set_state(State.COMBAT)
+		if not crossbow.goal.is_finite(): next_decision = now()
+		return true
+	return false
+
+
+func can_step_back(point: Vector2) -> bool:
+	# Use the same territory rule as pursuit, without adopting a new anchor
+	# when a different target appears during this combat episode.
+	return (actor.guard_patrol == null or territory_distance(point) <= territory_margin
+		or (crossbow.episode_origin.is_finite()
+			and territory_distance(point) <= territory_distance(crossbow.episode_origin)))
 
 func finish(status: String, reason: String) -> void:
 	memory.finish(active, status, reason)
@@ -650,7 +693,7 @@ func start_search() -> void:
 	last_seen_id = 0
 
 func territory_distance(point: Vector2) -> float:
-	var route = actor.guard_patrol._route()
+	var route = actor.guard_patrol._route() if actor.guard_patrol != null else null
 	if route == null: return 0.0
 	var distance = INF
 	var points: PackedVector2Array = route.world_points()
@@ -664,7 +707,7 @@ func retreat_destination() -> Vector2:
 	var allies := available_local_allies()
 	for ally in allies:
 		if ally.guard_ai != null and actor.defense.reachable(actor, ally.global_position): choices.append(ally.global_position)
-	var post = actor.guard_patrol.get_node_or_null(actor.guard_patrol.post_center_path)
+	var post = actor.guard_patrol.get_node_or_null(actor.guard_patrol.post_center_path) if actor.guard_patrol != null else null
 	if post != null and actor.defense.reachable(actor, post.global_position): choices.append(post.global_position)
 	var best = Vector2.INF
 	var best_value = -INF
@@ -868,6 +911,9 @@ func update_ai(delta: float) -> bool:
 		if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
 			enemy.engage_defender(actor) # self-defense also applies at pursuit/retreat limits
 	if actor.is_in_collision():
+		if crossbow != null:
+			crossbow.note_contact(now())
+			crossbow.interrupt()
 		suspend()
 		if not alliance.is_empty(): alliance.status = "interrupted"
 		# Contact ends when the opponent physically leaves melee, including a
@@ -916,6 +962,11 @@ func update_ai(delta: float) -> bool:
 	for enemy in visible_enemies:
 		if actor.global_position.distance_to(enemy.global_position) <= search_radius: imminent = true
 	if not imminent and (inspect_church(delta) or mobilize(delta)): return true
+	if crossbow != null and (not visible_enemies.is_empty() or crossbow.goal.is_finite()):
+		if crossbow_disengage(delta, visible_enemies, local_allies, [&"guard"], can_step_back):
+			return true
+	elif crossbow != null and decision:
+		crossbow.end_if_quiet(now(), crossbow.episode_origin)
 	if not visible_enemies.is_empty():
 		if not alliance.is_empty(): alliance.status = "interrupted"
 		suspend()
@@ -936,7 +987,7 @@ func update_ai(delta: float) -> bool:
 				actor.defense.guard_group_combat and territory_distance(pursuit_origin) > territory_margin
 			)
 		var can_switch_target: bool = decision and actor.defense.guard_group_combat
-		if not _can_pursue(enemy):
+		if not _can_hold_fire(enemy) and not _can_pursue(enemy):
 			if can_switch_target and _try_other_combat_target(enemy, delta):
 				return true
 			set_state(State.ALERT_PATROL)
@@ -1010,7 +1061,7 @@ func update_ai(delta: float) -> bool:
 				next_recruitment = now() # invite at the next local decision tick
 			return true
 		if not movement_goal.is_finite():
-			var route = actor.guard_patrol._route()
+			var route = actor.guard_patrol._route() if actor.guard_patrol != null else null
 			if route != null:
 				var points = route.world_points()
 				var center: Vector2 = points[rng.randi_range(0, points.size() - 1)]

@@ -21,7 +21,7 @@ const GUARD_VARIANTS := {
 	&"shield": [140.0, 26.0, 1.1, 35.0, 80.0, 85.0],
 	&"sword": [155.0, 28.0, 1.1, 35.0, 80.0, 85.0],
 	&"spear": [130.0, 32.0, 1.4, 35.0, 75.0, 85.0],
-	&"crossbow": [85.0, 23.0, 1.6, 35.0, 85.0, 85.0],
+	&"crossbow": [100.0, 8.0, 1.6, 35.0, 85.0, 85.0],
 }
 
 var mission: Node2D
@@ -78,6 +78,11 @@ func run() -> void:
 		human_profile(human, role)
 		human.queue_free()
 		await frames(1)
+	mission._guard_variants.assign([&"crossbow"])
+	var developer_crossbow := place_human("guard", ARENA)
+	human_profile(developer_crossbow, "guard")
+	developer_crossbow.queue_free()
+	await frames(1)
 
 	var squad := mission.get_node("LastStand/Reinforcements")
 	var variants: Array[StringName] = [&"sword", &"spear", &"crossbow", &"shield"]
@@ -155,6 +160,11 @@ func human_profile(actor: Node2D, role: String) -> void:
 		check(actor.defense_ranged_weapon == crossbow
 			and (visual == null if crossbow else visual != null and visual.appearance == actor.guard_variant),
 			"Equipment drives both attacks and visuals: " + str(actor.guard_variant))
+		if crossbow:
+			check(actor.defense_ranged_damage == 40.0 and actor.defense_ranged_interval == 2.8
+				and actor.defense_weapon_range == 200.0 and actor.defense_projectile_speed == 280.0
+				and actor.unit_vision.radius == 250.0 and not actor.unit_vision.panoramic
+				and actor.guard_ai.crossbow != null, "Crossbow has separate ranged profile and directional vision")
 
 
 func arming_and_priest() -> void:
@@ -289,8 +299,9 @@ func brute_splash() -> void:
 func crossbow_shot(guard: Node2D) -> void:
 	guard.global_position = ARENA
 	var zombie := place_zombie("zombie", ARENA + Vector2(-62, 0))
+	guard.unit_vision.face(Vector2.LEFT)
 	guard.guard_ai.engage_target(zombie, STEP, ARENA, INF)
-	check(is_equal_approx(guard.guard_ai.next_shot - guard.defense.elapsed, 1.6), "Crossbow guard schedules the next bolt after 1.6 s")
+	check(is_equal_approx(guard.ranged_ready_at - guard.defense.elapsed, 2.8), "Crossbow guard schedules the next bolt after 2.8 s")
 	await frames(25)
-	check(zombie.current_health == 157.0, "Crossbow bolt deals 23 damage on contact")
+	check(zombie.current_health == 140.0, "Crossbow bolt deals 40 damage on contact")
 	zombie.queue_free()
