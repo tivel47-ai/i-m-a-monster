@@ -344,7 +344,7 @@ func _build_ui() -> void:
 	race_details = VBoxContainer.new()
 	race_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	race_details.size_flags_stretch_ratio = 1.4
-	race_details.add_theme_constant_override("separation", 16)
+	race_details.add_theme_constant_override("separation", 12)
 	race_columns.add_child(race_details)
 	var race_footer := HBoxContainer.new()
 	race_footer.add_theme_constant_override("separation", 24)
