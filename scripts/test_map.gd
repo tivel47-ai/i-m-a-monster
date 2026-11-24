@@ -27,6 +27,7 @@ const PRIEST_GUARD_ROUTES = preload("res://scripts/priest_guard_routes.gd")
 @export var zombie_infection_enabled := false
 @export var dark_fantasy_hud := false
 @export var monster_roster_enabled := false
+@export var monster_command_hotkeys := false
 @export var standalone_race_id := ""
 @export var manual_victory_finish := false
 @export_range(0.01, 5.0, 0.01, "or_greater") var assault_increment_seconds := 0.35
@@ -602,6 +603,10 @@ func _setup_developer_priest_guard(resident: Node, point: Vector2) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and monster_command_hotkeys and not menu_paused and is_gameplay_active():
+		if mission_hud.handle_command_hotkey(event):
+			get_viewport().set_input_as_handled()
+			return
 	if _handle_hunger_input(event):
 		get_viewport().set_input_as_handled()
 		return

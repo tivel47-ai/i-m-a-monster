@@ -59,6 +59,7 @@ unit_balance_v03 = true
 zombie_infection_enabled = true
 dark_fantasy_hud = true
 monster_roster_enabled = true
+monster_command_hotkeys = true
 standalone_race_id = "zombie"
 manual_victory_finish = true
 metadata/local_melee_routing = true

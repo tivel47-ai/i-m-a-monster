@@ -505,6 +505,7 @@ func build() -> void:
 	village.zombie_infection_enabled = true
 	village.dark_fantasy_hud = true
 	village.monster_roster_enabled = true
+	village.monster_command_hotkeys = true
 	village.standalone_race_id = "zombie"
 	village.manual_victory_finish = true
 	var packed := PackedScene.new()

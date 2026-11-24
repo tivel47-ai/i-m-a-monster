@@ -457,18 +457,24 @@ func _build_control_settings(box: VBoxContainer) -> void:
 		settings_status.text = "Есть несохранённые изменения.")
 	var labels := ["Камера вверх", "Камера влево", "Камера вниз", "Камера вправо", "Основная способность расы"]
 	_text(box, "Нажмите на кнопку справа и выберите новую клавишу.", 18)
-	var index := 0
-	for action: String in SETTINGS.DEFAULT_KEYS:
-		if index == labels.size():
-			_text(box, "Слоты дополнительных способностей (пока пусты)", 18)
-		var row := HBoxContainer.new()
-		box.add_child(row)
-		var title: String = labels[index] if index < labels.size() else "Слот %d" % (index - labels.size() + 1)
-		_text(row, title).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var button := _button(row, "", _begin_settings_capture.bind(action))
-		button.custom_minimum_size = Vector2(150, 40)
-		settings_key_buttons[action] = button
-		index += 1
+	var actions := SETTINGS.DEFAULT_KEYS.keys()
+	for index in labels.size():
+		_add_settings_key_row(box, actions[index], labels[index])
+	_text(box, "Команды монстрам", 18)
+	for action: String in SETTINGS.MONSTER_COMMANDS:
+		_add_settings_key_row(box, action, SETTINGS.MONSTER_COMMANDS[action].title)
+	_text(box, "Слоты дополнительных способностей (пока пусты)", 18)
+	for index in range(labels.size(), actions.size()):
+		_add_settings_key_row(box, actions[index], "Слот %d" % (index - labels.size() + 1))
+
+
+func _add_settings_key_row(box: VBoxContainer, action: String, title: String) -> void:
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	_text(row, title).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var button := _button(row, "", _begin_settings_capture.bind(action))
+	button.custom_minimum_size = Vector2(150, 40)
+	settings_key_buttons[action] = button
 
 
 func _select_settings_section(index: int) -> void:
@@ -493,7 +499,12 @@ func _end_settings_capture() -> void:
 
 func _refresh_settings_key(action: String) -> void:
 	var key: int = settings_draft.keys[action]
-	var display_key: int = key if DisplayServer.get_name() == "headless" else DisplayServer.keyboard_get_keycode_from_physical(key)
+	if key == KEY_NONE:
+		settings_key_buttons[action].text = "Не назначена"
+		return
+	var display_key := key
+	if not SETTINGS.MONSTER_COMMANDS.has(action) and DisplayServer.get_name() != "headless":
+		display_key = DisplayServer.keyboard_get_keycode_from_physical(key)
 	settings_key_buttons[action].text = OS.get_keycode_string(display_key if display_key != KEY_NONE else key)
 
 
@@ -754,6 +765,7 @@ func _resume() -> void:
 	if is_instance_valid(mission):
 		mission.get_node("Camera2D").move_speed = settings.camera_speed
 		mission.mission_hud.refresh_metaprogression()
+		mission.mission_hud.refresh_command_hotkeys()
 		mission.set_menu_paused(false)
 	_show(Screen.GAMEPLAY)
 

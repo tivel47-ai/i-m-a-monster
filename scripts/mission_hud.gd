@@ -8,6 +8,7 @@ const INFECTION_ORB_SLUDGE = preload("res://assets/ui/zombie_style/infection_orb
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
 const ZOMBIE_THEME = preload("res://scripts/zombie_mission_hud_theme.gd")
 const CATALOG = preload("res://scripts/mission_catalog.gd")
+const SETTINGS = preload("res://scripts/game_settings.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ZOMBIE = preload("res://scripts/zombie.gd")
 const INFECTION_ORB_SIZE := 92.0
@@ -23,6 +24,7 @@ var _monster_roster: VBoxContainer
 var _monster_rows: Dictionary[String, Label] = {}
 var building_button: Button
 var global_cancel_button: Button
+var _command_buttons: Dictionary[String, Button] = {}
 var assault_status: Label
 var infection_button: Button
 var infection_orb_material: ShaderMaterial
@@ -60,6 +62,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
+	refresh_command_hotkeys()
 	_build_developer_tools()
 	mission.get_node("VillageAlert").level_changed.connect(func(_previous: int, _current: int): _refresh_alert())
 	refresh_metaprogression()
@@ -186,20 +189,43 @@ func _build() -> void:
 	var orders := VBoxContainer.new()
 	commands.add_child(orders)
 	_label(orders, "Команды монстрам", 16)
-	building_button = Button.new()
-	building_button.text = "Штурм здания"
+	building_button = _add_command_button(orders, SETTINGS.BUILDING_ASSAULT, mission.toggle_building_order)
 	building_button.tooltip_text = "Выберите зомби, затем укажите здание на карте"
-	building_button.pressed.connect(mission.toggle_building_order)
-	orders.add_child(building_button)
 	if mission.horde_commands != null:
 		building_button.toggle_mode = true
 		building_button.tooltip_text = "Удерживайте ПКМ на здании и отпустите для штурма. ЛКМ при удержании отменяет подготовку, в остальное время — режим."
-		global_cancel_button = Button.new()
-		global_cancel_button.text = "Отменить приказ орде"
+		global_cancel_button = _add_command_button(orders, SETTINGS.CANCEL_HORDE_ORDER, mission.cancel_global_order)
 		global_cancel_button.tooltip_text = "Отменить общий приказ и убрать сообщение о штурме"
-		global_cancel_button.pressed.connect(mission.cancel_global_order)
-		orders.add_child(global_cancel_button)
 		assault_status = _label(orders, "", 14)
+
+
+func _add_command_button(orders: VBoxContainer, action: String, callback: Callable) -> Button:
+	var definition: Dictionary = SETTINGS.MONSTER_COMMANDS[action]
+	var button := Button.new()
+	button.text = definition.title
+	button.pressed.connect(callback)
+	orders.add_child(button)
+	if mission.monster_command_hotkeys and mission.horde_commands != null:
+		if not InputMap.has_action(action):
+			SETTINGS.apply_key(action, definition.key)
+		_command_buttons[action] = button
+	return button
+
+
+func refresh_command_hotkeys() -> void:
+	for action in _command_buttons:
+		var title: String = SETTINGS.MONSTER_COMMANDS[action].title
+		var key := _binding_label(action, "")
+		_command_buttons[action].text = title if key.is_empty() else "%s  [%s]" % [title, key]
+
+
+func handle_command_hotkey(event: InputEventKey) -> bool:
+	for action in _command_buttons:
+		var button := _command_buttons[action]
+		if not button.disabled and event.is_action_pressed(action, false, true):
+			button.pressed.emit()
+			return true
+	return false
 
 
 func _build_victory_notice() -> void:
@@ -652,7 +678,7 @@ func refresh_units() -> void:
 	monster_button.text = "Зомби × %d" % units.size()
 	monster_button.disabled = units.is_empty()
 	monster_button.set_pressed_no_signal(not units.is_empty() and units.all(func(unit): return unit.is_selected))
-	building_button.text = "Укажите здание" if mission.choosing_building else "Штурм здания"
+	building_button.text = "Укажите здание" if mission.choosing_building else SETTINGS.MONSTER_COMMANDS[SETTINGS.BUILDING_ASSAULT].title
 	building_button.disabled = mission.buildings.is_empty() or mission._command_units().is_empty()
 
 
