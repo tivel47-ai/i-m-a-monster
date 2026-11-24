@@ -79,6 +79,7 @@ func select_assault(zombie: Node2D, building: InteractiveBuilding) -> void:
 
 func run() -> void:
 	await geometry_and_noise()
+	await mission_shelter_placement()
 	await ordinary_warning()
 	await clear_and_convert()
 	await simultaneous_assaults()
@@ -151,6 +152,66 @@ func geometry_and_noise() -> void:
 	check(church.request_shelter(guard) and church.request_shelter(priest), "Guard and priest can enter through an authored building entrance")
 	check(await until(func(): return church.workers.has(guard) and church.workers.has(priest) and church.reinforcement > 0.03, 280),
 		"Repair assignments accept guards and priests with the same rules")
+
+
+func mission_shelter_placement() -> void:
+	await setup(SIMULATION_MAP)
+	var house: InteractiveBuilding = mission.shelter_buildings[mission.get_node("VillagePointsOfInterest/Home6")]
+	var neighboring_house: InteractiveBuilding = mission.shelter_buildings[mission.get_node("VillagePointsOfInterest/Home5")]
+	check(await until(func(): return house.shelter_approach().is_finite(), 120), "Cottage shelter approaches are ready")
+	for building: InteractiveBuilding in [house, neighboring_house]:
+		var assigned: Array[Node2D] = []
+		for resident in mission.villagers:
+			if mission.shelter_buildings.get(resident.private_shelter_marker()) == building:
+				assigned.append(resident)
+		check(assigned.size() == 3, "Three residents share " + str(building.get_parent().name))
+		for i in assigned.size():
+			var resident := assigned[i]
+			resident.global_position = building.layout.exterior(32.0 + 24.0 * i)
+			check(building.request_shelter(resident), "A resident reserves a place before entering")
+		check(building._rest.size() == assigned.size(), "Queued residents already have separate places")
+	check(await until(func(): return _shelter_settled(house) and _shelter_settled(neighboring_house), 1320),
+		"Both groups finish reinforcing and settle at separated places")
+	if house.residents.size() != 3:
+		return
+
+	var visitor: Node2D = mission.get_node("Villagers/Peasant3")
+	visitor.global_position = house.layout.exterior(70.0)
+	var all_places := house.layout.rest_points
+	var limited_places := PackedVector2Array()
+	for point: Vector2 in house._rest.values():
+		limited_places.append(house.layout.to_local(point))
+	house.layout.rest_points = limited_places
+	check(not house.request_shelter(visitor) and visitor.building_task == null and house.shelter_queue.is_empty(),
+		"A full shelter leaves a visitor outside without taking over its movement")
+	var leaving := house.residents.back() as Node2D
+	house.request_resident_exit(leaving)
+	check(await until(func(): return leaving.interior_building == null and not house._rest.has(leaving), 240),
+		"Leaving releases the reserved place")
+	check(house.request_shelter(visitor), "The waiting visitor can claim the freed place")
+	check(await until(func(): return _shelter_settled(house), 400), "The new resident settles without blocking the door")
+
+	house.layout.rest_points = all_places
+	var old_place: Vector2 = house._rest.get(visitor, Vector2.INF)
+	if not old_place.is_finite():
+		return
+	visitor.global_position = house.layout.interior(0.0, 38.0)
+	leaving.global_position = old_place
+	check(await until(func(): return house._rest.get(visitor) != old_place and _shelter_settled(house), 360),
+		"A physically blocked resident finds another reachable place")
+
+
+func _shelter_settled(building: InteractiveBuilding) -> bool:
+	if building.residents.size() != 3 or building.reinforcement < 1.0:
+		return false
+	for resident in building.residents:
+		var place: Vector2 = building._rest.get(resident, Vector2.INF)
+		if resident.global_position.distance_to(place) > 2.0 or not resident.velocity.is_zero_approx():
+			return false
+		for other in building.residents:
+			if other != resident and resident.global_position.distance_to(other.global_position) < 20.0:
+				return false
+	return true
 
 
 func ordinary_warning() -> void:

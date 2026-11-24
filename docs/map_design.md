@@ -68,8 +68,8 @@
 | `worker_hp_per_second`, `work_spacing`, `work_reach` | 6 HP/с за работника, 24 ед., 4 ед. |
 | `defense_spacing` | Целевой шаг вдоль ряда 22 ед., отступ между рядами 33 ед. |
 | `retry_seconds` | 0,75 игровой секунды |
-| `base_count`, `count_variation` | 11 ± 2 бойца |
-| `archer_fraction`, `spear_fraction_of_melee` | 25% всего отряда и 45% ближнего боя соответственно с округлением |
+| `base_count`, `count_variation` | 11 ± 2 стражника, минимум по одному каждого варианта |
+| `crossbow_fraction`, `spear_fraction_of_melee` | Ориентиры 25% арбалетчиков от отряда и 45% копейщиков от ближнего боя. Остальные места ближнего боя делятся между двумя вариантами мечников |
 | `pursuit_limit`, `lag_limit`, `wait_seconds` | 240 ед. погони, 120 ед. отставания, 6 игровых секунд ожидания |
 | `decision_interval`, `march_speed` | 0,35 игровой секунды, 43 ед./с для общей точки марша |
 | `march_lookahead`, `march_turn_rate` | 28 ед. упреждения на маршруте, до 3,5 рад/с для поворота общего направления |

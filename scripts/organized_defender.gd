@@ -179,7 +179,8 @@ func assistance_sector() -> int:
 	return best
 
 func combat_limit() -> float:
-	return formation.assistance_distance if transfer_sector >= 0 or help_sector >= 0 else formation.intercept_distance
+	var limit: float = formation.assistance_distance if transfer_sector >= 0 or help_sector >= 0 else formation.intercept_distance
+	return actor.guard_pursuit_limit(limit)
 
 func can_leave_for_reinforcement(destination_sector: int) -> bool:
 	for enemy in enemies:
@@ -226,7 +227,7 @@ func choose_target(defending: bool) -> Node2D:
 		var depth := enemy.global_position.distance_to(formation.center)
 		if not formation.inside(enemy.global_position): depth += formation.spacing
 		var score = depth + distance * 0.5 + load * formation.spacing
-		if supporting: score -= formation.intercept_distance
+		if supporting: score -= formation.intercept_distance + actor.guard_support_priority()
 		if score < value:
 			best = enemy
 			value = score
@@ -548,17 +549,24 @@ func fortified_target_in_range(enemy: Variant, post: Vector2) -> bool:
 	if formation.sector(enemy.global_position) != formation.sector(post): return false
 	if ranged():
 		return actor.global_position.distance_to(post) <= actor.arrival_tolerance and actor.global_position.distance_to(enemy.global_position) <= actor.defense_weapon_range
-	return formation.inside(enemy.global_position) and actor.global_position.distance_to(enemy.global_position) <= formation.intercept_distance and post.distance_to(enemy.global_position) <= formation.intercept_distance
+	var reach: float = actor.guard_pursuit_limit(formation.intercept_distance)
+	return formation.inside(enemy.global_position) and actor.global_position.distance_to(enemy.global_position) <= reach and post.distance_to(enemy.global_position) <= reach
 
 func choose_fortified_target(post: Vector2) -> Node2D:
 	var nearest: Node2D
 	var best := INF
+	var support: float = actor.guard_support_priority()
 	for enemy in enemies:
 		if not fortified_target_in_range(enemy, post) or blocked_targets.has(enemy.get_instance_id()) or failed_point(enemy.global_position): continue
-		var distance: float = actor.global_position.distance_squared_to(enemy.global_position)
-		if distance >= best or (not ranged() and not formation.melee_support_available(actor, enemy)): continue
+		var score: float = actor.global_position.distance_to(enemy.global_position)
+		if support > 0.0:
+			var companion: Node2D = enemy.aggro_target
+			if (companion != actor and formation.eligible(companion) and companion.is_encounter_owner(enemy)
+				and formation.service.visible(actor, companion, formation.intercept_distance)):
+				score -= support
+		if score >= best or (not ranged() and not formation.melee_support_available(actor, enemy)): continue
 		nearest = enemy
-		best = distance
+		best = score
 	return nearest
 
 func update_fortified(delta: float) -> bool:

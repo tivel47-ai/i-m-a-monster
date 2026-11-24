@@ -309,8 +309,8 @@ func test_wave_and_squad() -> void:
 	squad.rng.seed = 380
 	var sample: Array[StringName] = []
 	sample.resize(13)
-	sample.fill(&"swordsman")
-	squad.roles = sample
+	sample.fill(&"sword")
+	squad.guard_variants = sample
 	var blockers: Array[Node2D] = []
 	for entry in squad.entry_points:
 		var positions: PackedVector2Array = squad._spawn_positions(nav, entry)
@@ -319,7 +319,7 @@ func test_wave_and_squad() -> void:
 			blockers.append(spawn_monster(positions[0]))
 	for point in squad.patrol_points:
 		check(NavigationServer2D.map_get_closest_point(nav, point).distance_to(point) <= 0.5, "Patrol point is on the existing navmesh")
-	squad.roles.clear()
+	squad.guard_variants.clear()
 	last.set_physics_process(true)
 	await frames(2)
 	paused = true
@@ -354,8 +354,11 @@ func test_wave_and_squad() -> void:
 	var expanded_goal := ceili(float(expanded_count * mission.TARGET_PERCENT) / 100.0)
 	await frames(9)
 	check(mission.mission_hud.objective_label.text.begins_with("Цель: %d из %d жителей" % [expanded_goal, expanded_count]), "The visible objective rises automatically when the wave deploys")
-	var archers: int = squad.soldiers.filter(func(actor): return actor.defense_ranged_weapon).size()
-	check(archers > 0 and archers * 2 < squad.soldiers.size() and squad.roles.count(&"spearman") > 0 and squad.roles.count(&"swordsman") > 0, "Wave contains both melee roles and an archer minority")
+	var crossbows: int = squad.soldiers.filter(func(actor): return actor.defense_ranged_weapon).size()
+	check(crossbows > 0 and crossbows * 2 < squad.soldiers.size() and squad.guard_variants.has(&"spear")
+		and squad.guard_variants.has(&"shield") and squad.guard_variants.has(&"sword")
+		and squad.soldiers.all(func(actor): return actor.get_meta("village_role") == "guard"),
+		"The wave contains all four guard variants with a crossbow minority")
 	check(not squad.try_arrive(), "An arrived wave cannot be spawned a second time")
 	var soldier: Node2D = squad.soldiers[0]
 	check(not defense.steadfast(soldier), "A soldier outside the village does not receive the church aura")
@@ -379,18 +382,23 @@ func test_wave_and_squad() -> void:
 	for _i in squad.patrol_points.size():
 		squad._finish_leg()
 	check(squad.patrol_index == 0, "Patrol cycles in authored order even without detected monsters")
-	var intruder := spawn_monster(soldier.global_position + Vector2(30, 20))
+	var combat_point := Vector2(350, 1000)
+	squad.waypoint = combat_point
+	soldier.global_position = combat_point + Vector2(0, 25)
+	var intruder := spawn_monster(combat_point + Vector2(80, 0))
+	soldier.unit_vision.face_for_pose(soldier.global_position.direction_to(intruder.global_position))
 	soldier.threat_detection.recognition_delay_min = 0.0
 	soldier.threat_detection.recognition_delay_max = 0.0
 	var ranged_guard: Node2D = squad.soldiers.filter(func(member): return member.defense_ranged_weapon)[0]
-	ranged_guard.global_position = intruder.global_position + Vector2(0, -65)
+	ranged_guard.global_position = combat_point
+	ranged_guard.unit_vision.face_for_pose(ranged_guard.global_position.direction_to(intruder.global_position))
 	for member in squad.soldiers:
 		if member != soldier:
 			member.threat_detection.detection_enabled = false
 	await frames(3)
 	squad._make_decisions(defense.elapsed)
 	check(squad.mode == squad.Mode.COMBAT and squad.target == intruder, "Personal monster detection interrupts the squad's patrol")
-	check(await until(func(): return ranged_guard.guard_ai.next_shot > 0.0, 90), "An archer fires at a shared target using the existing projectile")
+	check(await until(func(): return ranged_guard.guard_ai.next_shot > 0.0, 90), "A crossbow guard fires a bolt at a shared target")
 	squad.pursuit_limit = 25.0
 	squad._make_decisions(defense.elapsed)
 	check(squad.mode == squad.Mode.REGROUP and squad.target == null, "The squad gives up a detected target outside its pursuit limit and regroups")

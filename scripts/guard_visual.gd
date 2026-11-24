@@ -3,9 +3,10 @@ extends Sprite2D
 signal death_finished
 
 const HUMAN_VISUAL = preload("res://scripts/peasant_visual.gd")
-const SHIELD := &"shield"
-const SWORD := &"sword"
-const SPEAR := &"spear"
+const BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
+const SHIELD := BALANCE.SHIELD
+const SWORD := BALANCE.SWORD
+const SPEAR := BALANCE.SPEAR
 const ATLASES := {
 	SHIELD: preload("res://assets/sprites/characters/guards/shield.png"),
 	SWORD: preload("res://assets/sprites/characters/guards/sword.png"),

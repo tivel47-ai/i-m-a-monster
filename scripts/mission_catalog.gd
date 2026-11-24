@@ -10,6 +10,12 @@ const HUMAN_TYPES := {
 	"priest": "Священник",
 	"priest_guard": "Охранник священника",
 }
+const ZOMBIE_TYPES := {
+	"zombie": "Обычный зомби",
+	ZOMBIE_PROGRESSION.BRUTE: ZOMBIE_PROGRESSION.NODES[ZOMBIE_PROGRESSION.BRUTE].title,
+	ZOMBIE_PROGRESSION.HOUND: ZOMBIE_PROGRESSION.NODES[ZOMBIE_PROGRESSION.HOUND].title,
+	ZOMBIE_PROGRESSION.CARRIER: ZOMBIE_PROGRESSION.NODES[ZOMBIE_PROGRESSION.CARRIER].title,
+}
 
 # Content lives here; navigation does not depend on individual scene paths.
 const MISSIONS := {
@@ -33,6 +39,7 @@ const MISSIONS := {
 const RACES := {
 	"zombie": {
 		"name": "Зомби",
+		"unit_types": ZOMBIE_TYPES,
 		"description": "Зомби — медлительная, чрезвычайно живучая и постепенно разрастающаяся орда. Они уступают людям в мобильности, боевой подготовке и организованности, но превосходят их в физической выносливости и способности восполнять свою численность посредством заражения. Их сила заключается в неотвратимости, численности и продолжительном противостоянии.",
 		"gameplay": "Удерживайте ПКМ, чтобы задать область движения или атаки всей орде. Для штурма здания задайте число зомби отдельной командой. Успешное заражение пополняет орду.",
 		"strengths": "Заражённый житель превращается в управляемого зомби.",
@@ -46,11 +53,9 @@ const RACES := {
 			"hotspot": Vector2(3, 3),
 		},
 	},
+	"human": {
+		"name": "Люди",
+		"unit_types": HUMAN_TYPES,
+		"active_perks": [],
+	},
 }
-
-
-static func monster_types() -> Dictionary:
-	var types := {"zombie": "Зомби"}
-	for form in ZOMBIE_PROGRESSION.FORMS:
-		types[form] = ZOMBIE_PROGRESSION.NODES[form].title
-	return types

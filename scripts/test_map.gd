@@ -20,7 +20,7 @@ const ZOMBIE_SCENE: PackedScene = preload("res://scenes/zombie.tscn")
 const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 const PRIEST_GUARD_SCENE: PackedScene = preload("res://scenes/priest_guard.tscn")
 const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
-const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
+const UNIT_BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
 const PRIEST_ROUTINE = preload("res://scripts/priest_routine.gd")
 const PRIEST_GUARD_ROUTES = preload("res://scripts/priest_guard_routes.gd")
 @export var unit_balance_v03 := false
@@ -43,8 +43,8 @@ var _developer_build: ZOMBIE_MISSION_BUILD
 @export var building_rules := BuildingRules.new()
 var buildings: Array[InteractiveBuilding] = []
 var reinforcement_units: Array[Node] = []
-var _guard_appearances: Array[StringName] = []
-var _guard_art_random := RandomNumberGenerator.new()
+var _guard_variants: Array[StringName] = []
+var _guard_variant_rng := RandomNumberGenerator.new()
 var shelter_buildings: Dictionary = {}
 var choosing_building := false
 var consume_assault_cancel_release := false
@@ -105,16 +105,19 @@ func ability_runtime() -> ZOMBIE_MISSION_BUILD:
 	return mission_build if mission_build != null else _developer_build
 
 
-func take_guard_appearance() -> StringName:
-	if _guard_appearances.is_empty():
-		_guard_appearances = [GUARD_VISUAL.SHIELD, GUARD_VISUAL.SWORD, GUARD_VISUAL.SPEAR]
-		# Use a separate random stream so costume selection cannot affect gameplay rolls.
-		for i in range(_guard_appearances.size() - 1, 0, -1):
-			var swap := _guard_art_random.randi_range(0, i)
-			var appearance := _guard_appearances[i]
-			_guard_appearances[i] = _guard_appearances[swap]
-			_guard_appearances[swap] = appearance
-	return _guard_appearances.pop_back()
+func _configure_resident_balance(resident: Node) -> void:
+	if not unit_balance_v03:
+		return
+	if resident.get_meta("village_role", "") == "guard" and resident.guard_variant.is_empty():
+		if _guard_variants.is_empty():
+			_guard_variants.assign(UNIT_BALANCE.GUARD_VARIANTS.keys())
+			for i in range(_guard_variants.size() - 1, 0, -1):
+				var swap := _guard_variant_rng.randi_range(0, i)
+				var variant := _guard_variants[i]
+				_guard_variants[i] = _guard_variants[swap]
+				_guard_variants[swap] = variant
+		resident.guard_variant = _guard_variants.pop_back()
+	resident.configure_mission_balance()
 
 
 func _enter_tree() -> void:
@@ -122,7 +125,7 @@ func _enter_tree() -> void:
 		return
 	for unit in find_children("*", "CharacterBody2D", true, false):
 		if unit.has_method("configure_mission_balance"):
-			unit.configure_mission_balance()
+			_configure_resident_balance(unit)
 		elif mission_build == null and unit.is_in_group("player_units"):
 			ZOMBIE_MISSION_BUILD.apply_form(unit, unit.zombie_form, true)
 
@@ -498,7 +501,7 @@ func developer_place(kind: String, world_position: Vector2) -> bool:
 	if position_on_map.distance_to(world_position) > 24.0: return false
 	for building in buildings:
 		if building.contains(position_on_map): return false
-	if kind == "zombie" or kind in ZOMBIE_PROGRESSION.FORMS:
+	if CATALOG.ZOMBIE_TYPES.has(kind):
 		var zombie := ZOMBIE_SCENE.instantiate()
 		zombie.position = to_local(position_on_map)
 		ZOMBIE_MISSION_BUILD.apply_form(zombie, "" if kind == "zombie" else kind, unit_balance_v03)
@@ -523,8 +526,7 @@ func _developer_place_human(kind: String, point: Vector2) -> void:
 		_setup_developer_resident(resident, kind)
 	resident.position = to_local(point)
 	resident.immediate_combat_conversion = zombie_infection_enabled
-	if unit_balance_v03:
-		resident.configure_mission_balance()
+	_configure_resident_balance(resident)
 	add_child(resident, true)
 	villagers.append(resident)
 	resident.converted.connect(_on_resident_converted)
@@ -966,29 +968,25 @@ func combat_residents() -> Array[Node]:
 	return villagers + reinforcement_units
 
 
-func spawn_reinforcement_wave(roles: Array[StringName], positions: PackedVector2Array, squad: Node) -> Array[Node2D]:
+func spawn_reinforcement_wave(variants: Array[StringName], positions: PackedVector2Array, squad: Node) -> Array[Node2D]:
 	var arrived: Array[Node2D] = []
-	for i in roles.size():
-		arrived.append(_spawn_reinforcement(roles[i], positions[i], squad))
+	for i in variants.size():
+		arrived.append(_spawn_reinforcement(variants[i], positions[i], squad))
 	total_residents += arrived.size()
 	_refresh_mission_progress()
 	return arrived
 
 
-func _spawn_reinforcement(role: StringName, point: Vector2, squad: Node) -> Node2D:
+func _spawn_reinforcement(variant: StringName, point: Vector2, squad: Node) -> Node2D:
 	var soldier := VILLAGER_SCENE.instantiate()
-	soldier.name = String(role).capitalize()
+	soldier.name = "Guard"
 	soldier.set_meta("village_role", "guard")
-	soldier.set_meta("reinforcement_role", role)
+	soldier.guard_variant = variant
 	soldier.position = to_local(point)
 	soldier.defense = $VillageDefense
 	soldier.reinforcement_squad = squad
-	soldier.defense_ranged_weapon = role == &"archer"
 	soldier.immediate_combat_conversion = zombie_infection_enabled
-	if unit_balance_v03:
-		soldier.configure_mission_balance()
-	var colors := {&"swordsman": Color("#8b9fb1"), &"spearman": Color("#778e9c"), &"archer": Color("#a5af74")}
-	soldier.get_node("Polygon2D").color = colors[role]
+	_configure_resident_balance(soldier)
 	add_child(soldier, true)
 	soldier.remove_from_group("civilian_warning_receivers")
 	var guard := preload("res://scripts/guard_ai.gd").new()

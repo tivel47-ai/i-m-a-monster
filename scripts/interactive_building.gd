@@ -5,6 +5,8 @@ const PROJECTILE = preload("res://scripts/defender_projectile.gd")
 const ARRIVAL := 1.5
 const REPATH_SECONDS := 0.35
 const SIGNAL_DOOR_MULTIPLIER := 5.0
+const SHELTER_PLACE_SPACING := 24.0
+const SHELTER_DOOR_CLEARANCE := 36.0
 
 signal signal_operator_entered(actor: Node2D)
 signal resident_sheltered(actor: Node2D, after_sighting: bool)
@@ -12,6 +14,7 @@ signal resident_sheltered(actor: Node2D, after_sighting: bool)
 var rules: BuildingRules
 var layout: BuildingInterior
 var mission: Node2D
+var reserve_shelter_places := false
 var door_hp: float
 var door_closed := false
 var reinforcement := 0.0
@@ -56,6 +59,7 @@ var _roof_target := 1.0
 
 func configure(owner_map: Node2D, config: BuildingRules, body: StaticBody2D, hint: Vector2) -> bool:
 	mission = owner_map
+	reserve_shelter_places = body.is_in_group("simulation_solids")
 	rules = config
 	door_hp = rules.door_health
 	layout = BuildingInterior.new()
@@ -104,6 +108,8 @@ func request_shelter(resident: CharacterBody2D) -> bool:
 	if door_hp == 0.0 and (reinforcement_hp > 0.0 or barricade_hp > 0.0):
 		return false
 	if not shelter_approach().is_finite() or _entrance_threatened():
+		return false
+	if reserve_shelter_places and not _reserve_shelter_place(resident):
 		return false
 	resident.building_task = self
 	resident._stop_movement()
@@ -189,7 +195,9 @@ func prepare_resident_conversion(resident: Node2D) -> Vector2:
 		if _crossing_started:
 			spawn_position = _crossing_approach
 		_end_crossing()
-	shelter_queue.erase(resident)
+	if shelter_queue.has(resident):
+		shelter_queue.erase(resident)
+		_clear_actor(resident)
 	return spawn_position
 
 
@@ -472,7 +480,11 @@ func _advance_crossing(delta: float) -> void:
 			actor.threat_reaction.cancel_response()
 			actor.threat_detection.reset_awareness()
 			door_closed = door_hp > 0.0
-			_assign_rest(actor)
+			if reserve_shelter_places:
+				if not _rest.has(actor):
+					_reserve_shelter_place(actor)
+			else:
+				_assign_rest(actor)
 			_end_crossing()
 			if actor == signal_operator:
 				signal_operator = null
@@ -989,9 +1001,52 @@ func _assign_rest(actor: Node2D) -> void:
 	_rest[actor] = actor.global_position
 
 
+func _reserve_shelter_place(actor: CharacterBody2D, relocating := false) -> bool:
+	var start := actor.global_position if relocating else layout.interior()
+	var previous: Vector2 = _rest.get(actor, Vector2.INF)
+	var best := Vector2.INF
+	var best_score := -INF
+	for local in layout.rest_points:
+		var point := layout.to_global(local)
+		var depth := layout.depth_at(point)
+		if depth > -SHELTER_DOOR_CLEARANCE and absf(_lateral(point)) < layout.half_width:
+			continue
+		if (local.distance_to(layout.repair_points[0]) < BuildingInterior.PORTAL_OFFSET
+			or local.distance_to(layout.repair_points[1]) < BuildingInterior.PORTAL_OFFSET):
+			continue
+		var separation := INF
+		for other in _rest:
+			if other != actor:
+				separation = minf(separation, point.distance_squared_to(_rest[other]))
+		if separation < SHELTER_PLACE_SPACING * SHELTER_PLACE_SPACING:
+			continue
+		# Spread the initial places out. A stalled resident needs a nearby place
+		# it can reach without walking past the same obstruction again.
+		var score := -start.distance_squared_to(point) if relocating else separation
+		if score <= best_score or point == previous or not _can_stand(actor, point):
+			continue
+		if relocating:
+			if actor.test_move(actor.global_transform, point - start):
+				continue
+		elif _path(start, point, layout.map, 1.0).is_empty():
+			continue
+		best = point
+		best_score = score
+	if not best.is_finite():
+		return false
+	_rest[actor] = best
+	_paths.erase(actor)
+	return true
+
+
 func _idle_inside(actor: CharacterBody2D, delta: float) -> void:
-	if actor != _crossing and _rest.has(actor):
-		_walk(actor, _rest[actor], actor.move_speed, delta, true, 2.0)
+	if actor == _crossing or not _rest.has(actor):
+		return
+	if _walk(actor, _rest[actor], actor.move_speed, delta, true, 2.0):
+		return
+	if reserve_shelter_places and not actor.is_in_group("player_units") and _stalled(actor):
+		if not _reserve_shelter_place(actor, true):
+			_paths.erase(actor)
 
 
 func _walk(actor: CharacterBody2D, goal: Vector2, speed: float, delta: float, inside: bool, tolerance := ARRIVAL) -> bool:

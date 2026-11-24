@@ -14,12 +14,14 @@ const ZOMBIES := {
 const HUMANS := {
 	"peasant": [75.0, 8.0, 1.4, 24.0, 60.0, 95.0],
 	"artisan": [90.0, 10.0, 1.4, 25.0, 60.0, 87.0],
-	"guard": [140.0, 26.0, 1.1, 35.0, 80.0, 85.0],
 	"priest_guard": [180.0, 30.0, 1.0, 30.0, 75.0, 85.0],
 	"priest": [80.0, 0.0, 0.0, 22.0, 65.0, 85.0],
-	"swordsman": [155.0, 28.0, 1.1, 35.0, 80.0, 85.0],
-	"spearman": [130.0, 32.0, 1.4, 35.0, 75.0, 85.0],
-	"archer": [85.0, 23.0, 1.6, 35.0, 85.0, 85.0],
+}
+const GUARD_VARIANTS := {
+	&"shield": [140.0, 26.0, 1.1, 35.0, 80.0, 85.0],
+	&"sword": [155.0, 28.0, 1.1, 35.0, 80.0, 85.0],
+	&"spear": [130.0, 32.0, 1.4, 35.0, 75.0, 85.0],
+	&"crossbow": [85.0, 23.0, 1.6, 35.0, 85.0, 85.0],
 }
 
 var mission: Node2D
@@ -49,9 +51,13 @@ func run() -> void:
 	mission = MISSION.instantiate()
 	mission.set_meta("developer_mode", true)
 	root.add_child(mission)
+	var map_variants := {}
 	for resident in mission.villagers:
 		resident.autonomous_movement_enabled = false
 		human_profile(resident, resident.get_meta("village_role"))
+		if resident.get_meta("village_role") == "guard":
+			map_variants[resident.guard_variant] = true
+	check(map_variants.size() == GUARD_VARIANTS.size(), "The starting guards cover all four variants")
 	for unit in mission._owned_zombies():
 		zombie_profile(unit, "zombie")
 		unit.set_physics_process(false)
@@ -74,12 +80,17 @@ func run() -> void:
 		await frames(1)
 
 	var squad := mission.get_node("LastStand/Reinforcements")
-	var roles: Array[StringName] = [&"swordsman", &"spearman", &"archer"]
-	var troops: Array[Node2D] = mission.spawn_reinforcement_wave(roles,
-		[Vector2(235, 810), Vector2(235, 840), Vector2(235, 870)], squad)
+	var variants: Array[StringName] = [&"sword", &"spear", &"crossbow", &"shield"]
+	var troops: Array[Node2D] = mission.spawn_reinforcement_wave(variants,
+		[Vector2(235, 810), Vector2(235, 840), Vector2(235, 870), Vector2(235, 780)], squad)
 	for i in troops.size():
 		troops[i].set_physics_process(false)
-		human_profile(troops[i], str(roles[i]))
+		check(troops[i].get_meta("village_role") == "guard" and troops[i].guard_variant == variants[i],
+			"Reinforcement is a guard of variant " + str(variants[i]))
+		human_profile(troops[i], "guard")
+	check(is_equal_approx(troops[3].guard_pursuit_limit(100.0), 80.0)
+		and troops[0].guard_pursuit_limit(100.0) == 100.0 and troops[1].guard_support_priority() > 0.0,
+		"Shield guards hold closer and spear guards prioritize supporting allies")
 	var march_start := Vector2(235, 810)
 	squad.waypoint = march_start
 	squad.path = PackedVector2Array([march_start + Vector2(100, 0)])
@@ -100,8 +111,8 @@ func run() -> void:
 	await duel("carrier", place_human("peasant", ARENA), "peasant")
 	await brute_splash()
 	for i in 2:
-		await duel("zombie", troops[i], str(roles[i]))
-	await archer_shot(troops[2])
+		await duel("zombie", troops[i], str(variants[i]))
+	await crossbow_shot(troops[2])
 	mission.queue_free()
 	await frames(2)
 	print("Unit balance v0.3: %d/%d passed" % [checks - failures, checks])
@@ -133,10 +144,17 @@ func human_profile(actor: Node2D, role: String) -> void:
 	var controller = actor.guard_ai if actor.guard_ai != null else actor.priest_guard
 	var tactical: float = controller.tactical_speed if controller != null else actor.escort.movement_speed
 	var stats := [actor.max_health, actor.attack_damage, actor.attack_interval, actor.move_speed, tactical, actor.threat_reaction.fleeing_speed]
-	check(stats == HUMANS[role] and actor.current_health == actor.max_health
+	var expected: Array = GUARD_VARIANTS[actor.guard_variant] if role == "guard" else HUMANS[role]
+	check(stats == expected and actor.current_health == actor.max_health
 		and actor.navigation_agent.max_speed == actor.move_speed
 		and (role == "priest" or is_equal_approx(actor.encounter_attack_timer.wait_time, actor.attack_interval)),
 		"Human profile and initialization: " + str(actor.name))
+	if role == "guard":
+		var crossbow: bool = actor.guard_variant == &"crossbow"
+		var visual := actor.get_node_or_null("GuardVisual")
+		check(actor.defense_ranged_weapon == crossbow
+			and (visual == null if crossbow else visual != null and visual.appearance == actor.guard_variant),
+			"Equipment drives both attacks and visuals: " + str(actor.guard_variant))
 
 
 func arming_and_priest() -> void:
@@ -268,11 +286,11 @@ func brute_splash() -> void:
 	await frames(2)
 
 
-func archer_shot(archer: Node2D) -> void:
-	archer.global_position = ARENA
+func crossbow_shot(guard: Node2D) -> void:
+	guard.global_position = ARENA
 	var zombie := place_zombie("zombie", ARENA + Vector2(-62, 0))
-	archer.guard_ai.engage_target(zombie, STEP, ARENA, INF)
-	check(is_equal_approx(archer.guard_ai.next_shot - archer.defense.elapsed, 1.6), "Archer schedules the next projectile after 1.6 s")
+	guard.guard_ai.engage_target(zombie, STEP, ARENA, INF)
+	check(is_equal_approx(guard.guard_ai.next_shot - guard.defense.elapsed, 1.6), "Crossbow guard schedules the next bolt after 1.6 s")
 	await frames(25)
-	check(zombie.current_health == 157.0, "Existing archer projectile deals 23 damage on contact")
+	check(zombie.current_health == 157.0, "Crossbow bolt deals 23 damage on contact")
 	zombie.queue_free()

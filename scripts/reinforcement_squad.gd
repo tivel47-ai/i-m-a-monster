@@ -1,6 +1,7 @@
 extends Node2D
 ## One offensive squad with a navigation waypoint independent of its soldiers.
 
+const BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
 const SPAWN_SPACING := 25.0
 const REGROUP_RADIUS := 45.0
 const ARRIVAL_RADIUS := 32.0
@@ -12,7 +13,7 @@ enum Mode { MARCH, COMBAT, REGROUP }
 @export var patrol_points: PackedVector2Array
 @export var base_count := 11
 @export var count_variation := 2
-@export var archer_fraction := 0.25
+@export var crossbow_fraction := 0.25
 @export var spear_fraction_of_melee := 0.45
 @export var pursuit_limit := 240.0
 @export var lag_limit := 120.0
@@ -25,7 +26,7 @@ enum Mode { MARCH, COMBAT, REGROUP }
 var last_stand: Node
 var soldiers: Array[Node2D] = []
 var rng := RandomNumberGenerator.new()
-var roles: Array[StringName] = []
+var guard_variants: Array[StringName] = []
 var mode := Mode.MARCH
 var next_decision := 0.0
 var patrol_index := -1
@@ -55,13 +56,18 @@ func initialize(owner: Node) -> void:
 func try_arrive() -> bool:
 	if waypoint.is_finite() or entry_points.is_empty():
 		return false
-	if roles.is_empty():
+	if guard_variants.is_empty():
 		var variation := maxi(count_variation, 0)
-		var count := maxi(3, base_count + rng.randi_range(-variation, variation))
-		var archers := clampi(roundi(count * archer_fraction), 1, maxi(1, floori(count / 3.0)))
-		var spears := clampi(roundi((count - archers) * spear_fraction_of_melee), 1, count - archers - 1)
-		for i in count:
-			roles.append(&"spearman" if i < spears else (&"swordsman" if i < count - archers else &"archer"))
+		var count := maxi(BALANCE.GUARD_VARIANTS.size(), base_count + rng.randi_range(-variation, variation))
+		var crossbows := clampi(roundi(count * crossbow_fraction), 1, mini(floori(count / 3.0), count - 3))
+		var melee := count - crossbows
+		var spears := clampi(roundi(melee * spear_fraction_of_melee), 1, melee - 2)
+		var shields := roundi((melee - spears) * 0.5)
+		var amounts := {BALANCE.SPEAR: spears, BALANCE.SHIELD: shields,
+			BALANCE.SWORD: melee - spears - shields, BALANCE.CROSSBOW: crossbows}
+		for variant in amounts:
+			for i in amounts[variant]:
+				guard_variants.append(variant)
 	var nav := get_world_2d().navigation_map
 	if NavigationServer2D.map_get_iteration_id(nav) == 0:
 		return false
@@ -75,7 +81,7 @@ func try_arrive() -> bool:
 	var selected: PackedVector2Array = available[rng.randi_range(0, available.size() - 1)]
 	waypoint = selected[0].lerp(selected[mini(3, selected.size() - 1)], 0.5)
 	heading = waypoint.direction_to(to_global(church_approach))
-	soldiers = last_stand.mission.spawn_reinforcement_wave(roles, selected, self)
+	soldiers = last_stand.mission.spawn_reinforcement_wave(guard_variants, selected, self)
 	set_physics_process(true)
 	return true
 
@@ -91,7 +97,7 @@ func _spawn_positions(nav: RID, entry: Vector2) -> PackedVector2Array:
 	query.shape = footprint
 	query.collision_mask = 1 | 2 | 8 | 16 | 32
 	var positions := PackedVector2Array()
-	for i in roles.size():
+	for i in guard_variants.size():
 		var column := i % 4
 		var row := floori(i / 4.0)
 		var point := entry + forward.orthogonal() * (column - 1.5) * SPAWN_SPACING - forward * row * SPAWN_SPACING
@@ -327,8 +333,11 @@ func update_soldier(guard: Node, delta: float) -> bool:
 		guard.halt()
 		return true
 	if mode == Mode.COMBAT and is_instance_valid(target) and target.is_alive():
-		if actor.threat_detection._is_visible_target(target) and encounter_origin.distance_to(target.global_position) <= pursuit_limit:
-			guard.engage_target(target, delta, encounter_origin, pursuit_limit)
+		var limit: float = actor.guard_pursuit_limit(pursuit_limit)
+		if encounter_origin.distance_to(target_point) > limit:
+			guard.move_to(encounter_origin, delta)
+		elif actor.threat_detection._is_visible_target(target) and encounter_origin.distance_to(target.global_position) <= limit:
+			guard.engage_target(target, delta, encounter_origin, limit)
 		else:
 			guard.move_to(target_point, delta)
 	else:

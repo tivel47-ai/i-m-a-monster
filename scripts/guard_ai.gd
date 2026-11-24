@@ -424,13 +424,21 @@ func _select_combat_target() -> Node2D:
 	var current := instance_from_id(pursuit_target) as Node2D
 	if is_instance_valid(current) and visible_enemies.has(current) and actor.threat_detection._is_visible_target(current):
 		return current
-	var closest: float = actor.global_position.distance_squared_to(enemy.global_position)
+	var closest := _combat_target_score(enemy)
 	for candidate in visible_enemies:
-		var distance: float = actor.global_position.distance_squared_to(candidate.global_position)
-		if distance < closest and actor.threat_detection._is_visible_target(candidate):
+		var score := _combat_target_score(candidate)
+		if score < closest and actor.threat_detection._is_visible_target(candidate):
 			enemy = candidate
-			closest = distance
+			closest = score
 	return enemy
+
+
+func _combat_target_score(enemy: Node2D) -> float:
+	var distance: float = actor.global_position.distance_to(enemy.global_position)
+	var support: float = actor.guard_support_priority()
+	if support > 0.0 and local_allies.any(func(ally): return ally.encounter_participants.has(enemy)):
+		return distance - support
+	return distance
 
 
 func _can_pursue(enemy: Node2D) -> bool:
@@ -443,7 +451,7 @@ func _can_pursue(enemy: Node2D) -> bool:
 	var local_assault: bool = enemy.is_assaulting_building() and actor.global_position.distance_to(point) <= search_radius
 	return (
 		(now() - pursuit_started - pursuit_contact_seconds <= pursuit_seconds or local_inspection or local_assault)
-		and pursuit_origin.distance_to(point) <= pursuit_distance
+		and pursuit_origin.distance_to(point) <= actor.guard_pursuit_limit(pursuit_distance)
 		and (pursuit_started_outside_territory or local_inspection or territory_distance(point) <= territory_margin)
 	)
 
@@ -453,10 +461,10 @@ func _try_other_combat_target(enemy: Node2D, delta: float) -> bool:
 		return candidate != enemy and actor.threat_detection._is_visible_target(candidate)
 	)
 	alternatives.sort_custom(func(a: Node2D, b: Node2D) -> bool:
-		return actor.global_position.distance_squared_to(a.global_position) < actor.global_position.distance_squared_to(b.global_position)
+		return _combat_target_score(a) < _combat_target_score(b)
 	)
 	for candidate in alternatives.slice(0, 3):
-		if _can_pursue(candidate) and engage_target(candidate, delta, pursuit_origin, pursuit_distance):
+		if _can_pursue(candidate) and engage_target(candidate, delta, pursuit_origin, actor.guard_pursuit_limit(pursuit_distance)):
 			pursuit_target = candidate.get_instance_id()
 			return true
 	return false
@@ -472,6 +480,8 @@ func engage_target(enemy: Node2D, delta: float, origin: Vector2, limit: float) -
 			var bolt = PROJECTILE.new()
 			bolt.position = actor.defense.get_parent().to_local(actor.global_position)
 			bolt.direction = actor.global_position.direction_to(enemy.global_position)
+			if actor.unit_vision != null:
+				actor.unit_vision.face(bolt.direction)
 			bolt.damage = actor.attack_damage
 			bolt.speed = actor.defense_projectile_speed
 			bolt.remaining = actor.defense_weapon_range
@@ -933,7 +943,7 @@ func update_ai(delta: float) -> bool:
 			actor._stop_movement()
 			halt() # cautious observation at pursuit boundary, not an endless chase
 			return true
-		if not engage_target(enemy, delta, pursuit_origin, pursuit_distance) and can_switch_target:
+		if not engage_target(enemy, delta, pursuit_origin, actor.guard_pursuit_limit(pursuit_distance)) and can_switch_target:
 			_try_other_combat_target(enemy, delta)
 		return true
 	if investigation.update(delta): return true

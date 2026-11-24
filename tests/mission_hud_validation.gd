@@ -197,13 +197,13 @@ func check_ordinary_visuals() -> void:
 		await physics_frame
 	var menu: PopupMenu
 	for button in mission.mission_hud.developer_panel.find_children("*", "MenuButton", true, false):
-		if button.text == "Создать монстра":
+		if button.text == "Зомби":
 			menu = button.get_popup()
 			break
 	check(menu != null, "Developer HUD has the monster placement menu")
 	if menu == null:
 		return
-	var types := {"Зомби": "zombie", "Громила": PROGRESSION.BRUTE,
+	var types := {"Обычный зомби": "zombie", "Громила": PROGRESSION.BRUTE,
 		"Бегун": PROGRESSION.HOUND, "Носитель": PROGRESSION.CARRIER}
 	var labels: Array[String] = []
 	for index in menu.item_count:
@@ -223,7 +223,7 @@ func check_ordinary_visuals() -> void:
 		check(not mission.developer_place(legacy_kind, Vector2(350, 960))
 			and mission._owned_zombies().size() == unit_count, "A skin cannot be placed as a type")
 	menu.id_pressed.emit(menu.get_item_id(0))
-	check(mission.developer_spawn == "zombie" and mission.mission_hud.developer_tool_label.text.begins_with("Зомби ·"),
+	check(mission.developer_spawn == "zombie" and mission.mission_hud.developer_tool_label.text.begins_with("Обычный зомби ·"),
 		"The ordinary placement tool only identifies the type")
 	var ordinary_stats := []
 	for index in ART.TURN.size():
@@ -349,7 +349,7 @@ func check_developer_humans() -> void:
 		await physics_frame
 	var menu: PopupMenu
 	for button in mission.mission_hud.developer_panel.find_children("*", "MenuButton", true, false):
-		if button.text == "Создать человека":
+		if button.text == "Люди":
 			menu = button.get_popup()
 			break
 	check(menu != null, "Developer HUD has the human placement menu")

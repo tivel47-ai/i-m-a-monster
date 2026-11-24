@@ -23,11 +23,12 @@ func _run() -> void:
 	var artisan: Node2D = _role(mission, "artisan")
 	var priest: Node2D = _role(mission, "priest")
 	var escort: Node2D = _role(mission, "priest_guard")
-	var guard: Node2D = _role(mission, "guard")
+	var guard: Node2D = mission.villagers.filter(func(actor):
+		return actor.get_meta("village_role") == "guard" and not actor.defense_ranged_weapon)[0]
 	var infected: Node2D = _role(mission, "peasant", peasant)
-	var roles: Array[StringName] = [&"archer"]
-	var archer: Node2D = mission.spawn_reinforcement_wave(
-		roles, PackedVector2Array([Vector2(340, 1000)]), null)[0]
+	var variants: Array[StringName] = [&"crossbow"]
+	var crossbow_guard: Node2D = mission.spawn_reinforcement_wave(
+		variants, PackedVector2Array([Vector2(340, 1000)]), null)[0]
 	var ordinary := _monster(mission, "", Vector2(440, 1000))
 	var brute := _monster(mission, PROGRESSION.BRUTE, Vector2(480, 1000))
 	var hound := _monster(mission, PROGRESSION.HOUND, Vector2(520, 1000))
@@ -77,7 +78,7 @@ func _run() -> void:
 
 	var footprint_count := exterior.get_child_count()
 	var no_trace_seed := _splash_seed(FLUIDS.HIT_CHANCE, 1, false)
-	for actor in [artisan, priest, guard, escort, archer]:
+	for actor in [artisan, priest, guard, escort, crossbow_guard]:
 		fluids._random.seed = no_trace_seed
 		actor.take_damage(1.0, ordinary)
 		_check(fluids._splashes.size() == 1 and fluids._splashes[0].trace == null
@@ -120,13 +121,13 @@ func _run() -> void:
 	for actor in [peasant, artisan, ordinary]:
 		actor.take_damage(1000.0)
 	_check(exterior.get_child_count() == footprint_count, "All existing fall clips delay their pools")
-	archer.take_damage(1000.0)
+	crossbow_guard.take_damage(1000.0)
 	priest.take_damage(1000.0)
 	hound.take_damage(1000.0)
 	carrier.take_damage(1000.0)
 	await process_frame
 	_check(exterior.get_child_count() == footprint_count + 3,
-		"The archer, Runner and Carrier leave pools with their static death markers")
+		"The crossbow guard, Runner and Carrier leave pools with their static death markers")
 	_check(floor.get_child_count() == 1, "The priest's fall also delays the interior pool")
 
 	for _frame in 66:

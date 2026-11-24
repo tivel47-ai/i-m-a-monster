@@ -49,6 +49,7 @@ enum InfectionSource { NONE, ZOMBIE_COMBAT, PLAYER_ABILITY }
 @export var wait_duration_min: float = 2.0
 @export var wait_duration_max: float = 5.0
 @export var arrival_tolerance: float = 4.0
+@export var guard_variant: StringName
 @export_group("Defensive ranged equipment")
 ## Opt-in equipment; existing maps keep their current melee assignments.
 @export var defense_ranged_weapon: bool = false
@@ -145,8 +146,14 @@ func private_shelter_marker() -> Node2D:
 
 
 func configure_mission_balance() -> void:
-	var role := StringName(get_meta("reinforcement_role", get_meta("village_role", "")))
-	_balance_profile = MISSION_BALANCE.HUMANS.get(role, {})
+	var type_id := StringName(get_meta("village_role", ""))
+	if type_id == &"guard":
+		if not MISSION_BALANCE.GUARD_VARIANTS.has(guard_variant):
+			guard_variant = MISSION_BALANCE.SHIELD
+		_balance_profile = MISSION_BALANCE.GUARD_VARIANTS[guard_variant]
+		defense_ranged_weapon = guard_variant == MISSION_BALANCE.CROSSBOW
+	else:
+		_balance_profile = MISSION_BALANCE.HUMANS.get(type_id, {})
 	if _balance_profile.is_empty():
 		return
 	max_health = _balance_profile.health
@@ -157,6 +164,14 @@ func configure_mission_balance() -> void:
 
 func tactical_move_speed(fallback: float) -> float:
 	return _balance_profile.get("tactical", fallback)
+
+
+func guard_pursuit_limit(limit: float) -> float:
+	return limit * _balance_profile.get("pursuit_factor", 1.0)
+
+
+func guard_support_priority() -> float:
+	return _balance_profile.get("support_priority", 0.0)
 
 
 func apply_armed_combat_profile() -> void:
@@ -201,17 +216,16 @@ func _setup_body_sprite() -> void:
 		_body_sprite = _church_visual
 		visual_ui_offset_y = CHURCH_CHARACTER_VISUAL.HEALTH_BAR_Y - HEALTH_BAR_Y
 	elif role == &"guard":
-		var mission := _sprite_map(&"guard_sprites")
-		if mission == null or defense_ranged_weapon:
+		if _sprite_map(&"guard_sprites") == null:
 			return
-		var appearance: StringName
-		match StringName(get_meta("reinforcement_role", "")):
-			&"swordsman": appearance = GUARD_VISUAL.SWORD
-			&"spearman": appearance = GUARD_VISUAL.SPEAR
-			_: appearance = mission.call("take_guard_appearance")
+		if guard_variant == MISSION_BALANCE.CROSSBOW:
+			polygon.color = Color("#a5af74")
+			return
+		if defense_ranged_weapon:
+			return
 		_guard_visual = GUARD_VISUAL.new()
 		_guard_visual.name = "GuardVisual"
-		_guard_visual.appearance = appearance
+		_guard_visual.appearance = guard_variant if GUARD_VISUAL.ATLASES.has(guard_variant) else GUARD_VISUAL.SHIELD
 		_body_sprite = _guard_visual
 		visual_ui_offset_y = _guard_visual.health_bar_y() - HEALTH_BAR_Y
 	elif civilian_profile == "Peasant" and _sprite_map(&"peasant_sprites") != null:

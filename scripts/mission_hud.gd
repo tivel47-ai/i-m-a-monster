@@ -477,8 +477,9 @@ func _build_developer_tools() -> void:
 	var box := VBoxContainer.new()
 	developer_panel.add_child(box)
 	_label(box, "Режим разработки", 17)
-	_add_spawn_menu(box, "Создать монстра", CATALOG.monster_types())
-	_add_spawn_menu(box, "Создать человека", CATALOG.HUMAN_TYPES)
+	for race_id in CATALOG.RACES:
+		var race: Dictionary = CATALOG.RACES[race_id]
+		_add_spawn_menu(box, race.name, race.unit_types)
 	developer_tool_label = _label(box, "Выберите инструмент", 13)
 	var stop := Button.new()
 	stop.text = "Отменить создание"
@@ -535,9 +536,11 @@ func _add_spawn_menu(parent: VBoxContainer, title: String, types: Dictionary) ->
 
 func _add_ability_menu(parent: VBoxContainer) -> void:
 	var races := _developer_menu(parent, "Добавить способность")
-	var race_ids := CATALOG.RACES.keys()
-	for race in race_ids:
-		races.add_item(CATALOG.RACES[race].name)
+	var race_ids: Array[String] = []
+	for race in CATALOG.RACES:
+		if not CATALOG.RACES[race].active_perks.is_empty():
+			races.add_item(CATALOG.RACES[race].name)
+			race_ids.append(race)
 	developer_ability_popup = PopupMenu.new()
 	races.get_parent().add_child(developer_ability_popup)
 	races.id_pressed.connect(func(index: int):
@@ -598,7 +601,7 @@ func refresh_developer_tool(placement_failed := false) -> void:
 		return
 	var kind: String = mission.developer_spawn
 	var unit_name: String = CATALOG.HUMAN_TYPES.get(kind,
-		CATALOG.monster_types().get(kind, ""))
+		CATALOG.ZOMBIE_TYPES.get(kind, ""))
 	developer_tool_label.text = "%s · ЛКМ на карте, ПКМ — отмена" % unit_name if not unit_name.is_empty() else "Выберите инструмент"
 
 
