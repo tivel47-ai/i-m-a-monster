@@ -166,13 +166,14 @@ func _build() -> void:
 	army.add_child(army_box)
 	if mission.horde_commands != null and mission.monster_roster_enabled:
 		_fit_bottom_panel(army)
-		if _zombie_skin:
-			army.offset_left = 14
-			ZOMBIE_THEME.apply_frame(army, ZOMBIE_THEME.Frame.ARMY)
 		_monster_roster = army_box
 		monster_count = _label(army_box, "Монстры: 0", DARK_THEME.BODY_SIZE)
 		if _zombie_skin:
+			army.offset_left = 14
+			army_box.add_theme_constant_override("separation", 4)
+			monster_count.autowrap_mode = TextServer.AUTOWRAP_OFF
 			monster_count.add_theme_color_override("font_color", DARK_THEME.HEADING)
+			ZOMBIE_THEME.apply_roster_frame(army, monster_count)
 	else:
 		_label(army_box, "Монстры", DARK_THEME.BODY_SIZE)
 		if mission.horde_commands != null:
