@@ -78,6 +78,10 @@ func select_assault(zombie: Node2D, building: InteractiveBuilding) -> void:
 
 
 func run() -> void:
+	if "--converted-target-only" in OS.get_cmdline_user_args():
+		await converted_target_during_assault()
+		await finish()
+		return
 	await geometry_and_noise()
 	await mission_shelter_placement()
 	await ordinary_warning()
@@ -88,6 +92,11 @@ func run() -> void:
 	await civilian_contact_defense()
 	await repair_without_breach()
 	await crowded_assault()
+	await converted_target_during_assault()
+	await finish()
+
+
+func finish() -> void:
 	mission.queue_free()
 	await process_frame
 	print("IDEA-002: ", checks - failures, "/", checks, " checks passed")
@@ -540,3 +549,43 @@ func crowded_assault() -> void:
 			wave.map(func(zombie): return [zombie.global_position, zombie.global_position.distance_to(resident.global_position), zombie._has_line_of_sight(resident)]),
 			" melee ", house._melee_positions, " paths ", house._paths)
 	check(contacts, "Interior combatants can reach separate melee contacts on the same resident")
+
+
+func converted_target_during_assault() -> void:
+	var house := await setup_mission_cottage()
+	var resident: Node2D = mission.villagers[0]
+	resident.global_position = house.layout.exterior(42.0)
+	resident.attack_damage = 0.0
+	house.request_shelter(resident)
+	var sheltered := await until(func(): return resident.interior_building == house, 140)
+	check(sheltered, "The peasant shelters in a Mission 1 cottage")
+	if not sheltered:
+		return
+
+	var fighter := spawn(house.layout.exterior(62.0))
+	fighter.issue_player_building_order(house)
+	var made_contact := await until(func(): return resident.is_encounter_owner(fighter), 600)
+	check(made_contact and fighter.interior_building == house, "A zombie breaches the door and engages the peasant inside")
+	if not made_contact:
+		return
+
+	var pursuer := spawn(house.layout.interior())
+	house._enter_monster(pursuer)
+	pursuer.aggro_target = resident
+	check(not resident.is_encounter_owner(pursuer), "The second zombie has a pursuit target before making contact")
+	resident.current_health = fighter.attack_damage
+	fighter.infection_chance = 1.0
+	fighter._on_encounter_attack_timer_timeout()
+	check(resident.is_queued_for_deletion() and mission.infected_residents == 1, "The lethal attack converts and removes the peasant")
+	check(pursuer.aggro_target == null, "Conversion clears the pursuit target before the peasant is freed")
+	await frames(2)
+	check(not is_instance_valid(resident), "The converted peasant is freed")
+
+	var visual: Sprite2D = pursuer.get_node("OrdinaryZombieVisual")
+	var removed := Node2D.new()
+	pursuer.aggro_target = removed
+	removed.free()
+	visual.play_attack(Vector2.DOWN, 1.0)
+	visual._physics_process(1.0 / 60.0)
+	check(visual._clip_time > 0.0, "The ordinary zombie's attack animation advances even with a freed target")
+	pursuer.aggro_target = null

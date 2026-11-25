@@ -6,6 +6,7 @@ uniform float fill_level : hint_range(0.0, 1.0) = 0.0;
 uniform bool highlighted = false;
 uniform bool targeting = false;
 uniform bool available = true;
+uniform bool rooted_frame = false;
 
 const float GLASS_RADIUS = 0.853;
 
@@ -78,7 +79,13 @@ void fragment() {
 
 	if ((highlighted || targeting) && available) {
 		float strength = targeting ? 0.25 : 0.10;
-		color += vec3(0.46, 0.52, 0.23) * strength * smoothstep(0.80, 0.90, radius);
+		float rim = smoothstep(0.80, 0.90, radius);
+		if (targeting && rooted_frame) {
+			// The roots cover the outer glass edge, so bring the targeting glow inward.
+			strength = 0.45;
+			rim = smoothstep(0.72, 0.86, radius);
+		}
+		color += vec3(0.46, 0.52, 0.23) * strength * rim;
 	}
 	if (!available) {
 		color *= mix(0.65, 0.90, transmission);

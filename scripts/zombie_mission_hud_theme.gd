@@ -1,13 +1,30 @@
 extends RefCounted
 
-enum Growth { OBJECTIVE_CORNER, OBJECTIVE_BASE, ALERT_LEFT, ALERT_RIGHT, ROSTER, HOTBAR_LEFT, HOTBAR_RIGHT, COMMANDS }
+enum Frame { GOAL, VILLAGE, VIRUS, PAUSE, ARMY, COMMANDS }
 
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
 const ROOT_FRAME: Texture2D = preload("res://assets/ui/zombie_style/mission_hud_roots.png")
-const ROOT_GROWTH: Texture2D = preload("res://assets/ui/zombie_style/mission_hud_necrotic_roots.png")
-const ORB_CRADLE: Texture2D = preload("res://assets/ui/zombie_style/mission_hud_necrotic_cradle.png")
-const GROWTH_COLUMNS := 4
-const GROWTH_CELL := Vector2i(192, 160)
+const FRAMES := {
+	Frame.GOAL: [preload("res://assets/ui/zombie_style/mission_hud_decay_goal.png"),
+		Vector4(9, 12, 65, 54), Vector4(44, 32, 103, 73), Vector4(13, 6, 14, 6)],
+	Frame.VILLAGE: [preload("res://assets/ui/zombie_style/mission_hud_decay_village.png"),
+		Vector4(116, 13, 93, 36), Vector4(173, 26, 155, 48), Vector4(14, 4, 14, 4)],
+	Frame.VIRUS: [preload("res://assets/ui/zombie_style/mission_hud_decay_virus.png"),
+		Vector4(28, 14, 14, 25), Vector4(61, 26, 57, 37), Vector4(12, 4, 16, 4)],
+	Frame.PAUSE: [preload("res://assets/ui/zombie_style/mission_hud_decay_pause.png"),
+		Vector4(13, 15, 10, 24), Vector4(48, 27, 45, 36), Vector4(9, 4, 9, 4)],
+	Frame.ARMY: [preload("res://assets/ui/zombie_style/mission_hud_decay_army.png"),
+		Vector4(10, 70, 51, 12), Vector4(64, 82, 102, 23), Vector4(12, 6, 15, 6)],
+	Frame.COMMANDS: [preload("res://assets/ui/zombie_style/mission_hud_decay_commands.png"),
+		Vector4(44, 41, 12, 9), Vector4(81, 67, 44, 25), Vector4(13, 6, 12, 9)],
+}
+const HOTBAR_FRAME: Texture2D = preload("res://assets/ui/zombie_style/mission_hud_decay_hotbar.png")
+# The outer forks and the orb opening are fixed. Only the two straight spans stretch.
+const HOTBAR_CUTS := [0, 115, 344, 468, 697, 798]
+const HOTBAR_OUTSET_LEFT := 69.0
+const HOTBAR_OUTSET_RIGHT := 55.0
+const HOTBAR_BOTTOM_IN_TEXTURE := 127.5
+const ORB_CENTER_FROM_HOTBAR_BOTTOM := 65.0
 const BONE := Color("ebdbb8")
 const EDGE := Color("6b5b43")
 
@@ -49,36 +66,53 @@ static func keycap() -> StyleBoxFlat:
 	return DARK_THEME.surface(Color("17140e"), EDGE, 2)
 
 
-static func add_growth(panel: Control, piece: Growth, anchor: Vector2, offset: Vector2, width: float) -> void:
-	var texture := AtlasTexture.new()
-	texture.atlas = ROOT_GROWTH
-	@warning_ignore("integer_division")
-	var cell := Vector2i(piece % GROWTH_COLUMNS, piece / GROWTH_COLUMNS)
-	texture.region = Rect2(cell * GROWTH_CELL, GROWTH_CELL)
-	texture.filter_clip = true
-	var behind_panel := piece in [Growth.OBJECTIVE_CORNER, Growth.OBJECTIVE_BASE, Growth.ROSTER, Growth.COMMANDS]
-	_mount_roots(panel, texture, Growth.keys()[piece].to_pascal_case(), anchor, offset, width, behind_panel)
+static func style_pause_button(button: Button) -> void:
+	var empty := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state, empty)
+	button.add_theme_color_override("font_hover_color", Color("fff0cd"))
+	button.add_theme_color_override("font_focus_color", Color("ffdb92"))
+	button.add_theme_color_override("font_pressed_color", Color("d9b47c"))
+	button.add_theme_color_override("font_hover_pressed_color", Color("d9b47c"))
 
 
-static func add_orb_cradle(button: Button) -> void:
-	var roots := _mount_roots(button, ORB_CRADLE, "OrbCradle", Vector2(0.5, 1.0), Vector2(0, -54), 136, false)
-	# The cradle hugs the glass. The HUD adds the charge counter and keycap above it.
-	button.move_child(roots, -1)
+static func apply_frame(panel: PanelContainer, piece: Frame) -> void:
+	var definition: Array = FRAMES[piece]
+	var frame := StyleBoxTexture.new()
+	frame.texture = definition[0]
+	var outset: Vector4 = definition[1]
+	var slice: Vector4 = definition[2]
+	var padding: Vector4 = definition[3]
+	# Store each complete border, including its branches, as a single nine-patch.
+	# The outsets draw outside the input rectangle without creating mouse targets.
+	for side: Side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		frame.set_expand_margin(side, outset[side])
+		frame.set_texture_margin(side, slice[side])
+		frame.set_content_margin(side, padding[side])
+	panel.add_theme_stylebox_override("panel", frame)
 
 
-static func _mount_roots(control: Control, texture: Texture2D, label: String,
-		anchor: Vector2, offset: Vector2, width: float, behind_panel: bool) -> Sprite2D:
-	# A Sprite2D follows the control without adding a minimum size or a mouse target.
-	var roots := Sprite2D.new()
-	roots.name = label
-	roots.texture = texture
-	roots.scale = Vector2.ONE * (width / texture.get_width())
-	roots.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	roots.show_behind_parent = behind_panel
-	control.add_child(roots)
-	# Roots placed over the frame still draw below the panel's labels and buttons.
-	control.move_child(roots, 0)
-	var align := func(): roots.position = control.size * anchor + offset
-	control.resized.connect(align)
-	align.call()
-	return roots
+static func apply_hotbar_frame(panel: PanelContainer) -> void:
+	var padding := StyleBoxEmpty.new()
+	padding.set_content_margin(SIDE_LEFT, 19)
+	padding.set_content_margin(SIDE_RIGHT, 19)
+	padding.set_content_margin(SIDE_TOP, 4)
+	padding.set_content_margin(SIDE_BOTTOM, 6)
+	panel.add_theme_stylebox_override("panel", padding)
+	panel.draw.connect(_draw_hotbar_frame.bind(panel))
+	panel.resized.connect(panel.queue_redraw)
+
+
+static func _draw_hotbar_frame(panel: PanelContainer) -> void:
+	var height := float(HOTBAR_FRAME.get_height())
+	var top := panel.size.y - HOTBAR_BOTTOM_IN_TEXTURE
+	var left := -HOTBAR_OUTSET_LEFT
+	var right := panel.size.x + HOTBAR_OUTSET_RIGHT
+	var center_left := panel.size.x * 0.5 - (HOTBAR_CUTS[3] - HOTBAR_CUTS[2]) * 0.5
+	var center_right := center_left + HOTBAR_CUTS[3] - HOTBAR_CUTS[2]
+	var edges := [left, left + HOTBAR_CUTS[1], center_left, center_right,
+		right - (HOTBAR_CUTS[5] - HOTBAR_CUTS[4]), right]
+	for index in HOTBAR_CUTS.size() - 1:
+		var source := Rect2(HOTBAR_CUTS[index], 0, HOTBAR_CUTS[index + 1] - HOTBAR_CUTS[index], height)
+		var dest := Rect2(edges[index], top, edges[index + 1] - edges[index], height)
+		panel.draw_texture_rect_region(HOTBAR_FRAME, dest, source)

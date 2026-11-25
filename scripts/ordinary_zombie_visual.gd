@@ -58,7 +58,7 @@ func _setup_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	var displacement := _actor.global_position - _last_position
 	_last_position = _actor.global_position
-	var opponent := _actor.get("aggro_target") as Node2D
+	var opponent: Variant = _actor.get("aggro_target")
 	var windup := _windup_progress(opponent)
 	if _clip_row == ART.Clip.HURT and windup >= 0.0:
 		_clip_row = -1

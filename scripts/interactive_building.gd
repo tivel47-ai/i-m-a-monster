@@ -203,6 +203,10 @@ func adopt_conversion(resident: Node2D, zombie: CharacterBody2D) -> void:
 	residents.erase(resident)
 	departing.erase(resident)
 	_clear_actor(resident)
+	# Pursuers outside melee contact were not notified when the encounter ended.
+	for interior_zombie in monsters:
+		if is_instance_valid(interior_zombie):
+			interior_zombie.on_encounter_ended(resident)
 	_enter_monster(zombie)
 
 

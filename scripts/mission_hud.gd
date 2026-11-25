@@ -12,6 +12,8 @@ const SETTINGS = preload("res://scripts/game_settings.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ZOMBIE = preload("res://scripts/zombie.gd")
 const INFECTION_ORB_SIZE := 92.0
+const ZOMBIE_HUD_BOTTOM_MARGIN := 14.0
+const HOTBAR_ORB_GAP := 138.0
 
 var mission: Node2D
 var _zombie_skin := false
@@ -100,10 +102,13 @@ func _panel(left: float, top: float, right: float, bottom: float) -> PanelContai
 
 func _fit_top_panel(panel: PanelContainer, height: float) -> void:
 	panel.anchor_bottom = 0.0
+	panel.offset_top = 16
 	panel.offset_bottom = panel.offset_top + height
 
 
 func _fit_bottom_panel(panel: PanelContainer) -> void:
+	if _zombie_skin:
+		panel.offset_bottom = -ZOMBIE_HUD_BOTTOM_MARGIN
 	panel.anchor_top = 1.0
 	panel.offset_top = panel.offset_bottom
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -128,16 +133,15 @@ func _build() -> void:
 	alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if _zombie_skin:
 		alert_label.add_theme_color_override("font_color", DARK_THEME.HEADING)
+		objective.offset_left = 14
+		ZOMBIE_THEME.apply_frame(objective, ZOMBIE_THEME.Frame.GOAL)
+		ZOMBIE_THEME.apply_frame(alert, ZOMBIE_THEME.Frame.VILLAGE)
 		_fit_top_panel(objective, 0)
-		_fit_top_panel(alert, 47)
-		ZOMBIE_THEME.add_growth(objective, ZOMBIE_THEME.Growth.OBJECTIVE_CORNER, Vector2.RIGHT, Vector2(16, 31), 94)
-		ZOMBIE_THEME.add_growth(objective, ZOMBIE_THEME.Growth.OBJECTIVE_BASE, Vector2.DOWN, Vector2(32, 3), 84)
-		ZOMBIE_THEME.add_growth(alert, ZOMBIE_THEME.Growth.ALERT_LEFT, Vector2(0, 0.5), Vector2(-20, 14), 124)
-		ZOMBIE_THEME.add_growth(alert, ZOMBIE_THEME.Growth.ALERT_RIGHT, Vector2(1, 0.5), Vector2(20, 15), 124)
+		_fit_top_panel(alert, 32)
 	if mission.manual_victory_finish:
 		_build_victory_notice()
 
-	var pause_edge := 0.89 if _zombie_skin else 0.91
+	var pause_edge := 0.895 if _zombie_skin else 0.91
 	var gear := _panel(pause_edge, 0.0, 1.0, 0.075)
 	var pause_button := Button.new()
 	pause_button.text = "⚙ Пауза"
@@ -145,13 +149,17 @@ func _build() -> void:
 	pause_button.pressed.connect(func(): mission.pause_requested.emit())
 	gear.add_child(pause_button)
 	if _zombie_skin:
-		_fit_top_panel(gear, 54)
+		gear.offset_right = -14
+		ZOMBIE_THEME.apply_frame(gear, ZOMBIE_THEME.Frame.PAUSE)
+		ZOMBIE_THEME.style_pause_button(pause_button)
+		_fit_top_panel(gear, 35)
 	if mission.mission_build != null:
 		var virus := _panel(0.74, 0.0, pause_edge, 0.075)
 		virus_label = _label(virus, "")
 		virus_label.mouse_filter = Control.MOUSE_FILTER_PASS
 		if _zombie_skin:
-			_fit_top_panel(virus, 54)
+			ZOMBIE_THEME.apply_frame(virus, ZOMBIE_THEME.Frame.VIRUS)
+			_fit_top_panel(virus, 35)
 
 	var army := _panel(0.0, 0.86, 0.18, 1.0)
 	var army_box := VBoxContainer.new()
@@ -159,8 +167,8 @@ func _build() -> void:
 	if mission.horde_commands != null and mission.monster_roster_enabled:
 		_fit_bottom_panel(army)
 		if _zombie_skin:
-			ZOMBIE_THEME.add_growth(army, ZOMBIE_THEME.Growth.ROSTER, Vector2.ZERO, Vector2(38, -8), 90)
-			ZOMBIE_THEME.add_growth(army, ZOMBIE_THEME.Growth.OBJECTIVE_CORNER, Vector2(1, 0.5), Vector2(6, -2), 70)
+			army.offset_left = 14
+			ZOMBIE_THEME.apply_frame(army, ZOMBIE_THEME.Frame.ARMY)
 		_monster_roster = army_box
 		monster_count = _label(army_box, "Монстры: 0", DARK_THEME.BODY_SIZE)
 		if _zombie_skin:
@@ -188,7 +196,8 @@ func _build() -> void:
 	var commands := _panel(0.80, command_top, 1.0, 1.0)
 	if _zombie_skin:
 		_fit_bottom_panel(commands)
-		ZOMBIE_THEME.add_growth(commands, ZOMBIE_THEME.Growth.COMMANDS, Vector2.ZERO, Vector2(25, 0), 90)
+		commands.offset_right = -14
+		ZOMBIE_THEME.apply_frame(commands, ZOMBIE_THEME.Frame.COMMANDS)
 	var orders := VBoxContainer.new()
 	commands.add_child(orders)
 	var command_title := _label(orders, "Команды монстрам", DARK_THEME.BODY_SIZE)
@@ -272,26 +281,35 @@ func show_victory_notice() -> void:
 
 
 func _build_hotbar() -> void:
-	hotbar = _panel(0.30 if _zombie_skin else 0.32, 0.90, 0.775 if _zombie_skin else 0.79, 1.0)
+	hotbar = _panel(0.245 if _zombie_skin else 0.32, 0.90, 0.755 if _zombie_skin else 0.79, 1.0)
 	var bar := HBoxContainer.new()
+	var right_bar: HBoxContainer
 	if _zombie_skin:
 		_fit_bottom_panel(hotbar)
-		ZOMBIE_THEME.add_growth(hotbar, ZOMBIE_THEME.Growth.HOTBAR_LEFT, Vector2.DOWN, Vector2(22, -34), 108)
-		ZOMBIE_THEME.add_growth(hotbar, ZOMBIE_THEME.Growth.HOTBAR_RIGHT, Vector2.ONE, Vector2(15, -33), 112)
+		ZOMBIE_THEME.apply_hotbar_frame(hotbar)
+		# Only the slot banks and the separate orb button capture map input.
+		_blocks.erase(hotbar)
+		hotbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var layout := HBoxContainer.new()
-		layout.add_theme_constant_override("separation", 12)
+		layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layout.add_theme_constant_override("separation", 0)
 		hotbar.add_child(layout)
-		var caption := _label(layout, "Способности")
-		caption.autowrap_mode = TextServer.AUTOWRAP_OFF
-		caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		layout.add_child(bar)
+		right_bar = HBoxContainer.new()
+		var gap := Control.new()
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		gap.custom_minimum_size.x = HOTBAR_ORB_GAP
+		for child: Control in [bar, gap, right_bar]:
+			layout.add_child(child)
+		for bank: HBoxContainer in [bar, right_bar]:
+			bank.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			bank.mouse_filter = Control.MOUSE_FILTER_STOP
+			_blocks.append(bank)
 	else:
 		hotbar.add_child(bar)
 	for index in PROGRESSION.SLOT_COUNT:
 		var slot := Button.new()
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		slot.custom_minimum_size.y = 36
+		slot.custom_minimum_size.y = 32 if _zombie_skin else 36
 		slot.add_theme_font_size_override("font_size", DARK_THEME.KEY_SIZE)
 		slot.focus_mode = Control.FOCUS_NONE
 		slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -306,7 +324,8 @@ func _build_hotbar() -> void:
 			var column := VBoxContainer.new()
 			column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			column.add_theme_constant_override("separation", 1)
-			bar.add_child(column)
+			var bank := bar if index < PROGRESSION.SLOT_COUNT / 2.0 else right_bar
+			bank.add_child(column)
 			column.add_child(slot)
 			key_parent = column
 		else:
@@ -388,14 +407,19 @@ func _build_infection() -> void:
 	infection_button.focus_mode = Control.FOCUS_NONE
 	infection_button.name = "InfectionButton"
 	infection_button.toggle_mode = true
-	infection_button.anchor_left = 0.25
-	infection_button.anchor_right = 0.25
+	var center := 0.5 if _zombie_skin else 0.25
+	infection_button.anchor_left = center
+	infection_button.anchor_right = center
 	infection_button.anchor_top = 1.0
 	infection_button.anchor_bottom = 1.0
 	infection_button.offset_left = -INFECTION_ORB_SIZE * 0.5
 	infection_button.offset_right = INFECTION_ORB_SIZE * 0.5
 	infection_button.offset_top = -122
 	infection_button.offset_bottom = -8
+	if _zombie_skin:
+		infection_button.offset_top = -(ZOMBIE_HUD_BOTTOM_MARGIN
+			+ ZOMBIE_THEME.ORB_CENTER_FROM_HOTBAR_BOTTOM + INFECTION_ORB_SIZE * 0.5)
+		infection_button.offset_bottom = -ZOMBIE_HUD_BOTTOM_MARGIN + 4.0
 	infection_button.tooltip_text = "Инфицирование\nЛКМ по жителю или зданию · ПКМ отменяет наведение"
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		infection_button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
@@ -412,11 +436,9 @@ func _build_infection() -> void:
 	infection_orb_material.shader = INFECTION_ORB
 	infection_orb_material.set_shader_parameter("sludge_texture", INFECTION_ORB_SLUDGE)
 	infection_orb_material.set_shader_parameter("fill_level", _infection_fill)
+	infection_orb_material.set_shader_parameter("rooted_frame", _zombie_skin)
 	orb.material = infection_orb_material
 	infection_button.add_child(orb)
-	if _zombie_skin:
-		ZOMBIE_THEME.add_orb_cradle(infection_button)
-
 	infection_charges = _label(infection_button, "")
 	infection_charges.position.y = INFECTION_ORB_SIZE - 1
 	infection_charges.size.x = INFECTION_ORB_SIZE
@@ -425,9 +447,13 @@ func _build_infection() -> void:
 	infection_charges.add_theme_color_override("font_outline_color", Color("142417"))
 	infection_charges.add_theme_constant_override("outline_size", 6)
 	if _zombie_skin:
+		# The hotbar artwork covers the orb's outer glass edge but sits below both labels.
+		infection_charges.position.x = -3
+		infection_charges.z_index = 1
 		var keycap := PanelContainer.new()
 		keycap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		keycap.position = Vector2(63, INFECTION_ORB_SIZE)
+		keycap.position = Vector2(57, INFECTION_ORB_SIZE)
+		keycap.z_index = 1
 		keycap.add_theme_stylebox_override("panel", ZOMBIE_THEME.keycap())
 		infection_button.add_child(keycap)
 		_infection_key = _label(keycap, "", DARK_THEME.KEY_SIZE)
@@ -762,5 +788,5 @@ func _select_all_zombies() -> void:
 
 func is_pointer_over_ui(point: Vector2) -> bool:
 	for block in _blocks:
-		if block.visible and block.get_global_rect().has_point(point): return true
+		if block.is_visible_in_tree() and block.get_global_rect().has_point(point): return true
 	return false
