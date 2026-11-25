@@ -130,7 +130,8 @@ func _show(next: Screen) -> void:
 		mission_menu.get_popup().hide()
 	var returning_from_development := screen == Screen.DEVELOPMENT and next == Screen.RACES
 	if screen != Screen.RACES and next == Screen.RACES and CATALOG.MISSIONS.has(selected_mission):
-		_roll_race_preview_appearances()
+		if selected_race == "zombie":
+			_roll_race_preview_appearances()
 		_update_preview()
 	screen = next
 	finish_mission_button.visible = screen == Screen.PAUSE and is_instance_valid(mission) and mission.can_finish_mission()
@@ -147,6 +148,8 @@ func _show(next: Screen) -> void:
 			preferred_button = mission_menu
 		elif returning_from_development:
 			preferred_button = development_button
+		elif screen == Screen.RACES and selected_race.is_empty():
+			preferred_button = race_back_button
 		_focus_page(screen, preferred_button)
 
 func _focus_page(page: Screen, preferred_button: Button) -> void:
@@ -734,6 +737,7 @@ func _select_mission(id: String) -> void:
 
 func _open_race_selection() -> void:
 	if screen != Screen.MISSIONS or not CATALOG.MISSIONS.has(selected_mission): return
+	selected_race = ""
 	_clear_children(race_list)
 	race_buttons.clear()
 	for race_id in CATALOG.MISSIONS[selected_mission].races:
@@ -746,6 +750,8 @@ func _open_race_selection() -> void:
 
 func _select_race(id: String) -> void:
 	if screen != Screen.RACES or not CATALOG.MISSIONS[selected_mission].races.has(id): return
+	if id == "zombie" and selected_race != id:
+		_roll_race_preview_appearances()
 	selected_race = id
 	get_node("/root/RaceCursor").select_race(id)
 	_update_preview()
@@ -774,10 +780,9 @@ func _update_preview() -> void:
 	var unlocked: bool = selected_race == "zombie" and (developer_mode or progression.state.initial_unlocked)
 	development_button.disabled = start_button.disabled or not has_progression or not unlocked
 	development_button.tooltip_text = 'Чтобы разблокировать развитие, необходим ресурс "Заражение"' if selected_race == "zombie" and has_progression and not unlocked else ""
-	var preview_race := selected_race
-	if preview_race.is_empty() and mission_definition.races.size() == 1:
-		preview_race = mission_definition.races[0]
-	var race: Dictionary = CATALOG.RACES.get(preview_race, {})
+	if start_button.disabled:
+		return
+	var race: Dictionary = CATALOG.RACES[selected_race]
 	if race.has("preview"):
 		var stage: Control = race.preview.new()
 		stage.appearances = _race_preview_appearances
@@ -787,15 +792,6 @@ func _update_preview() -> void:
 	appearance_title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	appearance_title.position.y = 16
 	appearance_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if race.is_empty():
-		var hint := _text(race_preview, "Выберите расу в списке слева.", DARK_THEME.BODY_SIZE, DARK_THEME.MUTED)
-		hint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_text(race_details, "Описание", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
-		_text(race_details, "Здесь появятся описание, сильные и слабые стороны выбранной расы.",
-			DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
-		return
 	var race_title := _text(race_details, race.name, DARK_THEME.TITLE_SIZE, DARK_THEME.HEADING)
 	race_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_text(race_details, race.description)

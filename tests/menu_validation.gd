@@ -141,17 +141,20 @@ func run() -> void:
 	check(app.mission_details.get_global_rect().position.y > page.size.y * 0.75
 		and app.choose_race_button.get_global_rect().position.x > page.size.x * 0.5,
 		"Description and objective stay at the bottom with Choose Race on the right")
-	select_mission(0)
-	check(app.mission_preview.preview_texture == null and not app.mission_preview.shapes.is_empty(),
-		"Switching back restores the test map geometry")
+	app.developer_mode = true
 	click("Выбрать расу")
 	check(app.screen == app.Screen.RACES, "Choose Race explicitly opens race selection")
-	check(app.start_button.disabled, "Start disabled before selecting a valid race")
+	check(app.selected_race.is_empty() and not app.race_buttons.zombie.button_pressed
+		and app.start_button.disabled and app.development_button.disabled
+		and app.race_preview.get_child_count() == 0 and app.race_details.get_child_count() == 0,
+		"Mission 1 opens with no selection, race content or race actions even in developer mode")
 	app._start_mission()
 	check(app.screen == app.Screen.RACES and app.mission == null, "Race screen cannot launch before selecting race")
 	await frames()
+	check(root.gui_get_focus_owner() == app.race_back_button, "Initial focus stays off the race list")
 	pointer_click("Зомби")
-	check(not app.start_button.disabled and app.mission == null, "Race updates preview without launching")
+	check(not app.start_button.disabled and not app.development_button.disabled and app.mission == null,
+		"Race selection enables its actions without launching")
 	await frames()
 	check(app.race_list.get_global_rect().end.x < app.race_preview.get_global_rect().position.x and app.race_preview.get_global_rect().end.x < app.race_details.get_global_rect().position.x, "Race list, appearance and details form three columns")
 	check(app.race_buttons.zombie.button_pressed, "Selected race is highlighted")
@@ -162,20 +165,34 @@ func run() -> void:
 	check(app.race_back_button.position.x < app.start_button.position.x and app.race_back_button.global_position.y == app.start_button.global_position.y, "Back and Start occupy left and right ends of footer")
 	click("Зомби")
 	check(app.race_preview.find_children("*", "MeshInstance2D", true, false).size() == 3, "Repeated selection replaces the preview without duplicates")
-	click("Назад")
-	check(app.screen == app.Screen.MISSIONS and app.selected_race == "zombie", "Race Back preserves selection")
-	click("Выбрать расу")
-	check(app.race_buttons.zombie.button_pressed and not app.start_button.disabled, "Returning restores race highlight and launch availability")
+	click("Развитие")
+	check(app.screen == app.Screen.DEVELOPMENT, "Development opens for the selected race")
 	esc()
 	await frames()
-	check(app.selected_mission == "village" and popup.is_item_checked(0) and not popup.visible,
+	check(app.screen == app.Screen.RACES and app.race_buttons.zombie.button_pressed and not app.start_button.disabled
+		and app.race_preview.find_children("*", "MeshInstance2D", true, false).size() == 3
+		and app.race_details.get_child_count() > 0, "Returning from Development restores the selected race and its content")
+	app.developer_mode = false
+	click("Назад")
+	check(app.screen == app.Screen.MISSIONS and app.selected_mission == "mission_1", "Race Back preserves the mission")
+	click("Выбрать расу")
+	check(app.selected_race.is_empty() and not app.race_buttons.zombie.button_pressed
+		and app.start_button.disabled and app.development_button.disabled
+		and app.race_preview.get_child_count() == 0 and app.race_details.get_child_count() == 0,
+		"Reopening race selection for the same mission clears the previous race and its content")
+	esc()
+	await frames()
+	check(app.selected_mission == "mission_1" and popup.is_item_checked(1) and not popup.visible,
 		"Returning from the race screen retains the mission with the dropdown closed")
+	select_mission(0)
+	check(app.mission_preview.preview_texture == null and not app.mission_preview.shapes.is_empty(),
+		"Switching back restores the test map geometry")
 	if "--mission-selection-only" in OS.get_cmdline_user_args():
 		print("Mission selection validation failures: ", failures)
 		quit(1 if failures else 0)
 		return
-	select_mission(0)
 	click("Выбрать расу")
+	click("Зомби")
 	click("Начать миссию")
 	var first: Node = app.mission
 	app._start_mission()
