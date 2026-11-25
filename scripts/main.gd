@@ -46,12 +46,10 @@ var settings_fullscreen: CheckButton
 var settings_speed: HSlider
 var settings_speed_label: Label
 var settings_return_screen: Screen = Screen.MAIN
-var mission_scroll: ScrollContainer
-var mission_buttons: Dictionary = {}
+var mission_menu: MenuButton
 var mission_details: VBoxContainer
 var mission_title: Label
 var mission_description: Label
-var mission_objective_heading: Label
 var mission_objectives: Label
 var mission_preview: Control
 var choose_race_button: Button
@@ -94,7 +92,11 @@ func _input(event: InputEvent) -> void:
 				return
 		match screen:
 			Screen.SETTINGS: _show(settings_return_screen)
-			Screen.MISSIONS: _show(Screen.MAIN)
+			Screen.MISSIONS:
+				if mission_menu.get_popup().visible:
+					mission_menu.get_popup().hide()
+				else:
+					_show(Screen.MAIN)
 			Screen.RACES: _show(Screen.MISSIONS)
 			Screen.DEVELOPMENT: development.request_exit()
 			Screen.GAMEPLAY: _pause()
@@ -124,6 +126,8 @@ func _show(next: Screen) -> void:
 	if screen == Screen.SETTINGS and next != Screen.SETTINGS:
 		_end_settings_capture()
 		settings_draft = null
+	if screen == Screen.MISSIONS and next != Screen.MISSIONS:
+		mission_menu.get_popup().hide()
 	var returning_from_development := screen == Screen.DEVELOPMENT and next == Screen.RACES
 	if screen != Screen.RACES and next == Screen.RACES and CATALOG.MISSIONS.has(selected_mission):
 		_roll_race_preview_appearances()
@@ -139,6 +143,8 @@ func _show(next: Screen) -> void:
 		var preferred_button: Button
 		if screen == Screen.DEVELOPMENT:
 			preferred_button = development.back_button
+		elif screen == Screen.MISSIONS:
+			preferred_button = mission_menu
 		elif returning_from_development:
 			preferred_button = development_button
 		_focus_page(screen, preferred_button)
@@ -270,60 +276,7 @@ func _build_ui() -> void:
 		_update_developer_button()
 		if is_instance_valid(mission): mission.set_developer_mode(developer_mode))
 	_build_settings_page()
-	var missions := _page(Screen.MISSIONS, "Выбор миссии")
-	missions.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_text(missions, "Выберите миссию в списке, затем нажмите «Выбрать расу».", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
-	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 24)
-	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	columns.custom_minimum_size.y = 390
-	missions.add_child(columns)
-	var left := VBoxContainer.new()
-	left.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	columns.add_child(left)
-	_text(left, "Миссии", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
-	mission_scroll = ScrollContainer.new()
-	mission_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	mission_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	left.add_child(mission_scroll)
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 8)
-	mission_scroll.add_child(list)
-	for id in CATALOG.MISSIONS:
-		var item := _button(list, CATALOG.MISSIONS[id].name, _select_mission.bind(id))
-		item.toggle_mode = true
-		mission_buttons[id] = item
-	mission_details = VBoxContainer.new()
-	mission_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	mission_details.size_flags_stretch_ratio = 2.2
-	mission_details.add_theme_constant_override("separation", 12)
-	columns.add_child(mission_details)
-	mission_title = _text(mission_details, "Выберите миссию", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
-	mission_preview = MISSION_PREVIEW.new()
-	mission_preview.custom_minimum_size.y = 240
-	mission_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	mission_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mission_details.add_child(mission_preview)
-	mission_preview.hide()
-	mission_description = _text(mission_details, "Справа появятся схема, описание и цели выбранной миссии.")
-	var objective := VBoxContainer.new()
-	mission_details.add_child(objective)
-	mission_objective_heading = _text(objective, "Цель миссии", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
-	mission_objective_heading.hide()
-	mission_objectives = _text(objective, "")
-	mission_objectives.hide()
-	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 24)
-	missions.add_child(footer)
-	_button(footer, "Назад", func(): _show(Screen.MAIN)).custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(spacer)
-	choose_race_button = _button(footer, "Выбрать расу", _open_race_selection)
-	choose_race_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
-	choose_race_button.disabled = true
+	_build_mission_page()
 	_build_race_page()
 	_build_development_page()
 	var pause := _page(Screen.PAUSE, "Пауза", true)
@@ -349,6 +302,90 @@ func _build_ui() -> void:
 	var attempt := _page(Screen.ATTEMPT_SUMMARY, "Попытка завершена", true)
 	attempt_text = _text(attempt, "")
 	_button(attempt, "В главное меню", func(): _show(Screen.MAIN))
+
+func _build_mission_page() -> void:
+	var page := Control.new()
+	ui.add_child(page)
+	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pages[Screen.MISSIONS] = page
+	mission_preview = MISSION_PREVIEW.new()
+	mission_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(mission_preview)
+	mission_preview.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var margin := MarginContainer.new()
+	page.add_child(margin)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "top", "right", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 20)
+	var layout := VBoxContainer.new()
+	margin.add_child(layout)
+	var header := HBoxContainer.new()
+	layout.add_child(header)
+	mission_title = _text(header, "", DARK_THEME.TITLE_SIZE, DARK_THEME.TEXT)
+	mission_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mission_title.add_theme_constant_override("outline_size", 5)
+	mission_title.add_theme_color_override("font_outline_color", DARK_THEME.INK)
+
+	mission_menu = MenuButton.new()
+	mission_menu.text = "Выбор миссии"
+	mission_menu.icon = mission_menu.get_theme_icon("arrow", "OptionButton")
+	mission_menu.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	mission_menu.custom_minimum_size = Vector2(236, 48)
+	mission_menu.focus_mode = Control.FOCUS_ALL
+	mission_menu.flat = false
+	header.add_child(mission_menu)
+	_style_mission_button(mission_menu, true)
+	var popup := mission_menu.get_popup()
+	popup.add_theme_constant_override("v_separation", 12)
+	popup.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("151612"), Color("5d6541"), 8))
+	popup.add_theme_stylebox_override("hover", DARK_THEME.surface(Color("343923"), Color("778249"), 4))
+	for id in CATALOG.MISSIONS:
+		popup.add_radio_check_item(CATALOG.MISSIONS[id].name)
+		popup.set_item_metadata(popup.item_count - 1, id)
+	popup.about_to_popup.connect(func():
+		popup.set_deferred("size", Vector2i(ceili(mission_menu.size.x), 0)))
+	popup.index_pressed.connect(func(index: int): _select_mission(popup.get_item_metadata(index)))
+
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_child(spacer)
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 24)
+	layout.add_child(footer)
+	var back := _button(footer, "Назад", func(): _show(Screen.MAIN))
+	back.custom_minimum_size = Vector2(138, 48)
+	back.size_flags_vertical = Control.SIZE_SHRINK_END
+	_style_mission_button(back, false)
+
+	var details_slot := VBoxContainer.new()
+	details_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(details_slot)
+	mission_details = VBoxContainer.new()
+	mission_details.add_theme_constant_override("separation", 3)
+	details_slot.add_child(mission_details)
+	mission_description = _text(mission_details, "")
+	_text(mission_details, "Цель миссии", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	mission_objectives = _text(mission_details, "")
+	mission_details.hide()
+
+	choose_race_button = _button(footer, "Выбрать расу", _open_race_selection)
+	choose_race_button.custom_minimum_size = Vector2(210, 48)
+	choose_race_button.size_flags_vertical = Control.SIZE_SHRINK_END
+	_style_mission_button(choose_race_button, true)
+	choose_race_button.disabled = true
+
+func _style_mission_button(button: Button, emphasized: bool) -> void:
+	var fill := Color("252919") if emphasized else Color("191819")
+	var edge := Color("87924d") if emphasized else Color("524c40")
+	button.add_theme_font_size_override("font_size", DARK_THEME.SECTION_SIZE)
+	button.add_theme_stylebox_override("normal", DARK_THEME.surface(fill, edge, 10))
+	button.add_theme_stylebox_override("hover", DARK_THEME.surface(fill.lightened(0.13), edge.lightened(0.2), 10))
+	button.add_theme_stylebox_override("pressed", DARK_THEME.surface(fill.lightened(0.19), edge, 10))
+	button.add_theme_stylebox_override("hover_pressed", DARK_THEME.surface(fill.lightened(0.19), edge, 10))
+	var focus := DARK_THEME.surface(Color.TRANSPARENT, Color("a7aa71"), 10)
+	focus.set_border_width_all(2)
+	button.add_theme_stylebox_override("focus", focus)
 
 func _build_race_page() -> void:
 	var page := PanelContainer.new()
@@ -654,15 +691,15 @@ func _confirm_progress_reset() -> void:
 	selected_race = ""
 	developer_mode = false
 	_update_developer_button()
-	for button in mission_buttons.values():
-		button.set_pressed_no_signal(false)
+	var popup := mission_menu.get_popup()
+	for index in popup.item_count:
+		popup.set_item_checked(index, false)
 	choose_race_button.disabled = true
-	mission_title.text = "Выберите миссию"
-	mission_description.text = "Справа появятся схема, описание и цели выбранной миссии."
-	mission_objective_heading.hide()
+	mission_title.text = ""
+	mission_description.text = ""
 	mission_objectives.text = ""
-	mission_objectives.hide()
-	mission_preview.hide()
+	mission_details.hide()
+	mission_preview.clear_mission()
 	result_text.text = ""
 	attempt_text.text = ""
 	development.draft = null
@@ -677,19 +714,22 @@ func _clear_children(parent: Node) -> void:
 		child.queue_free()
 
 func _select_mission(id: String) -> void:
-	if screen != Screen.MISSIONS or not CATALOG.MISSIONS.has(id): return
-	if selected_mission != id: selected_race = ""
+	if screen != Screen.MISSIONS or not CATALOG.MISSIONS.has(id):
+		return
+	var popup := mission_menu.get_popup()
+	popup.hide()
+	if selected_mission == id:
+		return
+	selected_race = ""
 	selected_mission = id
-	for mission_id in mission_buttons:
-		mission_buttons[mission_id].set_pressed_no_signal(mission_id == id)
+	for index in popup.item_count:
+		popup.set_item_checked(index, popup.get_item_metadata(index) == id)
 	var definition: Dictionary = CATALOG.MISSIONS[id]
 	mission_title.text = definition.name
 	mission_description.text = definition.description
-	mission_objective_heading.show()
 	mission_objectives.text = definition.objectives
-	mission_objectives.show()
+	mission_details.show()
 	mission_preview.show_mission(definition.scene, definition.get("preview", ""))
-	mission_preview.show()
 	choose_race_button.disabled = false
 
 func _open_race_selection() -> void:

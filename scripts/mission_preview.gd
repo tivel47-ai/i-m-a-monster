@@ -1,35 +1,64 @@
 extends Control
 
+const FOG_SHADER := preload("res://scripts/mission_selection_fog.gdshader")
+const FOG_TEXTURE := preload("res://assets/ui/mission_selection_death_fog.png")
+const REVEAL_SECONDS := 1.05
+
 # Draw a captured map, or fall back to serialized geometry without starting gameplay.
 var preview_texture: Texture2D
 var shapes: Array[Dictionary] = []
 var map_rect := Rect2()
+var reveal_progress := 0.0
+var _drawn_map_rect := Rect2()
+var _fog_material := ShaderMaterial.new()
+var _reveal_tween: Tween
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_fog_material.shader = FOG_SHADER
+	_fog_material.set_shader_parameter("fog_texture", FOG_TEXTURE)
+	var fog := ColorRect.new()
+	fog.material = _fog_material
+	fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fog)
+	fog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_layout_map()
 
-func show_mission(scene_path: String, preview_path := "") -> void:
+func clear_mission() -> void:
+	if _reveal_tween != null:
+		_reveal_tween.kill()
+		_reveal_tween = null
+	_set_reveal_progress(0.0)
 	shapes.clear()
 	map_rect = Rect2()
 	preview_texture = null
+	_layout_map()
+
+func show_mission(scene_path: String, preview_path := "") -> void:
+	clear_mission()
 	if not preview_path.is_empty() and ResourceLoader.exists(preview_path, "Texture2D"):
 		preview_texture = load(preview_path) as Texture2D
 	if preview_texture != null:
 		map_rect = Rect2(Vector2.ZERO, preview_texture.get_size())
-		queue_redraw()
-		return
+	else:
+		var scene := load(scene_path) as PackedScene
+		if scene != null:
+			_collect_scene(scene, Transform2D.IDENTITY)
+			var state := scene.get_state()
+			for index in range(state.get_node_property_count(0)):
+				if state.get_node_property_name(0, index) == &"metadata/map_size":
+					var map_size: Vector2 = state.get_node_property_value(0, index)
+					if map_size.x > 0.0 and map_size.y > 0.0:
+						map_rect = Rect2(Vector2.ZERO, map_size)
+					break
+	_layout_map()
+	if map_rect.has_area():
+		_reveal_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		_reveal_tween.tween_method(_set_reveal_progress, 0.0, 1.0, REVEAL_SECONDS)
 
-	var scene := load(scene_path) as PackedScene
-	if scene != null:
-		_collect_scene(scene, Transform2D.IDENTITY)
-		var state := scene.get_state()
-		for index in range(state.get_node_property_count(0)):
-			if state.get_node_property_name(0, index) == &"metadata/map_size":
-				var map_size: Vector2 = state.get_node_property_value(0, index)
-				if map_size.x > 0.0 and map_size.y > 0.0:
-					map_rect = Rect2(Vector2.ZERO, map_size)
-				break
-	queue_redraw()
+func _set_reveal_progress(value: float) -> void:
+	reveal_progress = value
+	_fog_material.set_shader_parameter("reveal", value)
 
 func _collect_scene(scene: PackedScene, base_transform: Transform2D) -> void:
 	var state := scene.get_state()
@@ -72,24 +101,33 @@ func _collect_scene(scene: PackedScene, base_transform: Transform2D) -> void:
 				map_rect = map_rect.expand(points[point_index])
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED: queue_redraw()
+	if what == NOTIFICATION_RESIZED and is_node_ready():
+		_layout_map()
+
+func _layout_map() -> void:
+	_fog_material.set_shader_parameter("canvas_size", size.max(Vector2.ONE))
+	_drawn_map_rect = Rect2()
+	if map_rect.has_area():
+		var area := Rect2(Vector2(12, 8), (size - Vector2(24, 98)).max(Vector2.ONE))
+		var ratio := minf(area.size.x / map_rect.size.x, area.size.y / map_rect.size.y)
+		var drawn_size := map_rect.size * ratio
+		_drawn_map_rect = Rect2(area.get_center() - drawn_size * 0.5, drawn_size)
+		var origin := _drawn_map_rect.position
+		_fog_material.set_shader_parameter("map_frame", Vector4(origin.x, origin.y, drawn_size.x, drawn_size.y))
+	queue_redraw()
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("090809"))
-	if map_rect.size.x <= 0 or map_rect.size.y <= 0: return
-	var available := (size - Vector2(16, 16)).max(Vector2.ONE)
-	var ratio := minf(available.x / map_rect.size.x, available.y / map_rect.size.y)
-	var origin := (size - map_rect.size * ratio) * 0.5
-	var frame := Rect2(origin, map_rect.size * ratio)
+	draw_rect(Rect2(Vector2.ZERO, size), Color("131613"))
+	if not _drawn_map_rect.has_area(): return
 	if preview_texture != null:
-		draw_texture_rect(preview_texture, frame, false)
+		draw_texture_rect(preview_texture, _drawn_map_rect, false)
 	else:
+		var ratio := _drawn_map_rect.size.x / map_rect.size.x
 		for shape in shapes:
 			var points := PackedVector2Array()
 			for point in shape.points:
-				points.append(origin + (point - map_rect.position) * ratio)
+				points.append(_drawn_map_rect.position + (point - map_rect.position) * ratio)
 			if shape.has("texture"):
 				draw_polygon(points, PackedColorArray([shape.color]), shape.uv, shape.texture)
 			else:
 				draw_colored_polygon(points, shape.color)
-	draw_rect(frame, Color("73555f"), false, 1.0)

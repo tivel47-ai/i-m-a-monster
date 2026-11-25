@@ -31,6 +31,9 @@ func esc(echo := false) -> void:
 	Input.parse_input_event(event)
 	Input.flush_buffered_events()
 
+func select_mission(index: int) -> void:
+	app.mission_menu.get_popup().index_pressed.emit(index)
+
 func click(title: String) -> void:
 	for button in app.pages[app.screen].find_children("*", "Button", true, false):
 		if button.text == title:
@@ -43,24 +46,26 @@ func pointer_click(title: String, parent: Control = null) -> void:
 		parent = app.pages[app.screen]
 	for button in parent.find_children("*", "Button", true, false):
 		if button.text != title: continue
-		var point: Vector2 = button.get_global_rect().get_center()
-		var motion := InputEventMouseMotion.new()
-		motion.position = point
-		Input.parse_input_event(motion)
-		for pressed in [true, false]:
-			var event := InputEventMouseButton.new()
-			event.button_index = MOUSE_BUTTON_LEFT
-			event.pressed = pressed
-			event.position = point
-			event.global_position = point
-			Input.parse_input_event(event)
-			Input.flush_buffered_events()
+		pointer_click_at(button.get_global_rect().get_center())
 		return
 	check(false, "Pointer target exists: " + title)
 
+func pointer_click_at(point: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = point
+	Input.parse_input_event(motion)
+	for pressed in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = pressed
+		event.position = point
+		event.global_position = point
+		Input.parse_input_event(event)
+		Input.flush_buffered_events()
+
 func launch() -> void:
 	click("Начать игру")
-	click("Тестовая карта")
+	select_mission(0)
 	click("Выбрать расу")
 	click("Зомби")
 	click("Начать миссию")
@@ -85,21 +90,60 @@ func run() -> void:
 	check(app.screen == app.Screen.MAIN, "Mission selection Esc returns to main")
 	click("Начать игру")
 	await frames()
-	check(app.choose_race_button.disabled, "Choose Race disabled before mission selection")
-	check(app.mission_buttons.keys() == ["village", "mission_1"] and app.mission_buttons.village.text == "Тестовая карта", "Test map stays first, followed by Mission 1")
+	var popup: PopupMenu = app.mission_menu.get_popup()
+	var page: Control = app.pages[app.Screen.MISSIONS]
+	check(app.choose_race_button.disabled and not app.mission_details.visible, "Details and Choose Race are unavailable before mission selection")
+	check(app.mission_preview.get_global_rect() == page.get_global_rect() and page.size == root.get_visible_rect().size
+		and app.mission_preview.reveal_progress == 0.0 and not app.mission_preview.map_rect.has_area(),
+		"Fully opaque fog fills the viewport before any mission preview is loaded")
+	check(popup.item_count == 2 and popup.get_item_metadata(0) == "village" and popup.get_item_metadata(1) == "mission_1",
+		"Dropdown lists the catalog missions in order")
+	check(app.mission_menu.get_global_rect().get_center().x > page.size.x * 0.5
+		and app.mission_menu.position.y < page.size.y * 0.25, "Mission menu is in the top right")
 	app._open_race_selection()
 	check(app.screen == app.Screen.MISSIONS, "Cannot advance without selecting mission")
-	app.mission_scroll.scroll_horizontal = 100
-	app.mission_scroll.scroll_vertical = 80
-	var scroll := Vector2i(app.mission_scroll.scroll_horizontal, app.mission_scroll.scroll_vertical)
-	pointer_click("Тестовая карта")
-	check(app.screen == app.Screen.MISSIONS and app.mission == null, "Selecting a mission stays on mission screen")
-	check(not app.choose_race_button.disabled and app.mission_buttons.village.button_pressed, "Selection enables next action and highlights list item")
-	check(app.mission_title.text == "Тестовая карта" and "80%" in app.mission_objectives.text, "Right panel shows selected mission and objective")
-	check(app.mission_preview.visible and not app.mission_preview.shapes.is_empty() and get_nodes_in_group("player_units").is_empty(), "Preview draws geometry without starting gameplay")
+	pointer_click("Выбор миссии")
 	await frames()
-	check(app.mission_scroll.get_global_rect().end.x < app.mission_details.get_global_rect().position.x, "Mission list is left of details")
-	check(app.choose_race_button.get_global_rect().position.x > app.mission_scroll.get_global_rect().end.x, "Choose Race button is on the right")
+	check(popup.visible and popup.position.y >= app.mission_menu.get_screen_position().y + app.mission_menu.size.y - 1,
+		"Pointer click opens the dropdown below the mission button")
+	esc()
+	await frames()
+	check(not popup.visible and app.screen == app.Screen.MISSIONS, "Esc dismisses the dropdown before leaving the screen")
+	pointer_click("Выбор миссии")
+	await frames()
+	pointer_click_at(Vector2(popup.position) + Vector2(55, 22))
+	await frames()
+	check(app.selected_mission == "village", "Clicking the first dropdown item selects its mission")
+	if app.selected_mission != "village":
+		select_mission(0)
+		await frames()
+	check(app.screen == app.Screen.MISSIONS and app.mission == null, "Selecting a mission stays on mission screen")
+	check(not popup.visible and not app.choose_race_button.disabled and popup.is_item_checked(0),
+		"Selection closes the dropdown, checks its item and enables Choose Race")
+	check(app.mission_title.text == "Тестовая карта" and "80%" in app.mission_objectives.text, "Selected mission title and objective are shown")
+	check(app.mission_preview.visible and not app.mission_preview.shapes.is_empty() and get_nodes_in_group("player_units").is_empty(), "Preview draws geometry without starting gameplay")
+	check(app.mission_preview.reveal_progress > 0.0 and app.mission_preview.reveal_progress < 1.0, "First preview animates through an intermediate reveal")
+	select_mission(1)
+	check(app.mission_preview.reveal_progress == 0.0 and not popup.is_item_checked(0) and popup.is_item_checked(1),
+		"Switching mid-reveal re-covers the new preview and changes the marked item")
+	var map_image: Texture2D = app.mission_preview.preview_texture
+	check(map_image != null and map_image.resource_path == "res://assets/maps/mission_01_preview.png"
+		and app.mission_preview.map_rect == Rect2(Vector2.ZERO, map_image.get_size())
+		and is_equal_approx(map_image.get_width() / float(map_image.get_height()), 3.0 / 2.0)
+		and app.mission_preview.shapes.is_empty() and app.mission == null,
+		"Mission 1 uses the captured map without starting gameplay")
+	check(app.mission_objectives.text == "Заразите или уничтожьте не менее 80% жителей деревни."
+		and "44" not in app.mission_description.text, "Mission 1 preview expresses the goal as a percentage only")
+	await frames(72)
+	check(app.mission_preview.reveal_progress == 1.0, "Mission 1 finishes revealing")
+	select_mission(1)
+	check(app.mission_preview.reveal_progress == 1.0, "Reselecting the same mission retains the revealed map")
+	check(app.mission_details.get_global_rect().position.y > page.size.y * 0.75
+		and app.choose_race_button.get_global_rect().position.x > page.size.x * 0.5,
+		"Description and objective stay at the bottom with Choose Race on the right")
+	select_mission(0)
+	check(app.mission_preview.preview_texture == null and not app.mission_preview.shapes.is_empty(),
+		"Switching back restores the test map geometry")
 	click("Выбрать расу")
 	check(app.screen == app.Screen.RACES, "Choose Race explicitly opens race selection")
 	check(app.start_button.disabled, "Start disabled before selecting a valid race")
@@ -111,21 +155,26 @@ func run() -> void:
 	await frames()
 	check(app.race_list.get_global_rect().end.x < app.race_preview.get_global_rect().position.x and app.race_preview.get_global_rect().end.x < app.race_details.get_global_rect().position.x, "Race list, appearance and details form three columns")
 	check(app.race_buttons.zombie.button_pressed, "Selected race is highlighted")
-	check(app.race_preview.find_children("*", "Sprite2D", true, false).size() == 3 and get_nodes_in_group("player_units").is_empty(), "Race preview shows three ordinary zombie sprites without running units")
+	check(app.race_preview.find_children("*", "MeshInstance2D", true, false).size() == 3 and get_nodes_in_group("player_units").is_empty(), "Race preview shows three ordinary zombie portraits without running units")
 	var details := ""
 	for label in app.race_details.find_children("*", "Label", true, false): details += label.text
 	check("Зомби" in details and "Сильные стороны" in details and "Слабые стороны" in details, "Description and strengths/weaknesses appear on the right")
 	check(app.race_back_button.position.x < app.start_button.position.x and app.race_back_button.global_position.y == app.start_button.global_position.y, "Back and Start occupy left and right ends of footer")
 	click("Зомби")
-	check(app.race_preview.find_children("*", "Sprite2D", true, false).size() == 3, "Repeated selection replaces the preview without duplicates")
+	check(app.race_preview.find_children("*", "MeshInstance2D", true, false).size() == 3, "Repeated selection replaces the preview without duplicates")
 	click("Назад")
 	check(app.screen == app.Screen.MISSIONS and app.selected_race == "zombie", "Race Back preserves selection")
 	click("Выбрать расу")
 	check(app.race_buttons.zombie.button_pressed and not app.start_button.disabled, "Returning restores race highlight and launch availability")
 	esc()
 	await frames()
-	check(app.selected_mission == "village" and scroll == Vector2i(app.mission_scroll.scroll_horizontal, app.mission_scroll.scroll_vertical), "Race Back retains mission and list position")
-	click("Тестовая карта")
+	check(app.selected_mission == "village" and popup.is_item_checked(0) and not popup.visible,
+		"Returning from the race screen retains the mission with the dropdown closed")
+	if "--mission-selection-only" in OS.get_cmdline_user_args():
+		print("Mission selection validation failures: ", failures)
+		quit(1 if failures else 0)
+		return
+	select_mission(0)
 	click("Выбрать расу")
 	click("Начать миссию")
 	var first: Node = app.mission
@@ -189,7 +238,7 @@ func run() -> void:
 	click("К выбору миссии")
 	await frames()
 	check(app.screen == app.Screen.MISSIONS and not paused, "Results returns to mission selection")
-	click("Тестовая карта")
+	select_mission(0)
 	click("Выбрать расу")
 	click("Начать миссию")
 	await frames(5)
@@ -206,18 +255,8 @@ func run() -> void:
 	await frames()
 	check(not paused and app.mission == null, "Voluntary exit cleans up without results")
 	click("Начать игру")
-	click("Миссия №1")
+	select_mission(1)
 	check(app.selected_mission == "mission_1" and app.selected_race == "", "Changing missions resets the selected race")
-	var map_image: Texture2D = app.mission_preview.preview_texture
-	check(map_image != null and map_image.resource_path == "res://assets/maps/mission_01_preview.png"
-		and app.mission_preview.map_rect == Rect2(Vector2.ZERO, map_image.get_size())
-		and is_equal_approx(map_image.get_width() / float(map_image.get_height()), 3.0 / 2.0)
-		and app.mission_preview.shapes.is_empty() and app.mission == null,
-		"Mission 1 displays the complete rendered map at its original proportions without starting gameplay")
-	click("Тестовая карта")
-	check(app.mission_preview.preview_texture == null and not app.mission_preview.shapes.is_empty(),
-		"Switching maps clears the rendered image and restores the test map geometry")
-	click("Миссия №1")
 	click("Выбрать расу")
 	click("Зомби")
 	click("Начать миссию")
