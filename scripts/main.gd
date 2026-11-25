@@ -22,8 +22,8 @@ var pages: Dictionary = {}
 var ui: Control
 var menu_background: TextureRect
 var race_list: VBoxContainer
-var race_preview: VBoxContainer
-var _race_preview_appearance := 0
+var race_preview: Panel
+var _race_preview_appearances: Array[int] = []
 var race_details: VBoxContainer
 var race_buttons: Dictionary = {}
 var race_mission_label: Label
@@ -126,7 +126,7 @@ func _show(next: Screen) -> void:
 		settings_draft = null
 	var returning_from_development := screen == Screen.DEVELOPMENT and next == Screen.RACES
 	if screen != Screen.RACES and next == Screen.RACES and CATALOG.MISSIONS.has(selected_mission):
-		_race_preview_appearance = CATALOG.ORDINARY_ART.random_appearance()
+		_roll_race_preview_appearances()
 		_update_preview()
 	screen = next
 	finish_mission_button.visible = screen == Screen.PAUSE and is_instance_valid(mission) and mission.can_finish_mission()
@@ -324,54 +324,7 @@ func _build_ui() -> void:
 	choose_race_button = _button(footer, "Выбрать расу", _open_race_selection)
 	choose_race_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	choose_race_button.disabled = true
-	var races := _page(Screen.RACES, "Выбор расы")
-	races.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	race_mission_label = _text(races, "", DARK_THEME.COMPACT_SIZE, DARK_THEME.MUTED)
-	var race_columns := HBoxContainer.new()
-	race_columns.add_theme_constant_override("separation", 24)
-	race_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	race_columns.custom_minimum_size.y = 390
-	races.add_child(race_columns)
-	var race_left := VBoxContainer.new()
-	race_left.custom_minimum_size.x = 220
-	race_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	race_columns.add_child(race_left)
-	_text(race_left, "Расы", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
-	var race_scroll := ScrollContainer.new()
-	race_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	race_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	race_left.add_child(race_scroll)
-	race_list = VBoxContainer.new()
-	race_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	race_list.add_theme_constant_override("separation", 8)
-	race_scroll.add_child(race_list)
-	race_preview = VBoxContainer.new()
-	race_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	race_preview.size_flags_stretch_ratio = 1.4
-	race_preview.add_theme_constant_override("separation", 16)
-	race_columns.add_child(race_preview)
-	race_details = VBoxContainer.new()
-	race_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	race_details.size_flags_stretch_ratio = 1.4
-	race_details.add_theme_constant_override("separation", 12)
-	race_columns.add_child(race_details)
-	var race_footer := HBoxContainer.new()
-	race_footer.add_theme_constant_override("separation", 24)
-	races.add_child(race_footer)
-	race_back_button = _button(race_footer, "Назад", func(): _show(Screen.MISSIONS))
-	race_back_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
-	var race_spacer := Control.new()
-	race_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	race_footer.add_child(race_spacer)
-	development_button = _button(race_footer, "Развитие", _open_development)
-	development_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
-	development_button.disabled = true
-	var start_spacer := Control.new()
-	start_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	race_footer.add_child(start_spacer)
-	start_button = _button(race_footer, "Начать миссию", _start_mission)
-	start_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
-	start_button.disabled = true
+	_build_race_page()
 	_build_development_page()
 	var pause := _page(Screen.PAUSE, "Пауза", true)
 	_button(pause, "Продолжить", func():
@@ -396,6 +349,84 @@ func _build_ui() -> void:
 	var attempt := _page(Screen.ATTEMPT_SUMMARY, "Попытка завершена", true)
 	attempt_text = _text(attempt, "")
 	_button(attempt, "В главное меню", func(): _show(Screen.MAIN))
+
+func _build_race_page() -> void:
+	var page := PanelContainer.new()
+	page.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("100c10"), DARK_THEME.EDGE, 1, 0))
+	ui.add_child(page)
+	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 4)
+	pages[Screen.RACES] = page
+	var races := VBoxContainer.new()
+	races.add_theme_constant_override("separation", 4)
+	page.add_child(races)
+	race_mission_label = _text(races, "", DARK_THEME.TITLE_SIZE, DARK_THEME.HEADING)
+	race_mission_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	race_mission_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	race_mission_label.custom_minimum_size.y = 44
+	var divider := ColorRect.new()
+	divider.color = Color("52252e")
+	divider.custom_minimum_size.y = 1
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	races.add_child(divider)
+	var race_columns := HBoxContainer.new()
+	race_columns.add_theme_constant_override("separation", 0)
+	race_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	races.add_child(race_columns)
+	var list_panel := PanelContainer.new()
+	list_panel.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("100d10"), DARK_THEME.EDGE, 12, 0))
+	list_panel.custom_minimum_size.x = 208
+	list_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_panel.size_flags_stretch_ratio = 2.0
+	race_columns.add_child(list_panel)
+	var race_left := VBoxContainer.new()
+	race_left.add_theme_constant_override("separation", 16)
+	list_panel.add_child(race_left)
+	_text(race_left, "Выбор расы", DARK_THEME.TITLE_SIZE, DARK_THEME.HEADING)
+	var race_scroll := ScrollContainer.new()
+	race_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	race_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	race_left.add_child(race_scroll)
+	race_list = VBoxContainer.new()
+	race_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_list.add_theme_constant_override("separation", 8)
+	race_scroll.add_child(race_list)
+	race_preview = Panel.new()
+	race_preview.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("140f13"), DARK_THEME.EDGE, 0, 0))
+	race_preview.custom_minimum_size.x = 240
+	race_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_preview.size_flags_stretch_ratio = 4.8
+	race_preview.clip_contents = true
+	race_columns.add_child(race_preview)
+	var details_panel := PanelContainer.new()
+	details_panel.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("100d10"), DARK_THEME.EDGE, 18, 0))
+	details_panel.custom_minimum_size.x = 266
+	details_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	details_panel.size_flags_stretch_ratio = 3.2
+	race_columns.add_child(details_panel)
+	var details_scroll := ScrollContainer.new()
+	details_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	details_panel.add_child(details_scroll)
+	race_details = VBoxContainer.new()
+	race_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	race_details.add_theme_constant_override("separation", 12)
+	details_scroll.add_child(race_details)
+	var footer_panel := PanelContainer.new()
+	footer_panel.add_theme_stylebox_override("panel", DARK_THEME.surface(Color("100d10"), DARK_THEME.EDGE, 10, 0))
+	races.add_child(footer_panel)
+	var race_footer := HBoxContainer.new()
+	race_footer.add_theme_constant_override("separation", 24)
+	footer_panel.add_child(race_footer)
+	race_back_button = _button(race_footer, "Назад", func(): _show(Screen.MISSIONS))
+	development_button = _button(race_footer, "Развитие", _open_development)
+	development_button.disabled = true
+	start_button = _button(race_footer, "Начать миссию", _start_mission)
+	start_button.disabled = true
+	start_button.add_theme_stylebox_override("normal", DARK_THEME.surface(Color("391820"), DARK_THEME.ACCENT, 8))
+	start_button.add_theme_stylebox_override("hover", DARK_THEME.surface(Color("47202a"), Color("c75a6a"), 8))
+	for button in [race_back_button, development_button, start_button]:
+		button.custom_minimum_size = Vector2(0, 48)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.add_theme_font_size_override("font_size", DARK_THEME.SECTION_SIZE)
 
 func _build_settings_page() -> void:
 	var options := _page(Screen.SETTINGS, "Настройки")
@@ -667,6 +698,8 @@ func _open_race_selection() -> void:
 	race_buttons.clear()
 	for race_id in CATALOG.MISSIONS[selected_mission].races:
 		var item := _button(race_list, CATALOG.RACES[race_id].name, _select_race.bind(race_id))
+		item.custom_minimum_size = Vector2(0, 54)
+		item.add_theme_font_size_override("font_size", DARK_THEME.SECTION_SIZE)
 		item.toggle_mode = true
 		race_buttons[race_id] = item
 	_show(Screen.RACES)
@@ -677,51 +710,61 @@ func _select_race(id: String) -> void:
 	get_node("/root/RaceCursor").select_race(id)
 	_update_preview()
 
+func _roll_race_preview_appearances() -> void:
+	var count := CATALOG.ORDINARY_ART.TURN.size()
+	var front := CATALOG.ORDINARY_ART.random_appearance()
+	if not _race_preview_appearances.is_empty() and front == _race_preview_appearances[0]:
+		front = (front + randi_range(1, count - 1)) % count
+	var background: Array[int] = []
+	for appearance in range(count):
+		if appearance != front:
+			background.append(appearance)
+	background.shuffle()
+	_race_preview_appearances = [front, background[0], background[1]]
+
 func _update_preview() -> void:
 	_clear_children(race_preview)
 	_clear_children(race_details)
-	race_mission_label.text = "Миссия: " + CATALOG.MISSIONS[selected_mission].name
+	race_mission_label.text = CATALOG.MISSIONS[selected_mission].name
 	for race_id in race_buttons:
 		race_buttons[race_id].set_pressed_no_signal(race_id == selected_race)
-	_text(race_preview, "Внешний вид", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	start_button.disabled = not CATALOG.RACES.has(selected_race)
-	var has_progression: bool = CATALOG.MISSIONS[selected_mission].get("zombie_progression", false)
+	var mission_definition: Dictionary = CATALOG.MISSIONS[selected_mission]
+	var has_progression: bool = mission_definition.get("zombie_progression", false)
 	var unlocked: bool = selected_race == "zombie" and (developer_mode or progression.state.initial_unlocked)
 	development_button.disabled = start_button.disabled or not has_progression or not unlocked
 	development_button.tooltip_text = 'Чтобы разблокировать развитие, необходим ресурс "Заражение"' if selected_race == "zombie" and has_progression and not unlocked else ""
-	if start_button.disabled:
-		_text(race_preview, "Выберите расу в списке слева.", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
+	var preview_race := selected_race
+	if preview_race.is_empty() and mission_definition.races.size() == 1:
+		preview_race = mission_definition.races[0]
+	var race: Dictionary = CATALOG.RACES.get(preview_race, {})
+	if race.has("preview"):
+		var stage: Control = race.preview.new()
+		stage.appearances = _race_preview_appearances
+		race_preview.add_child(stage)
+		stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var appearance_title := _text(race_preview, "Внешний вид", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	appearance_title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	appearance_title.position.y = 16
+	appearance_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if race.is_empty():
+		var hint := _text(race_preview, "Выберите расу в списке слева.", DARK_THEME.BODY_SIZE, DARK_THEME.MUTED)
+		hint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		_text(race_details, "Описание", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 		_text(race_details, "Здесь появятся описание, сильные и слабые стороны выбранной расы.",
 			DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 		return
-	var race: Dictionary = CATALOG.RACES[selected_race]
-	var preview := PanelContainer.new()
-	preview.custom_minimum_size.y = 200
-	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var center := CenterContainer.new()
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	preview.add_child(center)
-	var portrait := Control.new()
-	portrait.custom_minimum_size = Vector2(180, 170)
-	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.add_child(portrait)
-	var stage := Node2D.new()
-	stage.position = Vector2(90, 121)
-	stage.scale = Vector2.ONE * 5.1
-	portrait.add_child(stage)
-	var sprite: Sprite2D = race.preview.new()
-	sprite.appearance = _race_preview_appearance
-	stage.add_child(sprite)
-	race_preview.add_child(preview)
-	_text(race_preview, "Как играется", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
-	_text(race_preview, race.gameplay)
-	_text(race_details, race.name, DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	var race_title := _text(race_details, race.name, DARK_THEME.TITLE_SIZE, DARK_THEME.HEADING)
+	race_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_text(race_details, race.description)
 	_text(race_details, "Сильные стороны", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	_text(race_details, race.strengths)
 	_text(race_details, "Слабые стороны", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	_text(race_details, race.weaknesses)
+	_text(race_details, "Как играется", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	_text(race_details, race.gameplay)
 
 func _build_development_page() -> void:
 	development = DEVELOPMENT.new()

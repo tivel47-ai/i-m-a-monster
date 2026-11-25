@@ -3,7 +3,8 @@ extends SceneTree
 
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ZOMBIE_PREVIEW = preload("res://scripts/zombie_race_preview.gd")
-const ART = ZOMBIE_PREVIEW.ART
+const ZOMBIE_STAGE = preload("res://scripts/zombie_race_stage.gd")
+const ART = preload("res://assets/sprites/characters/ordinary_zombie/frames.gd")
 
 var failures := 0
 var app: Node
@@ -24,50 +25,62 @@ func frames() -> void:
 	await physics_frame
 
 
+func _preview_appearances() -> Array:
+	return app.race_preview.find_children("*", "Sprite2D", true, false).map(
+		func(actor): return actor.appearance)
+
+
+func check_race_preview(mission_id := "village") -> void:
+	app._show(app.Screen.MISSIONS)
+	app._select_mission(mission_id)
+	ART._appearance_rng.seed = 490
+	var opening_appearance: int = ART.random_appearance()
+	ART._appearance_rng.seed = 490
+	app._open_race_selection()
+	check(_preview_appearances().size() == 3 and app.start_button.disabled,
+		"The only available race has a preview before confirming it for launch")
+	app._select_race("zombie")
+	var race_labels: Array[Node] = app.race_details.find_children("*", "Label", true, false)
+	check(race_labels.any(func(label): return "всей орде" in label.text)
+		and not race_labels.any(func(label): return "рамка" in label.text),
+		"Zombie race screen describes horde movement without a selection hint")
+	var cast := _preview_appearances()
+	check(cast.size() == 3 and cast[0] != cast[1] and cast[0] != cast[2] and cast[1] != cast[2],
+		"Foreground and background use distinct ordinary zombie appearances")
+	check(cast.size() == 3 and cast[2] == opening_appearance,
+		"Foreground uses the random appearance chosen on entry")
+	app._select_race("zombie")
+	check(_preview_appearances() == cast, "Re-selecting the race keeps this visit's appearances")
+	app._show(app.Screen.MISSIONS)
+	ART._appearance_rng.seed = 490 # Force the previous roll to verify repeat avoidance.
+	app._open_race_selection()
+	var previews: Array[Node] = app.race_preview.find_children("*", "Sprite2D", true, false)
+	var preview := previews.back() as ZOMBIE_PREVIEW
+	check(preview.appearance != opening_appearance, "Reopening picks a different foreground appearance even if the roll repeats")
+	for actor: ZOMBIE_PREVIEW in previews:
+		var portrait_name: String = ZOMBIE_STAGE.PORTRAITS[actor.appearance].name
+		check(actor.texture.resource_path == ZOMBIE_STAGE.PORTRAIT_DIR + portrait_name + ".png",
+			"Each appearance uses its own high-resolution animation atlas")
+		var feet := actor.position
+		var frames_seen := {}
+		var stationary := true
+		for step in 120:
+			actor._process(ZOMBIE_PREVIEW.LENGTH / 120.0)
+			frames_seen[actor._pose] = actor.region_rect
+			stationary = stationary and actor.position == feet
+		check(stationary and frames_seen.size() == ZOMBIE_PREVIEW.Pose.size()
+			and frames_seen[ZOMBIE_PREVIEW.Pose.REST] != frames_seen[ZOMBIE_PREVIEW.Pose.GLANCE]
+			and frames_seen[ZOMBIE_PREVIEW.Pose.REST] != frames_seen[ZOMBIE_PREVIEW.Pose.SWAY],
+			"Each stationary figure advances through distinct breathing, glance, and sway frames")
+	check(get_nodes_in_group("player_units").is_empty(), "Race preview does not spawn units")
+
+
 func run() -> void:
 	root.size = Vector2i(1280, 720)
 	app = load("res://scenes/main.tscn").instantiate()
 	root.add_child(app)
 	await frames()
-	app._show(app.Screen.MISSIONS)
-	app._select_mission("village")
-	ART._appearance_rng.seed = 490
-	var opening_appearance: int = ART.random_appearance()
-	var reopening_appearance: int = ART.random_appearance()
-	ART._appearance_rng.seed = 490
-	app._open_race_selection()
-	app._select_race("zombie")
-	var race_labels: Array[Node] = app.race_preview.find_children("*", "Label", true, false)
-	check(race_labels.any(func(label): return "всей орде" in label.text)
-		and not race_labels.any(func(label): return "рамка" in label.text),
-		"Zombie race screen describes horde movement without a selection hint")
-	var previews: Array[Node] = app.race_preview.find_children("*", "Sprite2D", true, false)
-	check(previews.size() == 1, "Race preview shows one ordinary zombie")
-	check(previews.size() == 1 and previews[0].appearance == opening_appearance,
-		"Race preview uses the random appearance chosen on entry")
-	app._select_race("zombie")
-	previews = app.race_preview.find_children("*", "Sprite2D", true, false)
-	check(previews.size() == 1 and previews[0].appearance == opening_appearance,
-		"Re-selecting the race keeps this visit's appearance")
-	app._show(app.Screen.MISSIONS)
-	app._open_race_selection()
-	previews = app.race_preview.find_children("*", "Sprite2D", true, false)
-	check(previews.size() == 1 and previews[0].appearance == reopening_appearance,
-		"Reopening the race screen takes a new random roll")
-	var preview := previews[0] as ZOMBIE_PREVIEW
-	check(preview.texture == ART.VIEWS[reopening_appearance][0], "Preview uses the matching animation atlas")
-	var idle := preview.region_rect
-	var start_x := preview.position.x
-	preview._process(ZOMBIE_PREVIEW.IDLE_TIME + 0.4)
-	var walk := preview.region_rect
-	check(walk != idle and preview.position.x > start_x and get_nodes_in_group("player_units").is_empty(),
-		"Race preview walks using the ordinary zombie atlas without spawning a unit")
-	preview._process(ZOMBIE_PREVIEW.WALK_TIME - 0.4 + ZOMBIE_PREVIEW.RUSH_TIME + 0.16)
-	check(preview.region_rect != walk and preview.region_rect != idle,
-		"Race preview advances from walking to attack frames")
-	preview._process(ZOMBIE_PREVIEW.PASS_TIME * 2.0 - preview._elapsed + 0.01)
-	check(preview.region_rect == idle and is_equal_approx(preview.position.x, start_x),
-		"Race preview loops back to the starting pose")
+	check_race_preview()
 	app._start_mission()
 	await frames()
 	var first: Node = app.mission
