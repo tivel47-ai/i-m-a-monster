@@ -58,7 +58,7 @@ func _ready() -> void:
 	if _zombie_skin:
 		theme = ZOMBIE_THEME.build()
 	elif mission.dark_fantasy_hud:
-		theme = DARK_THEME.build(16, 4)
+		theme = DARK_THEME.build(DARK_THEME.COMPACT_SIZE, 4)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
@@ -109,7 +109,7 @@ func _fit_bottom_panel(panel: PanelContainer) -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 
 
-func _label(parent: Node, value: String, size := 16) -> Label:
+func _label(parent: Node, value: String, size := DARK_THEME.COMPACT_SIZE) -> Label:
 	var label := Label.new()
 	label.text = value
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -121,12 +121,13 @@ func _label(parent: Node, value: String, size := 16) -> Label:
 
 func _build() -> void:
 	var objective := _panel(0.0, 0.0, 0.20, 0.13)
-	objective_label = _label(objective, "", 14)
+	objective_label = _label(objective, "")
 
 	var alert := _panel(0.32, 0.0, 0.68 if _zombie_skin else 0.73, 0.065)
-	alert_label = _label(alert, "", 15)
+	alert_label = _label(alert, "")
 	alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if _zombie_skin:
+		alert_label.add_theme_color_override("font_color", DARK_THEME.HEADING)
 		_fit_top_panel(objective, 0)
 		_fit_top_panel(alert, 47)
 		ZOMBIE_THEME.add_growth(objective, ZOMBIE_THEME.Growth.OBJECTIVE_CORNER, Vector2.RIGHT, Vector2(16, 31), 94)
@@ -147,7 +148,7 @@ func _build() -> void:
 		_fit_top_panel(gear, 54)
 	if mission.mission_build != null:
 		var virus := _panel(0.74, 0.0, pause_edge, 0.075)
-		virus_label = _label(virus, "", 16)
+		virus_label = _label(virus, "")
 		virus_label.mouse_filter = Control.MOUSE_FILTER_PASS
 		if _zombie_skin:
 			_fit_top_panel(virus, 54)
@@ -161,9 +162,11 @@ func _build() -> void:
 			ZOMBIE_THEME.add_growth(army, ZOMBIE_THEME.Growth.ROSTER, Vector2.ZERO, Vector2(38, -8), 90)
 			ZOMBIE_THEME.add_growth(army, ZOMBIE_THEME.Growth.OBJECTIVE_CORNER, Vector2(1, 0.5), Vector2(6, -2), 70)
 		_monster_roster = army_box
-		monster_count = _label(army_box, "Монстры: 0", 18)
+		monster_count = _label(army_box, "Монстры: 0", DARK_THEME.BODY_SIZE)
+		if _zombie_skin:
+			monster_count.add_theme_color_override("font_color", DARK_THEME.HEADING)
 	else:
-		_label(army_box, "Монстры", 18)
+		_label(army_box, "Монстры", DARK_THEME.BODY_SIZE)
 		if mission.horde_commands != null:
 			monster_count = _label(army_box, "Зомби × 0")
 		else:
@@ -177,7 +180,7 @@ func _build() -> void:
 		_build_infection()
 	if mission.mission_build == null:
 		abilities_placeholder = _panel(0.32, 0.90, 0.73, 1.0)
-		_label(abilities_placeholder, "Способности", 16)
+		_label(abilities_placeholder, "Способности")
 		if _zombie_skin:
 			_fit_bottom_panel(abilities_placeholder)
 	_build_hotbar()
@@ -188,15 +191,19 @@ func _build() -> void:
 		ZOMBIE_THEME.add_growth(commands, ZOMBIE_THEME.Growth.COMMANDS, Vector2.ZERO, Vector2(25, 0), 90)
 	var orders := VBoxContainer.new()
 	commands.add_child(orders)
-	_label(orders, "Команды монстрам", 16)
+	var command_title := _label(orders, "Команды монстрам", DARK_THEME.BODY_SIZE)
+	if _zombie_skin:
+		command_title.add_theme_color_override("font_color", DARK_THEME.HEADING)
 	building_button = _add_command_button(orders, SETTINGS.BUILDING_ASSAULT, mission.toggle_building_order)
 	building_button.tooltip_text = "Выберите зомби, затем укажите здание на карте"
 	if mission.horde_commands != null:
 		building_button.toggle_mode = true
-		building_button.tooltip_text = "Удерживайте ПКМ на здании и отпустите для штурма. ЛКМ при удержании отменяет подготовку, в остальное время — режим."
+		building_button.tooltip_text = "Удерживайте ПКМ на здании и отпустите для штурма.\nЛКМ при удержании отменяет подготовку, в остальное время — режим."
 		global_cancel_button = _add_command_button(orders, SETTINGS.CANCEL_HORDE_ORDER, mission.cancel_global_order)
 		global_cancel_button.tooltip_text = "Отменить общий приказ и убрать сообщение о штурме"
-		assault_status = _label(orders, "", 14)
+	assault_status = _label(orders, "", DARK_THEME.HINT_SIZE)
+	if _zombie_skin:
+		assault_status.add_theme_color_override("font_color", DARK_THEME.MUTED)
 
 
 func _add_command_button(orders: VBoxContainer, action: String, callback: Callable) -> Button:
@@ -244,12 +251,14 @@ func _build_victory_notice() -> void:
 	var text := VBoxContainer.new()
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(text)
-	var title := _label(text, "Победа! Цель миссии выполнена", 24)
+	var title := _label(text, "Победа! Цель миссии выполнена", DARK_THEME.SECTION_SIZE)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if not _zombie_skin:
 		title.add_theme_color_override("font_color", DARK_THEME.HEADING)
-	var hint := _label(text, "Завершить миссию можно в меню паузы")
+	var hint := _label(text, "Завершить миссию можно в меню паузы", DARK_THEME.HINT_SIZE)
+	if _zombie_skin:
+		hint.add_theme_color_override("font_color", DARK_THEME.MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
@@ -283,7 +292,7 @@ func _build_hotbar() -> void:
 		var slot := Button.new()
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slot.custom_minimum_size.y = 36
-		slot.add_theme_font_size_override("font_size", 14)
+		slot.add_theme_font_size_override("font_size", DARK_THEME.KEY_SIZE)
 		slot.focus_mode = Control.FOCUS_NONE
 		slot.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		slot.expand_icon = true
@@ -302,7 +311,7 @@ func _build_hotbar() -> void:
 			key_parent = column
 		else:
 			bar.add_child(slot)
-		var key_label := _label(key_parent, "", 12 if _zombie_skin else 11)
+		var key_label := _label(key_parent, "", DARK_THEME.KEY_SIZE)
 		if _zombie_skin:
 			key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		else:
@@ -311,7 +320,7 @@ func _build_hotbar() -> void:
 			key_label.offset_right = -4
 		key_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		key_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		var uses_label := _label(slot, "", 13)
+		var uses_label := _label(slot, "", DARK_THEME.KEY_SIZE)
 		uses_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		uses_label.offset_right = -4
 		uses_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -408,7 +417,7 @@ func _build_infection() -> void:
 	if _zombie_skin:
 		ZOMBIE_THEME.add_orb_cradle(infection_button)
 
-	infection_charges = _label(infection_button, "", 16)
+	infection_charges = _label(infection_button, "")
 	infection_charges.position.y = INFECTION_ORB_SIZE - 1
 	infection_charges.size.x = INFECTION_ORB_SIZE
 	infection_charges.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -421,7 +430,7 @@ func _build_infection() -> void:
 		keycap.position = Vector2(63, INFECTION_ORB_SIZE)
 		keycap.add_theme_stylebox_override("panel", ZOMBIE_THEME.keycap())
 		infection_button.add_child(keycap)
-		_infection_key = _label(keycap, "", 12)
+		_infection_key = _label(keycap, "", DARK_THEME.KEY_SIZE)
 		_infection_key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_infection_key.autowrap_mode = TextServer.AUTOWRAP_OFF
 		_infection_key.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

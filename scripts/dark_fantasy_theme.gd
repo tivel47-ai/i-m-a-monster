@@ -2,10 +2,17 @@ extends RefCounted
 
 const ACTION_BUTTON_SIZE := Vector2(240, 48)
 
+const TITLE_SIZE := 34
+const SECTION_SIZE := 22
+const BODY_SIZE := 19
+const COMPACT_SIZE := 16
+const HINT_SIZE := 15
+const KEY_SIZE := 13
+
 const INK := Color("090809")
-const TEXT := Color("e4dbce")
-const MUTED := Color("a79892")
-const HEADING := Color("e0a9ad")
+const TEXT := Color("e9dfcc")
+const MUTED := Color("bfb2a3")
+const HEADING := Color("d3a187")
 const EDGE := Color("50454a")
 const ACCENT := Color("a53c4a")
 
@@ -22,9 +29,6 @@ static func surface(fill: Color, border: Color, padding: float, radius := 3) -> 
 
 static func build(font_size: int, padding: float) -> Theme:
 	var theme := Theme.new()
-	var serif := SystemFont.new()
-	serif.font_names = PackedStringArray(["Georgia", "DejaVu Serif", "Liberation Serif", "serif"])
-	theme.default_font = serif
 	theme.default_font_size = font_size
 	theme.set_color("font_color", "Label", TEXT)
 	theme.set_stylebox("panel", "PanelContainer", surface(Color("100d10"), EDGE, 12))
@@ -59,5 +63,15 @@ static func build(font_size: int, padding: float) -> Theme:
 	theme.set_color("font_color", "PopupMenu", TEXT)
 	theme.set_color("font_hover_color", "PopupMenu", TEXT)
 	theme.set_stylebox("panel", "TooltipPanel", surface(INK, EDGE, 6))
-	theme.set_color("font_color", "TooltipLabel", TEXT)
+	style_tooltip(theme)
 	return theme
+
+
+static func style_tooltip(theme: Theme) -> void:
+	theme.set_font_size("font_size", "TooltipLabel", HINT_SIZE)
+	theme.set_color("font_color", "TooltipLabel", MUTED)
+
+
+static func style_window_title(window: Window) -> void:
+	window.add_theme_color_override("title_color", HEADING)
+	window.add_theme_font_size_override("title_font_size", SECTION_SIZE)

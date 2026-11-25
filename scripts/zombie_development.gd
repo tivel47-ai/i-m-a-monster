@@ -35,7 +35,8 @@ var slots: Array[AbilityButton] = []
 
 func _ready() -> void:
 	theme = Theme.new()
-	theme.set_font_size("font_size", "TooltipLabel", 16)
+	theme.default_font_size = DARK_THEME.BODY_SIZE
+	DARK_THEME.style_tooltip(theme)
 	theme.set_stylebox("panel", "TooltipPanel", DARK_THEME.surface(Color("100d10d9"), DARK_THEME.EDGE, 8))
 
 	tree = TREE.new()
@@ -43,7 +44,7 @@ func _ready() -> void:
 	add_child(tree)
 	tree.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for id in PROGRESSION.NODES:
-		var button := Button.new()
+		var button := PerkButton.new()
 		button.pressed.connect(_purchase.bind(id))
 		button.gui_input.connect(_refund_input.bind(id))
 		tree.add_upgrade(id, button)
@@ -72,6 +73,7 @@ func _ready() -> void:
 
 	leave_dialog = ConfirmationDialog.new()
 	leave_dialog.title = "Неприменённые изменения"
+	DARK_THEME.style_window_title(leave_dialog)
 	leave_dialog.dialog_text = "При выходе неприменённые изменения будут потеряны."
 	leave_dialog.ok_button_text = "Выйти"
 	leave_dialog.cancel_button_text = "Остаться"
@@ -111,14 +113,15 @@ func _build_header(layout: VBoxContainer) -> void:
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_theme_constant_override("separation", 16)
 	header.add_child(heading)
-	var title := _label(heading, "Развитие", 36, DARK_THEME.HEADING)
+	var title := _label(heading, "Развитие", DARK_THEME.TITLE_SIZE, DARK_THEME.HEADING)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
-	status = _label(heading, "", 16, DARK_THEME.HEADING)
+	status = _label(heading, "", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 	status.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	reset_button = Button.new()
 	reset_button.text = "Сбросить развитие"
 	reset_button.tooltip_text = "Удерживайте ЛКМ 2 секунды, чтобы сбросить развитие"
+	reset_button.add_theme_font_size_override("font_size", DARK_THEME.COMPACT_SIZE)
 	header.add_child(reset_button)
 	reset_button.custom_minimum_size.y = 44
 	reset_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -140,7 +143,7 @@ func _build_header(layout: VBoxContainer) -> void:
 	resources.add_theme_constant_override("separation", 16)
 	header.add_child(resources)
 	resources.add_spacer(false).mouse_filter = Control.MOUSE_FILTER_IGNORE
-	balance = _label(resources, "", 20, Color("efc694"))
+	balance = _label(resources, "", DARK_THEME.BODY_SIZE, DARK_THEME.TEXT)
 	balance.autowrap_mode = TextServer.AUTOWRAP_OFF
 	balance.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	for label in [title, status, balance]:
@@ -201,7 +204,7 @@ func _sidebar(parent: Control, title: String, width: float, columns := 1) -> Con
 	var contents := VBoxContainer.new()
 	contents.add_theme_constant_override("separation", 12)
 	panel.add_child(contents)
-	_label(contents, title, 18, DARK_THEME.HEADING)
+	_label(contents, title, DARK_THEME.BODY_SIZE, DARK_THEME.HEADING)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -228,7 +231,7 @@ func _style_ability_button(button: Button, icon_size: int) -> void:
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	button.add_theme_constant_override("icon_max_width", icon_size)
-	button.add_theme_font_size_override("font_size", 15)
+	button.add_theme_font_size_override("font_size", DARK_THEME.KEY_SIZE)
 	button.add_theme_stylebox_override("normal", DARK_THEME.surface(Color("14111480"), EDGE_IDLE, 8))
 
 
@@ -360,10 +363,11 @@ func _refresh_upgrades() -> void:
 		upgrades.add_child(panel)
 		var row := VBoxContainer.new()
 		panel.add_child(row)
-		_label(row, "%s · %d/%d" % [PROGRESSION.NODES[id].title, rank, PROGRESSION.NODES[id].costs.size()], 15)
-		_label(row, PROGRESSION.effect_text(id, rank), 14, DARK_THEME.MUTED)
+		_label(row, "%s · %d/%d" % [PROGRESSION.NODES[id].title, rank, PROGRESSION.NODES[id].costs.size()],
+			DARK_THEME.COMPACT_SIZE)
+		_label(row, PROGRESSION.effect_text(id, rank), DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 	if upgrades.get_child_count() == 0:
-		_label(upgrades, "Улучшений пока нет", 15, DARK_THEME.MUTED)
+		_label(upgrades, "Улучшений пока нет", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 
 
 func _refresh_abilities() -> void:
@@ -377,7 +381,6 @@ func _refresh_abilities() -> void:
 		button.custom_minimum_size = Vector2(0, 104)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.add_theme_font_size_override("font_size", 13)
 		button.editor = self
 		button.ability = id
 		button.icon = PROGRESSION.NODES[id].get("icon")
@@ -389,7 +392,7 @@ func _refresh_abilities() -> void:
 		button.tooltip_text = PROGRESSION.effect_text(id, PROGRESSION.level(draft.build, id)) + "\nПеретащите в слот хотбара"
 		learned.add_child(button)
 	if learned.get_child_count() == 0:
-		_label(learned, "Изучите способность в древе", 14, DARK_THEME.MUTED).custom_minimum_size.x = 196
+		_label(learned, "Изучите способность в древе", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED).custom_minimum_size.x = 196
 	for slot in slots:
 		slot.ability = draft.build.slots[slot.index]
 		slot.icon = null
@@ -440,6 +443,32 @@ func _can_drop_data(_position: Vector2, data: Variant) -> bool:
 func _drop_data(_position: Vector2, data: Variant) -> void:
 	draft.unassign(data.index)
 	_refresh()
+
+
+class PerkButton extends Button:
+	func _make_custom_tooltip(value: String) -> Object:
+		var lines := value.split("\n")
+		if lines.size() < 3:
+			return null
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 4)
+		for index in lines.size():
+			var label := Label.new()
+			label.text = lines[index]
+			label.custom_minimum_size.x = 280
+			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			var color := DARK_THEME.TEXT
+			var font_size := DARK_THEME.COMPACT_SIZE
+			if index == 0:
+				color = DARK_THEME.HEADING
+				font_size = DARK_THEME.BODY_SIZE
+			elif index == lines.size() - 1:
+				color = DARK_THEME.MUTED
+				font_size = DARK_THEME.HINT_SIZE
+			label.add_theme_color_override("font_color", color)
+			label.add_theme_font_size_override("font_size", font_size)
+			box.add_child(label)
+		return box
 
 
 class OverlayPanel extends PanelContainer:

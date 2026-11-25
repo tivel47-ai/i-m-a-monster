@@ -49,6 +49,7 @@ var mission_buttons: Dictionary = {}
 var mission_details: VBoxContainer
 var mission_title: Label
 var mission_description: Label
+var mission_objective_heading: Label
 var mission_objectives: Label
 var mission_preview: Control
 var choose_race_button: Button
@@ -163,11 +164,12 @@ func _button(parent: Node, title: String, callback: Callable) -> Button:
 	parent.add_child(button)
 	return button
 
-func _text(parent: Node, value: String, font_size := 22) -> Label:
+func _text(parent: Node, value: String, font_size := DARK_THEME.BODY_SIZE, color := DARK_THEME.TEXT) -> Label:
 	var label := Label.new()
 	label.text = value
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
 	parent.add_child(label)
 	return label
 
@@ -200,8 +202,7 @@ func _page(id: Screen, title: String, centered := false) -> VBoxContainer:
 	box.add_theme_constant_override("separation", 16)
 	content.add_child(box)
 	if id != Screen.MAIN:
-		var heading := _text(box, title, 36)
-		heading.add_theme_color_override("font_color", DARK_THEME.HEADING)
+		var heading := _text(box, title, DARK_THEME.TITLE_SIZE, DARK_THEME.HEADING)
 		if centered:
 			box.custom_minimum_size.x = 460
 			heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -216,7 +217,7 @@ func _page(id: Screen, title: String, centered := false) -> VBoxContainer:
 func _style_main_button(button: Button) -> void:
 	button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_font_size_override("font_size", DARK_THEME.SECTION_SIZE)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -225,7 +226,7 @@ func _build_ui() -> void:
 	ui = Panel.new()
 	layer.add_child(ui)
 	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ui.theme = DARK_THEME.build(22, 8)
+	ui.theme = DARK_THEME.build(DARK_THEME.BODY_SIZE, 8)
 	ui.add_theme_stylebox_override("panel", DARK_THEME.surface(DARK_THEME.INK, DARK_THEME.INK, 0))
 	menu_background = TextureRect.new()
 	menu_background.texture = MENU_BACKGROUND
@@ -268,7 +269,7 @@ func _build_ui() -> void:
 	_build_settings_page()
 	var missions := _page(Screen.MISSIONS, "Выбор миссии")
 	missions.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_text(missions, "Выберите миссию в списке, затем нажмите «Выбрать расу».", 18)
+	_text(missions, "Выберите миссию в списке, затем нажмите «Выбрать расу».", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 24)
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -278,7 +279,7 @@ func _build_ui() -> void:
 	left.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(left)
-	_text(left, "Миссии", 24)
+	_text(left, "Миссии", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	mission_scroll = ScrollContainer.new()
 	mission_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	mission_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -296,15 +297,20 @@ func _build_ui() -> void:
 	mission_details.size_flags_stretch_ratio = 2.2
 	mission_details.add_theme_constant_override("separation", 12)
 	columns.add_child(mission_details)
-	mission_title = _text(mission_details, "Выберите миссию", 26)
+	mission_title = _text(mission_details, "Выберите миссию", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	mission_preview = MISSION_PREVIEW.new()
 	mission_preview.custom_minimum_size.y = 240
 	mission_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	mission_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mission_details.add_child(mission_preview)
 	mission_preview.hide()
-	mission_description = _text(mission_details, "Справа появятся схема, описание и цели выбранной миссии.", 18)
-	mission_objectives = _text(mission_details, "", 18)
+	mission_description = _text(mission_details, "Справа появятся схема, описание и цели выбранной миссии.")
+	var objective := VBoxContainer.new()
+	mission_details.add_child(objective)
+	mission_objective_heading = _text(objective, "Цель миссии", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	mission_objective_heading.hide()
+	mission_objectives = _text(objective, "")
+	mission_objectives.hide()
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 24)
 	missions.add_child(footer)
@@ -317,7 +323,7 @@ func _build_ui() -> void:
 	choose_race_button.disabled = true
 	var races := _page(Screen.RACES, "Выбор расы")
 	races.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	race_mission_label = _text(races, "", 18)
+	race_mission_label = _text(races, "", DARK_THEME.COMPACT_SIZE, DARK_THEME.MUTED)
 	var race_columns := HBoxContainer.new()
 	race_columns.add_theme_constant_override("separation", 24)
 	race_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -327,7 +333,7 @@ func _build_ui() -> void:
 	race_left.custom_minimum_size.x = 220
 	race_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	race_columns.add_child(race_left)
-	_text(race_left, "Расы", 24)
+	_text(race_left, "Расы", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	var race_scroll := ScrollContainer.new()
 	race_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	race_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -355,8 +361,6 @@ func _build_ui() -> void:
 	race_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	race_footer.add_child(race_spacer)
 	development_button = _button(race_footer, "Развитие", _open_development)
-	development_button.theme = ui.theme.duplicate()
-	development_button.theme.set_font_size("font_size", "TooltipLabel", 18)
 	development_button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
 	development_button.disabled = true
 	var start_spacer := Control.new()
@@ -431,7 +435,7 @@ func _build_settings_page() -> void:
 			_:
 				_text(box, "Настройки появятся позже.")
 
-	settings_status = _text(options, "", 18)
+	settings_status = _text(options, "", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 	settings_status.custom_minimum_size.y = 26
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 12)
@@ -456,14 +460,14 @@ func _build_control_settings(box: VBoxContainer) -> void:
 		settings_speed_label.text = "Скорость камеры: %d ед./с" % int(value)
 		settings_status.text = "Есть несохранённые изменения.")
 	var labels := ["Камера вверх", "Камера влево", "Камера вниз", "Камера вправо", "Основная способность расы"]
-	_text(box, "Нажмите на кнопку справа и выберите новую клавишу.", 18)
+	_text(box, "Нажмите на кнопку справа и выберите новую клавишу.", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 	var actions := SETTINGS.DEFAULT_KEYS.keys()
 	for index in labels.size():
 		_add_settings_key_row(box, actions[index], labels[index])
-	_text(box, "Команды монстрам", 18)
+	_text(box, "Команды монстрам", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	for action: String in SETTINGS.MONSTER_COMMANDS:
 		_add_settings_key_row(box, action, SETTINGS.MONSTER_COMMANDS[action].title)
-	_text(box, "Слоты дополнительных способностей (пока пусты)", 18)
+	_text(box, "Слоты дополнительных способностей (пока пусты)", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	for index in range(labels.size(), actions.size()):
 		_add_settings_key_row(box, actions[index], "Слот %d" % (index - labels.size() + 1))
 
@@ -561,6 +565,7 @@ func _build_progress_reset_dialog() -> void:
 	progress_reset_dialog = AcceptDialog.new()
 	progress_reset_dialog.title = "Сбросить прогресс?"
 	progress_reset_dialog.theme = ui.theme
+	DARK_THEME.style_window_title(progress_reset_dialog)
 	progress_reset_dialog.ok_button_text = "Отмена"
 	progress_reset_dialog.get_label().autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	progress_reset_dialog.visibility_changed.connect(_cancel_progress_reset_hold)
@@ -616,7 +621,9 @@ func _confirm_progress_reset() -> void:
 	choose_race_button.disabled = true
 	mission_title.text = "Выберите миссию"
 	mission_description.text = "Справа появятся схема, описание и цели выбранной миссии."
+	mission_objective_heading.hide()
 	mission_objectives.text = ""
+	mission_objectives.hide()
 	mission_preview.hide()
 	result_text.text = ""
 	attempt_text.text = ""
@@ -640,7 +647,9 @@ func _select_mission(id: String) -> void:
 	var definition: Dictionary = CATALOG.MISSIONS[id]
 	mission_title.text = definition.name
 	mission_description.text = definition.description
-	mission_objectives.text = "Цель миссии\n" + definition.objectives
+	mission_objective_heading.show()
+	mission_objectives.text = definition.objectives
+	mission_objectives.show()
 	mission_preview.show_mission(definition.scene, definition.get("preview", ""))
 	mission_preview.show()
 	choose_race_button.disabled = false
@@ -667,16 +676,17 @@ func _update_preview() -> void:
 	race_mission_label.text = "Миссия: " + CATALOG.MISSIONS[selected_mission].name
 	for race_id in race_buttons:
 		race_buttons[race_id].set_pressed_no_signal(race_id == selected_race)
-	_text(race_preview, "Внешний вид", 24)
+	_text(race_preview, "Внешний вид", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	start_button.disabled = not CATALOG.RACES.has(selected_race)
 	var has_progression: bool = CATALOG.MISSIONS[selected_mission].get("zombie_progression", false)
 	var unlocked: bool = selected_race == "zombie" and (developer_mode or progression.state.initial_unlocked)
 	development_button.disabled = start_button.disabled or not has_progression or not unlocked
 	development_button.tooltip_text = 'Чтобы разблокировать развитие, необходим ресурс "Заражение"' if selected_race == "zombie" and has_progression and not unlocked else ""
 	if start_button.disabled:
-		_text(race_preview, "Выберите расу в списке слева.", 18)
-		_text(race_details, "Описание", 24)
-		_text(race_details, "Здесь появятся описание, сильные и слабые стороны выбранной расы.", 18)
+		_text(race_preview, "Выберите расу в списке слева.", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
+		_text(race_details, "Описание", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+		_text(race_details, "Здесь появятся описание, сильные и слабые стороны выбранной расы.",
+			DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 		return
 	var race: Dictionary = CATALOG.RACES[selected_race]
 	var preview := PanelContainer.new()
@@ -697,14 +707,14 @@ func _update_preview() -> void:
 	sprite.appearance = _race_preview_appearance
 	stage.add_child(sprite)
 	race_preview.add_child(preview)
-	_text(race_preview, "Как играется", 24)
-	_text(race_preview, race.gameplay, 18)
-	_text(race_details, race.name, 26)
-	_text(race_details, race.description, 18)
-	_text(race_details, "Сильные стороны", 22)
-	_text(race_details, race.strengths, 18)
-	_text(race_details, "Слабые стороны", 22)
-	_text(race_details, race.weaknesses, 18)
+	_text(race_preview, "Как играется", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	_text(race_preview, race.gameplay)
+	_text(race_details, race.name, DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	_text(race_details, race.description)
+	_text(race_details, "Сильные стороны", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	_text(race_details, race.strengths)
+	_text(race_details, "Слабые стороны", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	_text(race_details, race.weaknesses)
 
 func _build_development_page() -> void:
 	development = DEVELOPMENT.new()

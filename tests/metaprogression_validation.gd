@@ -2,6 +2,7 @@
 extends SceneTree
 
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
 const BUILD = preload("res://scripts/zombie_mission_build.gd")
 const MAIN = preload("res://scenes/main.tscn")
 const ZOMBIE = preload("res://scenes/zombie.tscn")
@@ -291,7 +292,7 @@ func _tree_camera_and_growth() -> void:
 		"Entry nodes have descriptive tooltips; distant Brute has no tooltip")
 	var tooltip_style := editor.theme.get_stylebox("panel", "TooltipPanel") as StyleBoxFlat
 	var tooltip_offset: Vector2 = ProjectSettings.get_setting("display/mouse_cursor/tooltip_position_offset")
-	check(editor.theme.get_font_size("font_size", "TooltipLabel") == 16
+	check(editor.theme.get_font_size("font_size", "TooltipLabel") == DARK_THEME.HINT_SIZE
 		and tooltip_style.bg_color.a < 1.0 and tooltip_offset.y >= 40.0,
 		"Development tooltips use compact text, translucent panels and a cursor-sized offset")
 	check(tree._frames[FLESH].modulate.a > tree._frames[BRUTE].modulate.a

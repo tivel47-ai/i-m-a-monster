@@ -13,7 +13,7 @@ const EDGE := Color("6b5b43")
 
 
 static func build() -> Theme:
-	var theme := DARK_THEME.build(16, 4)
+	var theme := DARK_THEME.build(DARK_THEME.COMPACT_SIZE, 4)
 	var frame := StyleBoxTexture.new()
 	frame.texture = ROOT_FRAME
 	frame.texture_margin_left = 19
@@ -41,7 +41,6 @@ static func build() -> Theme:
 		theme.set_color(state, "Button", BONE)
 	theme.set_color("font_disabled_color", "Button", Color("988973"))
 	theme.set_color("font_color", "Label", BONE)
-	theme.set_color("font_color", "TooltipLabel", BONE)
 	theme.set_stylebox("panel", "TooltipPanel", DARK_THEME.surface(Color("14100c"), EDGE, 6))
 	return theme
 

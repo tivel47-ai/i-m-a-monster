@@ -27,6 +27,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 mouse_cursor/tooltip_position_offset=Vector2(12, 45)
 
+[gui]
+
+theme/custom_font="res://assets/ui/fonts/game_ui_font.tres"
+
 [input]
 
 camera_up={
