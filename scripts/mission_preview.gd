@@ -9,15 +9,19 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 func show_mission(scene_path: String, preview_path := "") -> void:
+	shapes.clear()
+	map_rect = Rect2()
 	preview_texture = null
 	if not preview_path.is_empty() and ResourceLoader.exists(preview_path, "Texture2D"):
 		preview_texture = load(preview_path) as Texture2D
-	shapes.clear()
-	map_rect = Rect2()
+	if preview_texture != null:
+		map_rect = Rect2(Vector2.ZERO, preview_texture.get_size())
+		queue_redraw()
+		return
+
 	var scene := load(scene_path) as PackedScene
 	if scene != null:
-		if preview_texture == null:
-			_collect_scene(scene, Transform2D.IDENTITY)
+		_collect_scene(scene, Transform2D.IDENTITY)
 		var state := scene.get_state()
 		for index in range(state.get_node_property_count(0)):
 			if state.get_node_property_name(0, index) == &"metadata/map_size":
@@ -25,8 +29,6 @@ func show_mission(scene_path: String, preview_path := "") -> void:
 				if map_size.x > 0.0 and map_size.y > 0.0:
 					map_rect = Rect2(Vector2.ZERO, map_size)
 				break
-	if preview_texture != null and not map_rect.has_area():
-		map_rect = Rect2(Vector2.ZERO, preview_texture.get_size())
 	queue_redraw()
 
 func _collect_scene(scene: PackedScene, base_transform: Transform2D) -> void:
