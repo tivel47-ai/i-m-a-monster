@@ -4,6 +4,8 @@ extends StaticBody2D
 const GUARD_POSES := preload("res://assets/sprites/characters/bell_pull/guards.png")
 const CIVILIAN_POSES := preload("res://assets/sprites/characters/bell_pull/civilians.png")
 const HUMAN_VISUAL := preload("res://scripts/peasant_visual.gd")
+const CROSSBOW_VISUAL := preload("res://scripts/crossbow_guard_visual.gd")
+const BALANCE := preload("res://scripts/mission_one_unit_balance.gd")
 const CELL := Vector2(128, 160)
 const FEET := Vector2(72, 136)
 const POSE_SCALE := HUMAN_VISUAL.WORLD_HEIGHT / HUMAN_VISUAL.FRAME_HEIGHT
@@ -20,6 +22,7 @@ const CIVILIAN_HANDS := [
 	[Vector2(53.6, 41.9), Vector2(56.2, 65.3), Vector2(58.8, 87.9)],
 	[Vector2(52.9, 40.9), Vector2(56.2, 65.7), Vector2(58.8, 88.9)],
 ]
+const CROSSBOW_HANDS := [Vector2(76, 11), Vector2(73, 36), Vector2(69, 65)]
 const APPROACH := Vector2(27, 24)
 const PATH_ENTRY := Vector2(30, 40)
 const APPROACH_SPEED := 32.0
@@ -177,16 +180,26 @@ func _show_pose(actor: Node2D, pose: int) -> Vector2:
 	var role: StringName = actor.bell_pose_role()
 	var row := GUARD_ROLES.find(role)
 	var atlas := GUARD_POSES
-	var hands := GUARD_HANDS
-	if row == -1:
+	var cell := CELL
+	var feet := FEET
+	var hands: Array
+	if role == BALANCE.CROSSBOW:
+		atlas = CROSSBOW_VISUAL.ATLAS
+		row = CROSSBOW_VISUAL.BELL_ROW
+		cell = CROSSBOW_VISUAL.CELL
+		feet = CROSSBOW_VISUAL.ANCHOR
+		hands = CROSSBOW_HANDS
+	elif row == -1:
 		atlas = CIVILIAN_POSES
-		hands = CIVILIAN_HANDS
 		row = maxi(0, CIVILIAN_ROLES.find(role))
-	var frame := Rect2(Vector2(pose, row) * CELL, CELL)
-	actor.show_bell_pose(atlas, frame, FEET, global_position - actor.global_position)
+		hands = CIVILIAN_HANDS[row]
+	else:
+		hands = GUARD_HANDS[row]
+	var frame := Rect2(Vector2(pose, row) * cell, cell)
+	actor.show_bell_pose(atlas, frame, feet, global_position - actor.global_position)
 	if pose == 0 or pose == 4: return REST_ROPE_END
-	var hand: Vector2 = hands[row][pose - 1]
-	var contact := (hand - FEET) * POSE_SCALE + Vector2(0.0, HUMAN_VISUAL.FEET_Y)
+	var hand: Vector2 = hands[pose - 1]
+	var contact := (hand - feet) * POSE_SCALE + Vector2(0.0, HUMAN_VISUAL.FEET_Y)
 	return to_local(actor.to_global(contact))
 
 

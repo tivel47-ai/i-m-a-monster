@@ -156,9 +156,9 @@ func human_profile(actor: Node2D, role: String) -> void:
 		"Human profile and initialization: " + str(actor.name))
 	if role == "guard":
 		var crossbow: bool = actor.guard_variant == &"crossbow"
-		var visual := actor.get_node_or_null("GuardVisual")
+		var visual := actor.get_node_or_null("CrossbowVisual" if crossbow else "GuardVisual")
 		check(actor.defense_ranged_weapon == crossbow
-			and (visual == null if crossbow else visual != null and visual.appearance == actor.guard_variant),
+			and visual != null and (crossbow or visual.appearance == actor.guard_variant),
 			"Equipment drives both attacks and visuals: " + str(actor.guard_variant))
 		if crossbow:
 			check(actor.defense_ranged_damage == 40.0 and actor.defense_ranged_interval == 2.8

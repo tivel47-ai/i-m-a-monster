@@ -5,6 +5,7 @@ const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
 const PEASANT_VISUAL = preload("res://scripts/peasant_visual.gd")
 const ARTISAN_ATLAS = preload("res://assets/sprites/characters/artisan/frames.png")
 const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
+const CROSSBOW_VISUAL = preload("res://scripts/crossbow_guard_visual.gd")
 const CHURCH_CHARACTER_VISUAL = preload("res://scripts/church_character_visual.gd")
 const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
 const MISSION_BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
@@ -14,6 +15,7 @@ var unit_vision: UNIT_VISION
 var _body_sprite: Sprite2D
 var _civilian_visual: PEASANT_VISUAL
 var _guard_visual: GUARD_VISUAL
+var _crossbow_visual: CROSSBOW_VISUAL
 var _church_visual: CHURCH_CHARACTER_VISUAL
 var _bell_pose: Sprite2D
 
@@ -200,6 +202,8 @@ func try_fire_defense_bolt(enemy: Node2D) -> bool:
 		return false
 	if unit_vision != null:
 		unit_vision.face_at_rest(offset)
+	if _crossbow_visual != null:
+		_crossbow_visual.hold_aim()
 	if defense.elapsed < ranged_ready_at:
 		return true
 	var interval := defense_ranged_interval if defense_ranged_interval >= 0.0 else attack_interval
@@ -212,6 +216,10 @@ func try_fire_defense_bolt(enemy: Node2D) -> bool:
 	bolt.speed = defense_projectile_speed
 	bolt.remaining = defense_weapon_range
 	bolt.interior_building = interior_building
+	if _crossbow_visual != null:
+		_crossbow_visual.play_shot(offset, defense.elapsed)
+		bolt.display_origin_offset = _crossbow_visual.bolt_display_offset()
+		bolt.display_convergence_distance = maxf(offset.length(), 1.0)
 	battlefield.add_child(bolt)
 	return true
 
@@ -241,7 +249,9 @@ func _ready() -> void:
 	encounter_attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(encounter_attack_timer)
 	_setup_body_sprite()
-	unit_vision = UNIT_VISION.attach(self, _body_sprite, UNIT_VISION.RESIDENT_RADIUS,
+	# Crossbow tactics already set the resident's heading on firing and after disengagement.
+	var vision_visual := _body_sprite if _crossbow_visual == null else null
+	unit_vision = UNIT_VISION.attach(self, vision_visual, UNIT_VISION.RESIDENT_RADIUS,
 		priest_routine != null or get_meta("village_role", "") == "priest")
 	if current_health == 0.0:
 		_die()
@@ -261,15 +271,18 @@ func _setup_body_sprite() -> void:
 		if _sprite_map(&"guard_sprites") == null:
 			return
 		if guard_variant == MISSION_BALANCE.CROSSBOW:
-			polygon.color = Color("#a5af74")
+			_crossbow_visual = CROSSBOW_VISUAL.new()
+			_crossbow_visual.name = "CrossbowVisual"
+			_body_sprite = _crossbow_visual
+			visual_ui_offset_y = CROSSBOW_VISUAL.HEALTH_BAR_Y - HEALTH_BAR_Y
+		elif defense_ranged_weapon:
 			return
-		if defense_ranged_weapon:
-			return
-		_guard_visual = GUARD_VISUAL.new()
-		_guard_visual.name = "GuardVisual"
-		_guard_visual.appearance = guard_variant if GUARD_VISUAL.ATLASES.has(guard_variant) else GUARD_VISUAL.SHIELD
-		_body_sprite = _guard_visual
-		visual_ui_offset_y = _guard_visual.health_bar_y() - HEALTH_BAR_Y
+		else:
+			_guard_visual = GUARD_VISUAL.new()
+			_guard_visual.name = "GuardVisual"
+			_guard_visual.appearance = guard_variant if GUARD_VISUAL.ATLASES.has(guard_variant) else GUARD_VISUAL.SHIELD
+			_body_sprite = _guard_visual
+			visual_ui_offset_y = _guard_visual.health_bar_y() - HEALTH_BAR_Y
 	elif civilian_profile == "Peasant" and _sprite_map(&"peasant_sprites") != null:
 		_setup_civilian_sprite("PeasantVisual")
 	elif civilian_profile == "Craftsman" and _sprite_map(&"artisan_sprites") != null:
@@ -305,6 +318,8 @@ func contains_visual_point(world_position: Vector2) -> bool:
 
 
 func bell_pose_role() -> StringName:
+	if _crossbow_visual != null:
+		return MISSION_BALANCE.CROSSBOW
 	if _guard_visual != null:
 		return _guard_visual.appearance
 	return StringName(get_meta("village_role", "peasant"))
@@ -800,6 +815,8 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 			_church_visual.play_hurt()
 		elif _civilian_visual != null:
 			_civilian_visual.play_hurt()
+		elif _crossbow_visual != null:
+			_crossbow_visual.play_hurt()
 		return
 
 	if infection_state == InfectionState.TRANSFORMING:
@@ -898,6 +915,10 @@ func _die(attacker: Node = null) -> void:
 	elif _guard_visual != null:
 		_guard_visual.death_finished.connect(_leave_blood_pool, CONNECT_ONE_SHOT)
 		_guard_visual.play_death()
+	elif _crossbow_visual != null:
+		clear_bell_pose()
+		_crossbow_visual.death_finished.connect(_leave_blood_pool, CONNECT_ONE_SHOT)
+		_crossbow_visual.play_death()
 	elif _civilian_visual != null:
 		clear_bell_pose()
 		_civilian_visual.death_finished.connect(_leave_blood_pool, CONNECT_ONE_SHOT)
@@ -989,6 +1010,11 @@ func _on_encounter_attack_timer_timeout() -> void:
 		_church_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	elif _guard_visual != null:
 		_guard_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
+	elif _crossbow_visual != null:
+		var heading := participant.global_position - global_position
+		if unit_vision != null:
+			unit_vision.face(heading)
+		_crossbow_visual.play_impact(heading, encounter_attack_timer.wait_time)
 	elif _civilian_visual != null:
 		_civilian_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	elif unit_vision != null:

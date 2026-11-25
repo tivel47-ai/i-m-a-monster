@@ -4,6 +4,7 @@ const MISSION = preload("res://tests/fixtures/mission_one_with_zombies.tscn")
 const ZOMBIE = preload("res://scenes/zombie.tscn")
 const FORMS = preload("res://scripts/zombie_mission_build.gd")
 const BOLT = preload("res://scripts/defender_projectile.gd")
+const VISUAL = preload("res://scripts/crossbow_guard_visual.gd")
 const CENTER := Vector2(4100, 2100)
 const STEP := 1.0 / 60.0
 
@@ -60,6 +61,7 @@ func run() -> void:
 	await test_protection()
 	await test_defensive_post()
 	await test_squad()
+	await test_visual_lifecycle()
 	mission.queue_free()
 	await frames(2)
 	print("Crossbow validation: %d/%d passed" % [checks - failures, checks])
@@ -119,10 +121,15 @@ func test_bolts() -> void:
 	check(not shooter.try_fire_defense_bolt(target), "Moving shooter cannot fire")
 	shooter.velocity = Vector2.ZERO
 	check(shooter.guard_ai.hold_for_bolt(target), "Guard fires at 175 units")
+	var visual: Sprite2D = shooter.get_node("CrossbowVisual")
+	check(visual.region_rect.position == Vector2(VISUAL.CONTACT_FRAME, VISUAL.SHOT_ROW + 2) * VISUAL.CELL,
+		"Eastward shot uses the release pose on the same tick as the bolt")
 	var bolt := latest_bolt()
 	check(is_instance_valid(bolt) and bolt.damage == 40.0 and bolt.speed == 280.0 and bolt.remaining == 200.0, "Bolt inherits the ranged profile on launch")
 	if is_instance_valid(bolt):
 		var start := bolt.global_position
+		check(start == shooter.global_position and bolt.display_origin_offset.x > 0.0
+			and bolt.display_origin_offset.y < 0.0, "Bolt is drawn at the crossbow while the physical ray starts at the actor")
 		var started_at: float = defense.elapsed
 		await frames(6)
 		var speed: float = start.distance_to(bolt.global_position) / (defense.elapsed - started_at)
@@ -130,10 +137,12 @@ func test_bolts() -> void:
 		var before_pause := bolt.global_position
 		var pause_time: float = defense.elapsed
 		var reload: float = shooter.ranged_ready_at
+		var paused_pose := visual.region_rect
 		paused = true
 		await frames(8)
 		check(bolt.global_position == before_pause and defense.elapsed == pause_time and shooter.ranged_ready_at == reload
-			and not shooter.try_fire_defense_bolt(target), "Pause suspends bolt travel and simulation reload")
+			and visual.region_rect == paused_pose and not shooter.try_fire_defense_bolt(target),
+			"Pause suspends the visual pose, bolt travel and simulation reload")
 		paused = false
 	var reload_at: float = shooter.ranged_ready_at
 	var organized = load("res://scripts/organized_defender.gd").new(defense.organized, shooter)
@@ -142,6 +151,8 @@ func test_bolts() -> void:
 	await frames(42)
 	check(target.current_health == 140.0 and ally.current_health == ally.max_health
 		and alternative.current_health == alternative.max_health, "Only the target takes 40 damage through the friendly guard")
+	check(visual.region_rect.position.y == (VISUAL.RELOAD_ROW + 2) * VISUAL.CELL.y,
+		"Stationary crossbow uses its reload poses during the existing cooldown")
 	target.queue_free()
 	ally.queue_free()
 	alternative.queue_free()
@@ -206,6 +217,9 @@ func test_melee() -> void:
 		"Incoming melee damage lands before the crossbow's 1.6-second counter")
 	await frames(11)
 	check(target.current_health == target.max_health - 8.0 and shooter.ranged_ready_at == reload, "Counterattack deals 8 and leaves ranged reload intact")
+	var visual: Sprite2D = shooter.get_node("CrossbowVisual")
+	check(visual.region_rect.position.y == (VISUAL.PUSH_ROW + 2) * VISUAL.CELL.y,
+		"Actual melee contact interrupts the visible reload with the crossbow push")
 	shooter.leave_encounter(target)
 	check(not shooter.is_in_collision() and not shooter.encounter_participants.has(target), "Ordinary encounter release still works")
 	check(shooter.try_fire_defense_bolt(target) and shooter.ranged_ready_at == reload, "Leaving melee does not grant a second shot")
@@ -482,4 +496,39 @@ func test_squad() -> void:
 	check(ready_at > defense.elapsed and shooter.ranged_ready_at == ready_at and tactics.spent > 0.0 and tactics.scope == [&"guard"],
 		"Returning from squad control to ordinary Guard AI retains reload and spent retreat budget")
 	for actor in [shooter, shield, target]: actor.queue_free()
+	await frames(2)
+
+
+func test_visual_lifecycle() -> void:
+	var shooter := guard()
+	var visual: Sprite2D = shooter.get_node("CrossbowVisual")
+	check(visual.texture == VISUAL.ATLAS and not shooter.polygon.visible,
+		"Mission 1 crossbow uses its own atlas instead of the marker")
+	var mapped_views := true
+	for direction in range(8):
+		shooter.unit_vision.face(Vector2.from_angle(PI / 2.0 - direction * TAU / 8.0))
+		await frames(8)
+		var row := VISUAL.IDLE_ROW + (direction if direction <= 4 else 8 - direction)
+		mapped_views = (mapped_views and visual.flip_h == (direction > 4)
+			and visual.region_rect.position.y == row * VISUAL.CELL.y)
+	check(mapped_views, "Idle follows all eight gameplay headings with the correct mirror")
+
+	var bell := mission.get_node("NavigationRegion2D/Buildings/Public/AlarmBell")
+	bell._show_pose(shooter, 1)
+	var pulling: Sprite2D = shooter.get_node("BellPullPose")
+	check(pulling.texture == VISUAL.ATLAS and pulling.region_rect.position.y == VISUAL.BELL_ROW * VISUAL.CELL.y
+		and not visual.visible, "Bell uses the crossbowman's own pose")
+	shooter.clear_bell_pose()
+	shooter.take_damage(1.0)
+	check(visual.visible and visual._clip_row == VISUAL.HURT_ROW, "Surviving damage plays the reaction")
+	for index in range(2):
+		var body := shooter if index == 0 else guard(&"crossbow", CENTER + Vector2(20, 0))
+		var body_visual: Sprite2D = body.get_node("CrossbowVisual")
+		body_visual._death_row = VISUAL.FALL_FORWARD_ROW if index == 0 else VISUAL.FALL_BACK_ROW
+		body.take_damage(body.max_health)
+		await frames(39)
+		check(body_visual._clip_row == body_visual._death_row and not body_visual.is_physics_processing()
+			and body_visual.region_rect.position.x == (VISUAL.ACTION_FRAMES - 1) * VISUAL.CELL.x,
+			"Fall %d keeps the last corpse pose and finishes its visual lifecycle" % index)
+		body.queue_free()
 	await frames(2)

@@ -5,6 +5,9 @@ var damage: float
 var speed: float = 280.0
 var remaining: float = 150.0
 var interior_building: Node
+var display_origin_offset := Vector2.ZERO
+var display_convergence_distance := 1.0
+var _distance_traveled := 0.0
 
 func _ready() -> void:
 	z_index = 3
@@ -12,7 +15,9 @@ func _ready() -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	draw_line(Vector2(-6, 0), Vector2(3, 0), Color(0.85, 0.75, 0.45), 1.5)
+	var weight := 1.0 - minf(_distance_traveled / display_convergence_distance, 1.0)
+	var display_position := display_origin_offset.rotated(-rotation) * weight
+	draw_line(display_position + Vector2(-6, 0), display_position + Vector2(3, 0), Color(0.85, 0.75, 0.45), 1.5)
 
 func _physics_process(delta: float) -> void:
 	var distance = minf(speed * delta, remaining)
@@ -27,4 +32,7 @@ func _physics_process(delta: float) -> void:
 		return
 	global_position = end
 	remaining -= distance
+	if display_origin_offset != Vector2.ZERO and _distance_traveled < display_convergence_distance:
+		_distance_traveled += distance
+		queue_redraw()
 	if remaining <= 0.0: queue_free()
