@@ -9,6 +9,8 @@ const DEVELOPMENT = preload("res://scripts/zombie_development.gd")
 const MENU_BACKGROUND = preload("res://assets/ui/undead_menu_background.png")
 const WORDMARK = preload("res://assets/ui/monster_wordmark.png")
 const RESET_HOLD_SECONDS := 2.0
+const RESET_MESSAGE_WIDTH := 580
+const RESET_BUTTON_HEIGHT := 44
 const RESET_WARNING := "Будут сброшены результаты миссий, статистика, развитие, назначения способностей и ресурсы. Это действие необратимо.\n\nУдерживайте «Подтвердить» левой кнопкой мыши 2 секунды."
 enum Screen { MAIN, SETTINGS, MISSIONS, RACES, GAMEPLAY, PAUSE, CONFIRM_LEAVE, RESULTS, DEVELOPMENT, ATTEMPT_SUMMARY }
 var screen: Screen = Screen.MAIN
@@ -56,6 +58,7 @@ var choose_race_button: Button
 var developer_mode := false
 var developer_button: Button
 var progress_reset_dialog: AcceptDialog
+var progress_reset_message: Label
 var progress_reset_confirm: Button
 var progress_reset_fill: ProgressBar
 var progress_reset_elapsed := -1.0
@@ -565,15 +568,19 @@ func _build_progress_reset_dialog() -> void:
 	progress_reset_dialog = AcceptDialog.new()
 	progress_reset_dialog.title = "Сбросить прогресс?"
 	progress_reset_dialog.theme = ui.theme
-	DARK_THEME.style_window_title(progress_reset_dialog)
 	progress_reset_dialog.ok_button_text = "Отмена"
-	progress_reset_dialog.get_label().autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	progress_reset_dialog.add_theme_constant_override("buttons_min_height", RESET_BUTTON_HEIGHT)
+	progress_reset_message = DARK_THEME.build_fixed_dialog(progress_reset_dialog, progress_reset_dialog.get_ok_button())
+	progress_reset_message.custom_minimum_size.x = RESET_MESSAGE_WIDTH
+	progress_reset_message.custom_maximum_size.x = RESET_MESSAGE_WIDTH
+	progress_reset_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	progress_reset_dialog.visibility_changed.connect(_cancel_progress_reset_hold)
 	progress_reset_dialog.focus_exited.connect(_cancel_progress_reset_hold)
 	ui.add_child(progress_reset_dialog)
 	progress_reset_confirm = progress_reset_dialog.add_button("Подтвердить", false, "hold")
 	progress_reset_confirm.focus_mode = Control.FOCUS_NONE
-	progress_reset_confirm.custom_minimum_size = Vector2(210, 44)
+	# AcceptDialog applies its button height after calculating the initial popup position.
+	progress_reset_confirm.custom_minimum_size.y = RESET_BUTTON_HEIGHT
 	progress_reset_confirm.gui_input.connect(_progress_reset_input)
 	progress_reset_confirm.mouse_exited.connect(_cancel_progress_reset_hold)
 	progress_reset_confirm.button_up.connect(_cancel_progress_reset_hold)
@@ -590,8 +597,8 @@ func _build_progress_reset_dialog() -> void:
 func _open_progress_reset() -> void:
 	if screen != Screen.MAIN:
 		return
-	progress_reset_dialog.dialog_text = RESET_WARNING
-	progress_reset_dialog.popup_centered(Vector2i(610, 0))
+	progress_reset_message.text = RESET_WARNING
+	progress_reset_dialog.popup_centered()
 
 func _progress_reset_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -609,7 +616,7 @@ func _confirm_progress_reset() -> void:
 	if screen != Screen.MAIN or not progress_reset_dialog.visible:
 		return
 	if progression.reset_progress() != OK:
-		progress_reset_dialog.dialog_text = "Не удалось сбросить прогресс. Попробуйте ещё раз.\n\n" + RESET_WARNING
+		progress_reset_message.text = "Не удалось сбросить прогресс. Попробуйте ещё раз.\n\n" + RESET_WARNING
 		return
 	progress_reset_dialog.hide()
 	selected_mission = ""

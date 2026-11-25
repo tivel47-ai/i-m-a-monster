@@ -72,6 +72,37 @@ static func style_tooltip(theme: Theme) -> void:
 	theme.set_color("font_color", "TooltipLabel", MUTED)
 
 
-static func style_window_title(window: Window) -> void:
-	window.add_theme_color_override("title_color", HEADING)
-	window.add_theme_font_size_override("title_font_size", SECTION_SIZE)
+static func build_fixed_dialog(dialog: AcceptDialog, cancel_button: Button) -> Label:
+	dialog.borderless = true
+	dialog.unresizable = true
+	dialog.get_label().hide()
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 8)
+	dialog.add_child(content)
+	var header := HBoxContainer.new()
+	content.add_child(header)
+	var spacer := Control.new()
+	spacer.custom_minimum_size.x = 32
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(spacer)
+	var title := Label.new()
+	title.text = dialog.title
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_color_override("font_color", HEADING)
+	title.add_theme_font_size_override("font_size", SECTION_SIZE)
+	header.add_child(title)
+	var close := Button.new()
+	close.icon = dialog.get_theme_icon("close", "Window")
+	close.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	close.custom_minimum_size = Vector2(32, 32)
+	close.flat = true
+	close.focus_mode = Control.FOCUS_NONE
+	close.accessibility_name = "Закрыть"
+	close.pressed.connect(cancel_button.pressed.emit)
+	header.add_child(close)
+
+	var message := Label.new()
+	content.add_child(message)
+	return message

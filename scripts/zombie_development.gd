@@ -73,10 +73,10 @@ func _ready() -> void:
 
 	leave_dialog = ConfirmationDialog.new()
 	leave_dialog.title = "Неприменённые изменения"
-	DARK_THEME.style_window_title(leave_dialog)
-	leave_dialog.dialog_text = "При выходе неприменённые изменения будут потеряны."
 	leave_dialog.ok_button_text = "Выйти"
 	leave_dialog.cancel_button_text = "Остаться"
+	var leave_message := DARK_THEME.build_fixed_dialog(leave_dialog, leave_dialog.get_cancel_button())
+	leave_message.text = "При выходе неприменённые изменения будут потеряны."
 	leave_dialog.confirmed.connect(func():
 		draft = profile.begin_edit()
 		exit_requested.emit())
