@@ -20,6 +20,9 @@ var _church_visual: CHURCH_CHARACTER_VISUAL
 var _bell_pose: Sprite2D
 
 const MOVEMENT_STALL_TIMEOUT := 3.0
+const ROUTE_YIELD_DELAY := 0.75
+const ROUTE_YIELD_WINDOW := 0.75
+const RESIDENT_BODY_LAYER := 4
 const HEALTH_BAR_Y := -16.25
 
 var visual_ui_offset_y := 0.0
@@ -104,6 +107,12 @@ var destination: Vector2
 var wait_remaining: float = 0.0
 var progress_position: Vector2
 var stalled_seconds: float = 0.0
+var _route_waypoint := Vector2.INF
+var _route_best_distance := INF
+var _route_stalled_seconds := 0.0
+var _route_yield_remaining := 0.0
+var _route_step_frame := -2
+var _route_yield_velocity := Vector2.ZERO
 
 var infection_state: InfectionState = InfectionState.AVAILABLE
 var infection_source := InfectionSource.NONE
@@ -441,8 +450,36 @@ func _advance_navigation(goal: Vector2, speed: float, delta: float) -> Navigatio
 	var next_position := navigation_agent.get_next_path_position()
 	if navigation_agent.is_navigation_finished():
 		return NavigationResult.FAILED
+	if (has_destination and not _using_zone and not is_instance_valid(interior_building)
+		and is_instance_valid(defense) and is_instance_valid(defense.last_stand)):
+		_track_route_progress(next_position, speed, delta)
+		if _route_stalled_seconds >= MOVEMENT_STALL_TIMEOUT:
+			return NavigationResult.FAILED
 	navigation_agent.velocity = global_position.direction_to(next_position) * maxf(speed, 0.0)
 	return NavigationResult.MOVING
+
+
+func _track_route_progress(waypoint: Vector2, speed: float, delta: float) -> void:
+	var frame := Engine.get_physics_frames()
+	var distance := global_position.distance_to(waypoint)
+	if _route_step_frame < frame - 1 or not _route_waypoint.is_equal_approx(waypoint):
+		_route_waypoint = waypoint
+		_route_best_distance = distance
+		_route_yield_remaining = 0.0
+		_route_stalled_seconds = 0.0
+	elif distance <= _route_best_distance - 2.0:
+		_route_best_distance = distance
+		_route_stalled_seconds = 0.0
+	else:
+		_route_stalled_seconds += delta
+	_route_step_frame = frame
+	_route_yield_velocity = Vector2.ZERO
+	if _route_stalled_seconds >= ROUTE_YIELD_DELAY and _route_stalled_seconds - delta < ROUTE_YIELD_DELAY:
+		_route_yield_remaining = ROUTE_YIELD_WINDOW
+	if _route_yield_remaining > 0.0 and delta > 0.0:
+		_route_yield_remaining = maxf(_route_yield_remaining - delta, 0.0)
+		# Stay on the current navigation segment while passing friendly bodies.
+		_route_yield_velocity = (waypoint - global_position).limit_length(maxf(speed, 0.0) * delta) / delta
 
 
 func _choose_destination(navigation_map: RID) -> void:
@@ -717,6 +754,13 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 		# Geometry only: no per-frame path or physics-space queries.
 		var clearance := maxf(current_zone.distance_to_boundary(global_position) - 0.05, 0.0)
 		safe_velocity = safe_velocity.limit_length(clearance / maxf(get_physics_process_delta_time(), 0.000001))
+	if _route_step_frame == Engine.get_physics_frames() and not _route_yield_velocity.is_zero_approx():
+		var mask := collision_mask
+		set_collision_mask_value(RESIDENT_BODY_LAYER, false)
+		velocity = _route_yield_velocity * barricade_speed_factor()
+		move_and_slide()
+		collision_mask = mask
+		return
 	velocity = safe_velocity * barricade_speed_factor()
 	move_and_slide()
 

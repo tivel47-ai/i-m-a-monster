@@ -631,11 +631,17 @@ func test_march_corner() -> void:
 	var previous := leading.global_position
 	var longest_stall := 0
 	var still := 0
-	for i in 420:
+	var route_length := 0.0
+	for i in range(1, path.size()):
+		route_length += path[i - 1].distance_to(path[i])
+	var frame_budget := ceili((route_length / squad.march_speed + 2.0) * Engine.physics_ticks_per_second)
+	for i in frame_budget:
 		await frames(1)
 		if i >= 45:
 			still = still + 1 if leading.global_position.distance_to(previous) < 0.08 else 0
 			longest_stall = maxi(longest_stall, still)
 		previous = leading.global_position
+		if leading.global_position.x < 1840.0 and squad.waypoint.x < 1850.0:
+			break
 	check(leading.global_position.x < 1840.0 and squad.waypoint.x < 1850.0, "The physical squad advances past the tavern turn")
 	check(longest_stall < 15 and squad.late_since.is_empty(), "Continuous march clears the turn (longest stall %d frames, waiting for %d)" % [longest_stall, squad.late_since.size()])

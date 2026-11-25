@@ -33,6 +33,7 @@ var post_target := Vector2.INF
 var post_best_distance := INF
 var post_progress_at := 0.0
 var post_crossing := false
+var escort_route_retry := 0.0
 
 func _init(owner: Node, resident: Node2D) -> void:
 	formation = owner
@@ -648,8 +649,14 @@ func update_fortified(delta: float) -> bool:
 			return true
 		mode = "travel"
 		var escort_point := escort_destination()
-		var rally: Vector2 = escort_point if escort_point.is_finite() else formation.center
-		move_in_formation(rally, delta, actor.arrival_tolerance, true)
+		if escort_point.is_finite() and now() >= escort_route_retry:
+			var nav: RID = actor.navigation_agent.get_navigation_map()
+			var point := NavigationServer2D.map_get_closest_point(nav, escort_point)
+			if point.distance_to(escort_point) <= actor.arrival_tolerance:
+				if move_in_formation(point, delta, actor.arrival_tolerance, true) != actor.NavigationResult.FAILED:
+					return true
+			escort_route_retry = now() + formation.decision_interval * 4.0
+		move_in_formation(formation.center, delta, actor.arrival_tolerance, true)
 		return true
 	var post: Vector2 = formation.position_for(actor)
 	if transfer_sector >= 0 and (not post.is_finite() or actor.global_position.distance_to(post) <= actor.arrival_tolerance):
