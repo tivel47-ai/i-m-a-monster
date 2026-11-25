@@ -470,6 +470,7 @@ func build() -> void:
 	camera.position = Vector2(650,1000)
 	camera.map_bounds = Rect2(0,0,3000,2000)
 	camera.min_zoom = 0.45
+	camera.use_zoom_bindings = true
 	camera.zoom = Vector2.ONE
 	source.placement.free() # Source was inspected off-tree, so _ready never owns it.
 	source.free()

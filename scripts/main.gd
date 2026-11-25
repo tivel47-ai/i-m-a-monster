@@ -8,6 +8,12 @@ const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const DEVELOPMENT = preload("res://scripts/zombie_development.gd")
 const MENU_BACKGROUND = preload("res://assets/ui/undead_menu_background.png")
 const WORDMARK = preload("res://assets/ui/monster_wordmark.png")
+const SETTINGS_MOUSE_LABELS := {
+	MOUSE_BUTTON_LEFT: "ЛКМ", MOUSE_BUTTON_RIGHT: "ПКМ", MOUSE_BUTTON_MIDDLE: "Средняя кнопка",
+	MOUSE_BUTTON_WHEEL_UP: "Колесо вверх", MOUSE_BUTTON_WHEEL_DOWN: "Колесо вниз",
+	MOUSE_BUTTON_WHEEL_LEFT: "Колесо влево", MOUSE_BUTTON_WHEEL_RIGHT: "Колесо вправо",
+	MOUSE_BUTTON_XBUTTON1: "Кнопка мыши 4", MOUSE_BUTTON_XBUTTON2: "Кнопка мыши 5",
+}
 const RESET_HOLD_SECONDS := 2.0
 const RESET_MESSAGE_WIDTH := 580
 const RESET_BUTTON_HEIGHT := 44
@@ -37,7 +43,9 @@ var result_text: Label
 var attempt_text: Label
 var leave_text: Label
 var settings_status: Label
-var settings_draft: RefCounted
+var settings_binding_warning: Label
+var settings_apply_button: Button
+var settings_draft: SETTINGS
 var settings_panels: Array[Control] = []
 var settings_sections: Array[Button] = []
 var settings_key_buttons: Dictionary[String, Button] = {}
@@ -69,10 +77,12 @@ func _ready() -> void:
 	_show(Screen.MAIN)
 
 func _input(event: InputEvent) -> void:
-	if screen == Screen.SETTINGS and not settings_capture.is_empty() and event is InputEventKey:
+	if screen == Screen.SETTINGS and not settings_capture.is_empty() and (
+		event is InputEventKey or (event is InputEventMouseButton and SETTINGS.CAMERA_ZOOM.has(settings_capture))
+	):
 		get_viewport().set_input_as_handled()
-		if event.pressed and not event.echo:
-			_capture_settings_key(event)
+		if event.is_pressed() and not event.is_echo():
+			_capture_settings_binding(event)
 		return
 	if screen == Screen.GAMEPLAY and is_instance_valid(mission) and event is InputEventKey:
 		if event.physical_keycode == KEY_SPACE or event.keycode == KEY_SPACE:
@@ -189,10 +199,11 @@ func _page(id: Screen, title: String, centered := false) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
 	ui.add_child(scroll)
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scroll.offset_left = 40
-	scroll.offset_top = 24
-	scroll.offset_right = -40
-	scroll.offset_bottom = -170 if id == Screen.MAIN else -24
+	if id != Screen.SETTINGS:
+		scroll.offset_left = 40
+		scroll.offset_top = 24
+		scroll.offset_right = -40
+		scroll.offset_bottom = -170 if id == Screen.MAIN else -24
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var content: Control = scroll
 	if centered:
@@ -205,8 +216,11 @@ func _page(id: Screen, title: String, centered := false) -> VBoxContainer:
 		var panel := PanelContainer.new()
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		panel.add_theme_stylebox_override("panel",
-			DARK_THEME.surface(Color("100c10ed"), DARK_THEME.EDGE, 24))
+		var style := DARK_THEME.surface(Color("100c10ed"), DARK_THEME.EDGE, 24)
+		if id == Screen.SETTINGS:
+			style.bg_color.a = 1.0
+			style.set_corner_radius_all(0)
+		panel.add_theme_stylebox_override("panel", style)
 		content.add_child(panel)
 		content = panel
 	var box := VBoxContainer.new()
@@ -509,8 +523,15 @@ func _build_settings_page() -> void:
 			_:
 				_text(box, "Настройки появятся позже.")
 
-	settings_status = _text(options, "", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
+	var feedback := HBoxContainer.new()
+	feedback.add_theme_constant_override("separation", 12)
+	options.add_child(feedback)
+	settings_status = _text(feedback, "", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 	settings_status.custom_minimum_size.y = 26
+	settings_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_binding_warning = _text(feedback, "", DARK_THEME.HINT_SIZE, DARK_THEME.HEADING)
+	settings_binding_warning.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_binding_warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 12)
 	options.add_child(footer)
@@ -518,7 +539,7 @@ func _build_settings_page() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	_button(footer, "Применить", _apply_settings).custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
+	settings_apply_button = _button(footer, "Применить", _apply_settings)
 
 
 func _build_control_settings(box: VBoxContainer) -> void:
@@ -533,17 +554,21 @@ func _build_control_settings(box: VBoxContainer) -> void:
 		settings_draft.camera_speed = value
 		settings_speed_label.text = "Скорость камеры: %d ед./с" % int(value)
 		settings_status.text = "Есть несохранённые изменения.")
-	var labels := ["Камера вверх", "Камера влево", "Камера вниз", "Камера вправо", "Основная способность расы"]
-	_text(box, "Нажмите на кнопку справа и выберите новую клавишу.", DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
+	var labels := ["Камера вверх", "Камера влево", "Камера вниз", "Камера вправо"]
+	_text(box, "Нажмите кнопку справа и выберите новую клавишу. Для зума также доступны кнопки мыши и колёсико. Esc отменяет назначение.",
+		DARK_THEME.HINT_SIZE, DARK_THEME.MUTED)
 	var actions := SETTINGS.DEFAULT_KEYS.keys()
 	for index in labels.size():
 		_add_settings_key_row(box, actions[index], labels[index])
+	for action: String in SETTINGS.CAMERA_ZOOM:
+		_add_settings_key_row(box, action, SETTINGS.CAMERA_ZOOM[action].title)
+	_add_settings_key_row(box, "race_ability", "Основная способность расы")
 	_text(box, "Команды монстрам", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
 	for action: String in SETTINGS.MONSTER_COMMANDS:
 		_add_settings_key_row(box, action, SETTINGS.MONSTER_COMMANDS[action].title)
 	_text(box, "Слоты дополнительных способностей (пока пусты)", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
-	for index in range(labels.size(), actions.size()):
-		_add_settings_key_row(box, actions[index], "Слот %d" % (index - labels.size() + 1))
+	for slot in range(1, 11):
+		_add_settings_key_row(box, "ability_slot_%d" % slot, "Слот %d" % slot)
 
 
 func _add_settings_key_row(box: VBoxContainer, action: String, title: String) -> void:
@@ -551,7 +576,7 @@ func _add_settings_key_row(box: VBoxContainer, action: String, title: String) ->
 	box.add_child(row)
 	_text(row, title).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var button := _button(row, "", _begin_settings_capture.bind(action))
-	button.custom_minimum_size = Vector2(150, 40)
+	button.custom_minimum_size = Vector2(200, 40)
 	settings_key_buttons[action] = button
 
 
@@ -565,7 +590,7 @@ func _select_settings_section(index: int) -> void:
 func _begin_settings_capture(action: String) -> void:
 	_end_settings_capture()
 	settings_capture = action
-	settings_key_buttons[action].text = "Нажмите клавишу…"
+	settings_key_buttons[action].text = "Ожидание ввода…" if SETTINGS.CAMERA_ZOOM.has(action) else "Нажмите клавишу…"
 
 
 func _end_settings_capture() -> void:
@@ -576,37 +601,75 @@ func _end_settings_capture() -> void:
 
 
 func _refresh_settings_key(action: String) -> void:
-	var key: int = settings_draft.keys[action]
-	if key == KEY_NONE:
-		settings_key_buttons[action].text = "Не назначена"
+	if SETTINGS.CAMERA_ZOOM.has(action):
+		var labels := PackedStringArray()
+		for binding: int in settings_draft.keys[action]:
+			match binding:
+				KEY_EQUAL: labels.append("+")
+				KEY_MINUS: labels.append("−")
+				KEY_KP_ADD: labels.append("Num +")
+				KEY_KP_SUBTRACT: labels.append("Num −")
+				_: labels.append(SETTINGS_MOUSE_LABELS[-binding] if binding < 0 else _settings_key_name(action, binding))
+		settings_key_buttons[action].text = "Не назначена" if labels.is_empty() else " / ".join(labels)
 		return
+	var key: int = settings_draft.keys[action]
+	settings_key_buttons[action].text = "Не назначена" if key == KEY_NONE else _settings_key_name(action, key)
+
+
+func _settings_key_name(action: String, key: int) -> String:
 	var display_key := key
 	if not SETTINGS.MONSTER_COMMANDS.has(action) and DisplayServer.get_name() != "headless":
 		display_key = DisplayServer.keyboard_get_keycode_from_physical(key)
-	settings_key_buttons[action].text = OS.get_keycode_string(display_key if display_key != KEY_NONE else key)
+	return OS.get_keycode_string(display_key if display_key != KEY_NONE else key)
 
 
-func _capture_settings_key(event: InputEventKey) -> void:
+func _capture_settings_binding(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		_end_settings_capture()
 		return
-	var key := event.physical_keycode
-	if key == KEY_SPACE:
-		settings_status.text = "Пробел зарезервирован для тактической паузы."
-		return
-	if not SETTINGS.can_bind(key) or event.alt_pressed or event.ctrl_pressed or event.shift_pressed or event.meta_pressed:
-		settings_status.text = "Выберите одиночную клавишу. Esc отменяет назначение."
-		return
-	for action in settings_draft.keys:
-		if action != settings_capture and settings_draft.keys[action] == key:
-			settings_status.text = "Эта клавиша занята. Выберите другую или нажмите Esc."
+	var is_zoom := SETTINGS.CAMERA_ZOOM.has(settings_capture)
+	var binding: int
+	if event is InputEventMouseButton:
+		if not SETTINGS.can_bind_mouse(event.button_index):
 			return
-	settings_draft.keys[settings_capture] = key
+		binding = -event.button_index
+	else:
+		binding = event.physical_keycode
+		if binding == KEY_SPACE:
+			settings_status.text = "Пробел зарезервирован для тактической паузы."
+			return
+		var shifted_plus: bool = is_zoom and binding == KEY_EQUAL
+		if not SETTINGS.can_bind(binding) or event.alt_pressed or event.ctrl_pressed or event.meta_pressed or (
+			event.shift_pressed and not shifted_plus
+		):
+			settings_status.text = "Выберите одиночную клавишу. Esc отменяет назначение."
+			return
+	for action in settings_draft.keys:
+		if action == settings_capture:
+			continue
+		var assigned: Variant = settings_draft.keys[action]
+		if not (binding in assigned if assigned is Array else binding == assigned):
+			continue
+		settings_draft.keys[action] = (
+			assigned.filter(func(other: int) -> bool: return other != binding) if assigned is Array else KEY_NONE
+		)
+		_refresh_settings_key(action)
+	settings_draft.keys[settings_capture] = [binding] if is_zoom else binding
 	_end_settings_capture()
+	_refresh_settings_apply_state()
 	settings_status.text = "Есть несохранённые изменения."
 
 
+func _refresh_settings_apply_state() -> void:
+	var complete := settings_draft.keys.values().all(func(binding: Variant) -> bool:
+		return not binding.is_empty() if binding is Array else binding != KEY_NONE)
+	settings_apply_button.disabled = not complete
+	settings_binding_warning.text = "" if complete else "Не все клавиши назначены."
+
+
 func _apply_settings() -> void:
+	if settings_apply_button.disabled:
+		return
 	_end_settings_capture()
 	if settings_draft.save_settings() != OK:
 		settings_status.text = "Не удалось сохранить настройки. Попробуйте снова."
@@ -631,6 +694,7 @@ func _open_settings(origin: Screen) -> void:
 	for action in settings_key_buttons:
 		_refresh_settings_key(action)
 	settings_status.text = ""
+	_refresh_settings_apply_state()
 	_select_settings_section(0)
 	_show(Screen.SETTINGS)
 

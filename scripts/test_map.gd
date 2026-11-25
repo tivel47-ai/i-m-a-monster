@@ -182,6 +182,8 @@ func _ready() -> void:
 	_refresh_mission_progress()
 	mission_hud = MISSION_HUD.new()
 	$CanvasLayer.add_child(mission_hud)
+	if $Camera2D.use_zoom_bindings:
+		$Camera2D.zoom_pointer_over_ui = mission_hud.is_pointer_over_ui
 	$CanvasLayer/MissionPanel.hide()
 	mission_hud.set_developer_mode(developer_mode)
 

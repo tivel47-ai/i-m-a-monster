@@ -4771,6 +4771,7 @@ position = Vector2(650, 1000)
 script = ExtResource("5_htiqp")
 min_zoom = 0.45
 map_bounds = Rect2(0, 0, 3000, 2000)
+use_zoom_bindings = true
 
 [node name="ActivityZones" type="Node2D" parent="." unique_id=1957561038]
 
