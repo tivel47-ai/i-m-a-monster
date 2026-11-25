@@ -1,43 +1,38 @@
-extends Sprite2D
+extends MeshInstance2D
 
 const PORTRAIT_SHADER = preload("res://scripts/zombie_race_portrait.gdshader")
+const CELL_SIZE := 512
+const GRID_SEGMENTS := 32
+const MESH_ORIGIN := Vector2(256, 480)
+const LENGTH := 24.0
 
-enum Pose { REST, INHALE, EXHALE, GLANCE_START, GLANCE, SWAY }
-const LENGTH := 8.65
-const TIMELINE := [
-	Vector2(0.00, Pose.REST), Vector2(0.42, Pose.INHALE), Vector2(0.70, Pose.REST),
-	Vector2(1.00, Pose.EXHALE), Vector2(1.36, Pose.REST), Vector2(1.84, Pose.INHALE),
-	Vector2(2.12, Pose.REST), Vector2(2.40, Pose.EXHALE), Vector2(2.72, Pose.REST),
-	Vector2(3.28, Pose.GLANCE_START), Vector2(3.53, Pose.GLANCE),
-	Vector2(4.38, Pose.GLANCE_START), Vector2(4.67, Pose.REST),
-	Vector2(5.22, Pose.INHALE), Vector2(5.57, Pose.REST),
-	Vector2(5.92, Pose.EXHALE), Vector2(6.25, Pose.REST),
-	Vector2(6.92, Pose.EXHALE), Vector2(7.18, Pose.SWAY),
-	Vector2(7.58, Pose.EXHALE), Vector2(7.88, Pose.REST),
-]
+static var _portrait_mesh: ArrayMesh
 
 var appearance := 0
 var portrait_height := 0.0
 var _elapsed := 0.0
-var _pose := -1
-var _ground_points: Array[Vector2]
-var _frame_size: Vector2
+var _pace := 1.0
 var _portrait_material: ShaderMaterial
 
 
-func set_portrait(atlas: Texture2D, ground_points: Array[Vector2], height: float,
-		phase: float, haze: float) -> void:
+func set_portrait(atlas: Texture2D, ground: Vector2, hip: Vector2, neck: Vector2, height: float,
+		phase: float, pace: float, haze: float, mirrored: bool) -> void:
+	if _portrait_mesh == null:
+		_portrait_mesh = _build_mesh(atlas.get_size())
+	mesh = _portrait_mesh
 	texture = atlas
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	centered = false
-	region_enabled = true
-	region_filter_clip_enabled = true
-	_frame_size = atlas.get_size() / Vector2(3, 2)
-	_ground_points = ground_points
 	portrait_height = height
+	_pace = pace
 	_portrait_material = ShaderMaterial.new()
 	_portrait_material.shader = PORTRAIT_SHADER
+	_portrait_material.set_shader_parameter("mesh_origin", MESH_ORIGIN)
+	_portrait_material.set_shader_parameter("ground", ground)
+	_portrait_material.set_shader_parameter("hip", hip)
+	_portrait_material.set_shader_parameter("neck", neck)
+	_portrait_material.set_shader_parameter("portrait_height", height)
 	_portrait_material.set_shader_parameter("haze", haze)
+	_portrait_material.set_shader_parameter("facing", -1.0 if mirrored else 1.0)
 	material = _portrait_material
 	_elapsed = phase
 	_update_pose()
@@ -45,27 +40,40 @@ func set_portrait(atlas: Texture2D, ground_points: Array[Vector2], height: float
 
 func _process(delta: float) -> void:
 	if is_visible_in_tree():
-		_elapsed = fposmod(_elapsed + delta, LENGTH)
+		_elapsed = fposmod(_elapsed + delta * _pace, LENGTH)
 		_update_pose()
 
 
 func _update_pose() -> void:
-	for index in range(TIMELINE.size() - 1, -1, -1):
-		if _elapsed >= TIMELINE[index].x:
-			_show_pose(int(TIMELINE[index].y))
-			return
+	var breath := sin(_elapsed * TAU / 6.0)
+	var sway := sin(_elapsed * TAU / 12.0 - 0.6)
+	var glance := _ease(7.0, 9.6) * (1.0 - _ease(10.7, 13.6))
+	_portrait_material.set_shader_parameter("torso_motion",
+		Vector3(deg_to_rad(1.5 * sway + 0.5 * glance), 1.0 + 0.009 * breath, 1.0 + 0.012 * breath))
+	_portrait_material.set_shader_parameter("head_motion",
+		Vector2(deg_to_rad(-5.5 * glance - 0.65 * sway), glance))
 
 
-func _show_pose(pose: int) -> void:
-	if _pose == pose:
-		return
-	_pose = pose
-	var frame_origin := Vector2(pose % 3, floori(pose / 3.0)) * _frame_size
-	var ground := _ground_points[pose]
-	region_rect = Rect2(frame_origin, _frame_size)
-	offset = Vector2(ground.x - _frame_size.x if flip_h else -ground.x, -ground.y)
-	var atlas_size := texture.get_size()
-	var atlas_ground := (frame_origin + ground) / atlas_size
-	var rest_ground := _ground_points[Pose.REST] / atlas_size
-	_portrait_material.set_shader_parameter("rest_offset", rest_ground - atlas_ground)
-	_portrait_material.set_shader_parameter("ground_height", Vector2(atlas_ground.y, portrait_height / atlas_size.y))
+func _ease(begin: float, end: float) -> float:
+	var t := clampf(inverse_lerp(begin, end, _elapsed), 0.0, 1.0)
+	return t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+
+
+static func _build_mesh(atlas_size: Vector2) -> ArrayMesh:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var stride := GRID_SEGMENTS + 1
+	var step := float(CELL_SIZE) / GRID_SEGMENTS
+	for row in stride:
+		for column in stride:
+			var point := Vector2(column, row) * step
+			surface.set_uv(point / atlas_size)
+			var vertex := point - MESH_ORIGIN
+			surface.add_vertex(Vector3(vertex.x, vertex.y, 0.0))
+	for row in GRID_SEGMENTS:
+		for column in GRID_SEGMENTS:
+			var top := row * stride + column
+			var bottom := top + stride
+			for index in [top, top + 1, bottom, top + 1, bottom + 1, bottom]:
+				surface.add_index(index)
+	return surface.commit()

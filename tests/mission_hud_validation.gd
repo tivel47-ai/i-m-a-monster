@@ -26,7 +26,7 @@ func frames() -> void:
 
 
 func _preview_appearances() -> Array:
-	return app.race_preview.find_children("*", "Sprite2D", true, false).map(
+	return app.race_preview.find_children("*", "MeshInstance2D", true, false).map(
 		func(actor): return actor.appearance)
 
 
@@ -54,24 +54,43 @@ func check_race_preview(mission_id := "village") -> void:
 	app._show(app.Screen.MISSIONS)
 	ART._appearance_rng.seed = 490 # Force the previous roll to verify repeat avoidance.
 	app._open_race_selection()
-	var previews: Array[Node] = app.race_preview.find_children("*", "Sprite2D", true, false)
+	var previews: Array[Node] = app.race_preview.find_children("*", "MeshInstance2D", true, false)
 	var preview := previews.back() as ZOMBIE_PREVIEW
 	check(preview.appearance != opening_appearance, "Reopening picks a different foreground appearance even if the roll repeats")
 	for actor: ZOMBIE_PREVIEW in previews:
 		var portrait_name: String = ZOMBIE_STAGE.PORTRAITS[actor.appearance].name
 		check(actor.texture.resource_path == ZOMBIE_STAGE.PORTRAIT_DIR + portrait_name + ".png",
 			"Each appearance uses its own high-resolution animation atlas")
+		var portrait_material := actor.material as ShaderMaterial
+		var portrait: Dictionary = ZOMBIE_STAGE.PORTRAITS[actor.appearance]
+		check(actor.mesh != null and portrait_material.get_shader_parameter("ground") == portrait.ground
+			and portrait_material.get_shader_parameter("neck") == portrait.neck,
+			"Each portrait uses the rig pivots of its own drawing")
 		var feet := actor.position
-		var frames_seen := {}
+		var first_phase := actor._elapsed
+		var previous_torso: Vector3 = portrait_material.get_shader_parameter("torso_motion")
+		var previous_head: Vector2 = portrait_material.get_shader_parameter("head_motion")
+		var torso_range := Vector2(previous_torso.z, previous_torso.z)
+		var max_glance := previous_head.y
+		var max_frame_change := 0.0
 		var stationary := true
-		for step in 120:
-			actor._process(ZOMBIE_PREVIEW.LENGTH / 120.0)
-			frames_seen[actor._pose] = actor.region_rect
+		for step in ceili(ZOMBIE_PREVIEW.LENGTH * 60.0 / actor._pace):
+			actor._process(1.0 / 60.0)
 			stationary = stationary and actor.position == feet
-		check(stationary and frames_seen.size() == ZOMBIE_PREVIEW.Pose.size()
-			and frames_seen[ZOMBIE_PREVIEW.Pose.REST] != frames_seen[ZOMBIE_PREVIEW.Pose.GLANCE]
-			and frames_seen[ZOMBIE_PREVIEW.Pose.REST] != frames_seen[ZOMBIE_PREVIEW.Pose.SWAY],
-			"Each stationary figure advances through distinct breathing, glance, and sway frames")
+			var torso: Vector3 = portrait_material.get_shader_parameter("torso_motion")
+			var head: Vector2 = portrait_material.get_shader_parameter("head_motion")
+			max_frame_change = maxf(max_frame_change, maxf(
+				torso.distance_to(previous_torso), head.distance_to(previous_head)))
+			torso_range = Vector2(minf(torso_range.x, torso.z), maxf(torso_range.y, torso.z))
+			max_glance = maxf(max_glance, head.y)
+			previous_torso = torso
+			previous_head = head
+		check(stationary and torso_range.y - torso_range.x > 0.02 and max_glance > 0.99,
+			"Each planted figure completes a full breath and glance")
+		var half_cycle := ZOMBIE_PREVIEW.LENGTH * 0.5
+		var phase_drift := wrapf(actor._elapsed - first_phase, -half_cycle, half_cycle)
+		check(max_frame_change < 0.013 and absf(phase_drift) < 0.02,
+			"The idle curve stays slow through actions and the loop boundary at 60 FPS")
 	check(get_nodes_in_group("player_units").is_empty(), "Race preview does not spawn units")
 
 

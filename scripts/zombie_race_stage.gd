@@ -3,24 +3,12 @@ extends Control
 const ZOMBIE_PREVIEW = preload("res://scripts/zombie_race_preview.gd")
 const CEMETERY_PATH := "res://assets/ui/zombie_race_cemetery_v2.png"
 const PORTRAIT_DIR := "res://assets/ui/zombie_race/"
-# The order matches ordinary zombie appearance IDs. Ground points are local to each cell.
+# The order matches ordinary zombie appearance IDs. Joints are in the rest drawing.
 const PORTRAITS := [
-	{"name": "plain", "height": 462.0, "ground": [
-		Vector2(271, 475), Vector2(231, 475), Vector2(190, 475),
-		Vector2(271, 477), Vector2(232, 477), Vector2(192, 477),
-	]},
-	{"name": "necrosis", "height": 467.0, "ground": [
-		Vector2(260, 483), Vector2(237, 483), Vector2(236, 484),
-		Vector2(262, 483), Vector2(238, 484), Vector2(239, 484),
-	]},
-	{"name": "wounded", "height": 486.0, "ground": [
-		Vector2(249, 500), Vector2(218, 500), Vector2(217, 500),
-		Vector2(250, 502), Vector2(219, 502), Vector2(218, 502),
-	]},
-	{"name": "bloom", "height": 482.0, "ground": [
-		Vector2(268, 497), Vector2(236, 497), Vector2(205, 497),
-		Vector2(268, 497), Vector2(237, 497), Vector2(205, 497),
-	]},
+	{"name": "plain", "height": 462.0, "ground": Vector2(271, 475), "hip": Vector2(273, 243), "neck": Vector2(297, 93)},
+	{"name": "necrosis", "height": 467.0, "ground": Vector2(260, 483), "hip": Vector2(265, 248), "neck": Vector2(289, 96)},
+	{"name": "wounded", "height": 486.0, "ground": Vector2(249, 500), "hip": Vector2(270, 272), "neck": Vector2(294, 104)},
+	{"name": "bloom", "height": 482.0, "ground": Vector2(268, 497), "hip": Vector2(275, 264), "neck": Vector2(303, 97)},
 ]
 
 # These points mark open ground in the cemetery texture, from back to front.
@@ -58,24 +46,21 @@ func _ready() -> void:
 	_shadow_texture.width = 128
 	_shadow_texture.height = 64
 
-	_add_actor("Distant", appearances[2], 5.9, Color("b8a5a9"), 0.16, true)
-	_add_actor("Near", appearances[1], 2.15, Color("c4afa7"), 0.06)
-	_add_actor("Foreground", appearances[0], 0.0, Color("dfccbd"), 0.0)
+	_add_actor("Distant", appearances[2], 12.1, 0.90, Color("b8a5a9"), 0.16, true)
+	_add_actor("Near", appearances[1], 5.4, 0.95, Color("c4afa7"), 0.06)
+	_add_actor("Foreground", appearances[0], 0.0, 1.0, Color("dfccbd"), 0.0)
 	resized.connect(_layout_actors)
 	_layout_actors()
 
 
-func _add_actor(actor_name: String, appearance: int, phase: float, tint: Color, haze: float, mirrored := false) -> void:
+func _add_actor(actor_name: String, appearance: int, phase: float, pace: float, tint: Color, haze: float, mirrored := false) -> void:
 	var actor := ZOMBIE_PREVIEW.new()
 	actor.name = actor_name
 	actor.appearance = appearance
 	actor.modulate = tint
-	actor.flip_h = mirrored
 	var portrait: Dictionary = PORTRAITS[appearance]
 	var atlas := load(PORTRAIT_DIR + portrait.name + ".png") as Texture2D
-	var ground: Array[Vector2] = []
-	ground.assign(portrait.ground)
-	actor.set_portrait(atlas, ground, portrait.height, phase, haze)
+	actor.set_portrait(atlas, portrait.ground, portrait.hip, portrait.neck, portrait.height, phase, pace, haze, mirrored)
 	_actors.append(actor)
 	add_child(actor)
 	var facing := -1.0 if mirrored else 1.0
