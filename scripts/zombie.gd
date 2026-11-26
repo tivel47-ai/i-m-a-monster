@@ -322,7 +322,7 @@ func _draw() -> void:
 			1.3
 		)
 
-	if has_player_order and not follows_horde_order:
+	if has_player_order and not follows_horde_order and not clearing_building_exit:
 		var marker_position := to_local(target_position)
 		var marker_color := Color(0.3, 0.9, 1.0)
 		draw_arc(marker_position, 10.0, 0.0, TAU, 24, marker_color, 2.0)
