@@ -576,10 +576,12 @@ func converted_target_during_assault() -> void:
 	resident.current_health = fighter.attack_damage
 	fighter.infection_chance = 1.0
 	fighter._on_encounter_attack_timer_timeout()
-	check(resident.is_queued_for_deletion() and mission.infected_residents == 1, "The lethal attack converts and removes the peasant")
+	check(resident.has_node("PeasantConversionVisual") and mission.infected_residents == 0,
+		"The lethal attack starts the conversion clip before the zombie is counted")
 	check(pursuer.aggro_target == null, "Conversion clears the pursuit target before the peasant is freed")
-	await frames(2)
-	check(not is_instance_valid(resident), "The converted peasant is freed")
+	var resident_ref: WeakRef = weakref(resident)
+	check(await until(func(): return resident_ref.get_ref() == null, 140)
+		and mission.infected_residents == 1, "The converted peasant is replaced after the clip")
 
 	var visual: Sprite2D = pursuer.get_node("OrdinaryZombieVisual")
 	var removed := Node2D.new()

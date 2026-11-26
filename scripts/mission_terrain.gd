@@ -71,6 +71,8 @@ var _blocked_ground: Array[Dictionary] = []
 var _non_meadow_surfaces: Array[Dictionary] = []
 var _motion_time := 0.0
 
+@onready var _tree_canopies: Node2D = $"../TreeCanopies"
+
 
 func _ready() -> void:
 	# The serialized texture is a terrain snapshot for the editor.
@@ -128,6 +130,7 @@ func _add_boundary_fog(bounds: Rect2) -> void:
 
 	var fog := Polygon2D.new()
 	fog.name = &"BoundaryFog"
+	fog.z_as_relative = false
 	fog.z_index = 8
 	fog.material = _boundary_fog
 	# Join the four sides in one mesh so the fog does not overlap at corners.
@@ -351,21 +354,21 @@ func _add_vegetation(region: Node2D, map_bounds: Rect2, water_outline: PackedVec
 	_tree_shadow.fill = GradientTexture2D.FILL_RADIAL
 	_tree_shadow.fill_from = Vector2(0.5, 0.5)
 	_tree_shadow.fill_to = Vector2(1, 0.5)
-	var silhouettes := Node2D.new()
-	silhouettes.name = "TreeCanopies"
-	silhouettes.y_sort_enabled = true
-	add_child(silhouettes)
+	var ground_vegetation := Node2D.new()
+	ground_vegetation.name = "GroundVegetation"
+	ground_vegetation.y_sort_enabled = true
+	add_child(ground_vegetation)
 
 	for index in range(19):
 		var x := 52.0 + index * 158.0 + rng.randf_range(-26.0, 26.0)
 		if x < 2590.0 or x > 2820.0:
-			_edge_tree(silhouettes, Vector2(x, rng.randf_range(21.0, 44.0)), rng)
-			_edge_tree(silhouettes, Vector2(x, map_bounds.size.y + rng.randf_range(-8.0, 20.0)), rng)
+			_edge_tree(ground_vegetation, Vector2(x, rng.randf_range(21.0, 44.0)), rng)
+			_edge_tree(ground_vegetation, Vector2(x, map_bounds.size.y + rng.randf_range(-8.0, 20.0)), rng)
 	for index in range(14):
 		var y := 68.0 + index * 144.0 + rng.randf_range(-28.0, 28.0)
 		if absf(y - 960.0) > 64.0:
-			_edge_tree(silhouettes, Vector2(rng.randf_range(-12.0, 15.0), y), rng)
-		_edge_tree(silhouettes, Vector2(map_bounds.size.x + rng.randf_range(-13.0, 8.0), y), rng)
+			_edge_tree(ground_vegetation, Vector2(rng.randf_range(-12.0, 15.0), y), rng)
+		_edge_tree(ground_vegetation, Vector2(map_bounds.size.x + rng.randf_range(-13.0, 8.0), y), rng)
 
 	var tree_nodes := region.get_node("Trees").get_children()
 	for index in range(tree_nodes.size()):
@@ -379,9 +382,9 @@ func _add_vegetation(region: Node2D, map_bounds: Rect2, water_outline: PackedVec
 			variant = 2
 		elif tree.name == &"FarBankAsh":
 			variant = 1
-		_tree(silhouettes, tree.name, to_local(tree.global_position), variant, maxf(84.0, radius * 4.2), 1.0)
+		_tree(ground_vegetation, tree.name, to_local(tree.global_position), variant, maxf(84.0, radius * 4.2), 1.0)
 
-	_add_ground_details(region, map_bounds, silhouettes, puddles)
+	_add_ground_details(region, map_bounds, ground_vegetation, puddles)
 	_blocked_ground.clear()
 
 
@@ -538,19 +541,18 @@ func _edge_tree(layer: Node2D, map_point: Vector2, rng: RandomNumberGenerator) -
 	_tree(layer, &"BorderTree", anchor, rng.randi_range(0, 3), rng.randf_range(76.0, 119.0), 0.82)
 
 
-func _tree(layer: Node2D, title: StringName, anchor: Vector2, variant: int, width: float, shade: float) -> void:
-	var tree_art := Node2D.new()
-	tree_art.name = title
-	tree_art.position = anchor
-	layer.add_child(tree_art)
+func _tree(ground_vegetation: Node2D, title: StringName, anchor: Vector2, variant: int, width: float, shade: float) -> void:
 	var shadow := Sprite2D.new()
 	shadow.texture = _tree_shadow
 	shadow.scale = Vector2(width * 0.74, width * 0.28) / _tree_shadow.get_size()
-	shadow.position = Vector2(3, -3)
-	tree_art.add_child(shadow)
+	shadow.position = anchor
+	shadow.offset = Vector2(3, -3) / shadow.scale
+	ground_vegetation.add_child(shadow)
 	var crown := Sprite2D.new()
-	# The tree can cover a low fence while its contact shadow stays on the ground.
+	crown.name = title
+	# Sort against living units at the trunk base while drawing above low fences.
 	crown.z_index = 1
+	crown.position = _tree_canopies.to_local(to_global(anchor))
 	var region: Rect2 = TREE_REGIONS[variant]
 	crown.texture = TREES
 	crown.region_enabled = true
@@ -560,4 +562,4 @@ func _tree(layer: Node2D, title: StringName, anchor: Vector2, variant: int, widt
 	crown.scale = Vector2(1.0, 0.87) * width / region.size.x
 	crown.modulate = Color(shade, shade, shade)
 	crown.material = _tree_wind
-	tree_art.add_child(crown)
+	_tree_canopies.add_child(crown)

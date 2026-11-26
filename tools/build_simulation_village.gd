@@ -271,12 +271,14 @@ func build() -> void:
 	read_npc_preferences()
 	village = Node2D.new()
 	village.name = "VillageSimulationMap"
+	village.y_sort_enabled = true
 	village.set_meta("local_melee_routing", true)
 	village.set_meta("guard_group_combat", true)
 	village.set_meta("directional_unit_vision", true)
 	village.set_meta("church_character_sprites", true)
 	village.set_meta("map_size", Vector2(3000,2000))
 	var ground := patch(village,"Ground",Vector2(1500,1000),Vector2(3000,2000),Color.WHITE)
+	ground.z_index = -1
 	var texture_size := TERRAIN.get_size()
 	ground.texture = TERRAIN
 	ground.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -864,7 +866,11 @@ func build_river() -> void:
 	label_at(details,"BridgeLabel","Мост",Vector2(2715,1265))
 
 func populate() -> void:
+	var canopies := container(village, "TreeCanopies")
+	canopies.y_sort_enabled = true
+	canopies.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var residents := container(village,"Villagers")
+	residents.y_sort_enabled = true
 	var sentry_spawn := guard_post.to_global(Vector2(-65, 137))
 	var spawn_points := [Vector2(590,580),Vector2(790,760),Vector2(440,930),Vector2(1180,1180),Vector2(1040,555),Vector2(1860,805),Vector2(1875,1740),Vector2(790,1220),Vector2(1980,1190),Vector2(1190,1010),Vector2(1230,1550),Vector2(750,1710),Vector2(260,1510),Vector2(940,1540),Vector2(950,1850),Vector2(550,1430),Vector2(800,1750),Vector2(1510,955),Vector2(1410,940),Vector2(2230,805),Vector2(2420,910),Vector2(2180,1190),Vector2(2435,1180),Vector2(2130,860),sentry_spawn,Vector2(2300,1380),Vector2(2060,1320),Vector2(1900,550),Vector2(1630,960),Vector2(1420,557)]
 	var peasant_jobs := ["Garden0","FieldsWest","FieldsEast","Barn","Vegetables","Well","SouthRoad","Barn","Garden7","Garden0","Garden7","FarmLane","FieldsWest","FieldsEast","FieldsSouth","Barn","Vegetables","Square","Bell"]

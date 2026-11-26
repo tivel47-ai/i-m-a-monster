@@ -84,8 +84,15 @@ func radius_for(id: String) -> float:
 	return abilities[id].radius if abilities.has(id) else 0.0
 
 
-func prepare_zombie(zombie: Node, converted: bool) -> void:
-	apply_form(zombie, PROGRESSION.choose_form(build, randf()) if converted else "", _unit_balance_v03)
+func roll_conversion_form() -> String:
+	return PROGRESSION.choose_form(build, randf())
+
+
+func prepare_zombie(zombie: Node, converted: bool, selected_form: Variant = null) -> void:
+	var form: String = selected_form if selected_form != null else ""
+	if converted and selected_form == null:
+		form = roll_conversion_form()
+	apply_form(zombie, form, _unit_balance_v03)
 	zombie.max_health *= 1.0 + PROGRESSION.NODES[PROGRESSION.FLESH].hp_per_level * PROGRESSION.level(build, PROGRESSION.FLESH)
 	zombie.speed_modifiers[PROGRESSION.TENDONS] = PROGRESSION.NODES[PROGRESSION.TENDONS].speed_per_level * PROGRESSION.level(build, PROGRESSION.TENDONS)
 	if not zombie.is_brute:

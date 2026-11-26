@@ -173,6 +173,9 @@ func check_monster_roster() -> void:
 					ART._appearance_rng.seed = value
 					break
 		resident.player_infection_timer.timeout.emit()
+		var clip := resident.get_node_or_null("PeasantConversionVisual")
+		if clip != null:
+			clip._physics_process(clip.DURATION)
 	var units: Array[Node] = mission._owned_zombies()
 	check(units.size() == forms.size() and hud.monster_count.text == "Монстры: 8", "Conversions update the total")
 	if units.size() != forms.size():

@@ -1119,7 +1119,7 @@ func _complete_conversion() -> void:
 
 
 func _draw() -> void:
-	if infection_state == InfectionState.DEAD:
+	if not is_alive():
 		return
 
 	var health_ratio := current_health / max_health if max_health > 0.0 else 0.0

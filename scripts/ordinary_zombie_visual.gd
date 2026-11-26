@@ -15,6 +15,7 @@ const HURT_TIME := 0.30
 const DEATH_TIME := 0.80
 
 var appearance := 0
+var starting_idle_direction := -1
 
 var _actor: CharacterBody2D
 var _timer: Timer
@@ -42,7 +43,12 @@ func _ready() -> void:
 	_next_attack = variation.randi_range(0, ART.WINDUP_TIMES.size() - 1)
 	_death_row = ART.Clip.DEATH_FORWARD + variation.randi_range(0, 1)
 	_setup_sprite()
-	_show_turn()
+	if starting_idle_direction >= 0:
+		_direction = starting_idle_direction
+		_desired_direction = _direction
+		_show_idle()
+	else:
+		_show_turn()
 
 
 func _setup_sprite() -> void:

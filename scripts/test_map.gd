@@ -13,6 +13,7 @@ const ZOMBIE_INFECTION = preload("res://scripts/zombie_infection.gd")
 const ZOMBIE_PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ZOMBIE_MISSION_BUILD = preload("res://scripts/zombie_mission_build.gd")
 const ZOMBIE_HORDE_COMMANDS = preload("res://scripts/zombie_horde_commands.gd")
+const PEASANT_CONVERSION_VISUAL = preload("res://scripts/peasant_conversion_visual.gd")
 var placement = GROUP_PLACEMENT.new()
 var mission_hud: Control
 
@@ -58,6 +59,7 @@ enum MissionState {
 
 var villagers: Array[Node] = []
 var converted_resident_ids: Dictionary = {}
+var _pending_resident_conversions: Dictionary = {}
 var dead_resident_ids: Dictionary = {}
 var total_residents: int = 0
 var infected_residents: int = 0
@@ -914,20 +916,45 @@ func _on_resident_converted(resident: Node) -> void:
 	if not original and not reinforcement_units.has(resident):
 		return
 	var resident_id := resident.get_instance_id()
-	if converted_resident_ids.has(resident_id) or dead_resident_ids.has(resident_id):
+	if (converted_resident_ids.has(resident_id) or dead_resident_ids.has(resident_id)
+		or _pending_resident_conversions.has(resident_id)):
 		return
 
-	converted_resident_ids[resident_id] = true
-	if not original:
-		reinforcement_units.erase(resident)
-
+	var form := mission_build.roll_conversion_form() if mission_build != null else ""
+	var peasant := resident.get_node_or_null("PeasantVisual") as PEASANT_CONVERSION_VISUAL.PEASANT
+	var plays_conversion: bool = (
+		form.is_empty() and peasant != null and get_meta(&"peasant_conversion_sprites", false))
 	var spawn_position: Vector2 = resident.global_position
 	if is_instance_valid(resident.building_task):
-		spawn_position = resident.building_task.prepare_resident_conversion(resident)
+		spawn_position = resident.building_task.prepare_resident_conversion(resident, plays_conversion)
+	if plays_conversion:
+		var clip := PEASANT_CONVERSION_VISUAL.new()
+		clip.name = "PeasantConversionVisual"
+		clip.appearance = PEASANT_CONVERSION_VISUAL.ZOMBIE_ART.random_appearance()
+		clip.faces_west = peasant.vision_direction() > 4
+		clip.position = resident.to_local(spawn_position)
+		_pending_resident_conversions[resident_id] = true
+		resident.set_physics_process(false)
+		clip.finished.connect(_spawn_converted_resident.bind(
+			resident, spawn_position, form, clip.appearance, clip.idle_direction()), CONNECT_ONE_SHOT)
+		resident.add_child(clip)
+		return
+	_spawn_converted_resident(resident, spawn_position, form)
+
+
+func _spawn_converted_resident(resident: Node, spawn_position: Vector2, form: String,
+	appearance := -1, idle_direction := -1) -> void:
+	var resident_id := resident.get_instance_id()
+	_pending_resident_conversions.erase(resident_id)
+	converted_resident_ids[resident_id] = true
+	if not villagers.has(resident):
+		reinforcement_units.erase(resident)
 	var new_zombie := ZOMBIE_SCENE.instantiate()
 	new_zombie.position = to_local(spawn_position)
+	new_zombie.ordinary_appearance = appearance
+	new_zombie.conversion_idle_direction = idle_direction
 	if mission_build != null:
-		mission_build.prepare_zombie(new_zombie, true)
+		mission_build.prepare_zombie(new_zombie, true, form)
 	elif unit_balance_v03:
 		ZOMBIE_MISSION_BUILD.apply_form(new_zombie, "", true)
 	add_child(new_zombie)

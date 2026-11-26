@@ -127,6 +127,12 @@ func run() -> void:
 	quit(0 if failures == 0 else 1)
 
 
+func _finish_conversion_clip(resident: Node) -> void:
+	var clip := resident.get_node_or_null("PeasantConversionVisual")
+	if clip != null:
+		clip._physics_process(clip.DURATION)
+
+
 func _first_run() -> void:
 	_enter_mission()
 	check(app.progression.state.virus == 0 and not app.progression.state.initial_unlocked,
@@ -150,6 +156,8 @@ func _first_run() -> void:
 	natural._on_transformation_timer_timeout()
 	mission._on_resident_converted(natural)
 	natural._on_transformation_timer_timeout()
+	check(app.progression.state.virus == 0, "Virus is deferred until the conversion clip finishes")
+	_finish_conversion_clip(natural)
 	check(app.progression.state.virus == 1 and mission.mission_build.virus_earned == 1
 		and mission.mission_hud.virus_label.text == "Вирус: 1", "Completed conversion awards once and updates HUD immediately")
 	check(get_nodes_in_group("player_units").all(func(unit): return not unit.is_brute), "No Brute before purchase")
@@ -163,7 +171,10 @@ func _first_run() -> void:
 	actors = _living_peasants()
 	zombie = _spawn_zombie(Vector2(170, 900))
 	_strike(actors[0], zombie, 1000.0, 1.0)
-	check(actors[0].is_converted() and app.progression.state.virus == 2, "Lethal combat infection converts at once on a replay")
+	check(actors[0].is_converted() and app.progression.state.virus == 1,
+		"Lethal combat infection starts conversion at once on a replay")
+	_finish_conversion_clip(actors[0])
+	check(app.progression.state.virus == 2, "Lethal combat infection awards Virus after the clip")
 	for resident in mission.villagers:
 		if mission.mission_state != mission.MissionState.WON and resident.is_alive():
 			resident.take_damage(1000.0)
@@ -557,6 +568,7 @@ func _check_brute_hit(brute: Node2D) -> void:
 	splash_a.global_position = Vector2(422, 910)
 	splash_b.global_position = Vector2(422, 890)
 	brute._brute_hit(primary)
+	_finish_conversion_clip(primary)
 	check(primary.is_converted() and splash_a.infected_by_player_zombie and splash_b.infected_by_player_zombie
 		and app.progression.state.virus == before + 1, "Brute shares infection and lethal-conversion accounting with standard attacks")
 

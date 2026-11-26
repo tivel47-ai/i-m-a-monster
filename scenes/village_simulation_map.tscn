@@ -54,6 +54,7 @@ border_width_bottom = 1
 border_color = Color(0.45, 0.85, 1, 0.95)
 
 [node name="VillageSimulationMap" type="Node2D" unique_id=1788305390]
+y_sort_enabled = true
 script = ExtResource("1_4nt34")
 unit_balance_v03 = true
 zombie_infection_enabled = true
@@ -67,6 +68,7 @@ metadata/ordinary_zombie_sprites = true
 metadata/brute_sprites = true
 metadata/infected_form_sprites = true
 metadata/peasant_sprites = true
+metadata/peasant_conversion_sprites = true
 metadata/artisan_sprites = true
 metadata/guard_sprites = true
 metadata/church_character_sprites = true
@@ -75,6 +77,7 @@ metadata/directional_unit_vision = true
 metadata/map_size = Vector2(3000, 2000)
 
 [node name="Ground" type="Polygon2D" parent="." unique_id=1971172188]
+z_index = -1
 texture_filter = 4
 position = Vector2(1500, 1000)
 texture = ExtResource("36_terrain")
@@ -5359,7 +5362,12 @@ default_color = Color(1, 1, 1, 0)
 script = ExtResource("8_aki2m")
 observation_indices = PackedInt32Array(46, 76, 171, 213, 261)
 
+[node name="TreeCanopies" type="Node2D" parent="."]
+y_sort_enabled = true
+texture_filter = 4
+
 [node name="Villagers" type="Node2D" parent="." unique_id=516217740]
+y_sort_enabled = true
 
 [node name="Peasant1" parent="Villagers" unique_id=46541046 instance=ExtResource("9_vjkkk")]
 position = Vector2(590, 580)

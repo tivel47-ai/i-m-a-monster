@@ -32,6 +32,7 @@ var attackers: Dictionary = {}
 var shelter_queue: Array[Node2D] = []
 var departing: Array[Node2D] = []
 var workers: Array[Node2D] = [null, null]
+var _converting_residents: Array[Node2D] = []
 
 var _crossing: CharacterBody2D
 var _crossing_out := false
@@ -185,7 +186,7 @@ func cancel_assault(zombie: CharacterBody2D) -> void:
 		zombie.building_task = null
 
 
-func prepare_resident_conversion(resident: Node2D) -> Vector2:
+func prepare_resident_conversion(resident: Node2D, plays_animation := false) -> Vector2:
 	var spawn_position := resident.global_position
 	if _crossing == resident:
 		# A new body cannot inherit the outgoing resident's threshold exception.
@@ -196,18 +197,29 @@ func prepare_resident_conversion(resident: Node2D) -> Vector2:
 	if shelter_queue.has(resident):
 		shelter_queue.erase(resident)
 		_clear_actor(resident)
+	if plays_animation and residents.has(resident):
+		_converting_residents.append(resident)
+		departing.erase(resident)
+		_clear_actor(resident)
+		_clear_conversion_pursuit(resident)
 	return spawn_position
 
 
 func adopt_conversion(resident: Node2D, zombie: CharacterBody2D) -> void:
+	if not _converting_residents.has(resident):
+		_clear_conversion_pursuit(resident)
+	_converting_residents.erase(resident)
 	residents.erase(resident)
 	departing.erase(resident)
 	_clear_actor(resident)
+	_enter_monster(zombie)
+
+
+func _clear_conversion_pursuit(resident: Node2D) -> void:
 	# Pursuers outside melee contact were not notified when the encounter ended.
 	for interior_zombie in monsters:
 		if is_instance_valid(interior_zombie):
 			interior_zombie.on_encounter_ended(resident)
-	_enter_monster(zombie)
 
 
 func _physics_process(delta: float) -> void:
@@ -293,6 +305,8 @@ func _resolve_battle() -> void:
 	if not battle_active:
 		return
 	if residents.is_empty():
+		if not _converting_residents.is_empty():
+			return
 		battle_active = false
 		for attacker in attackers.keys():
 			var vacate := layout.depth(attacker) < BuildingInterior.EXTERIOR_OFFSET
@@ -516,7 +530,7 @@ func _enter_monster(zombie: CharacterBody2D) -> void:
 	zombie.set_selected(false)
 	monsters.append(zombie)
 	_assign_rest(zombie)
-	if not residents.is_empty():
+	if not residents.is_empty() or not _converting_residents.is_empty():
 		battle_active = true
 		recovery_remaining = 0.0
 		workers = [null, null]

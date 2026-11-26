@@ -60,6 +60,7 @@ var is_dead: bool = false
 var is_brute := false
 var zombie_form := ""
 var ordinary_appearance := -1
+var conversion_idle_direction := -1
 var _ordinary_visual: ORDINARY_VISUAL
 var _brute_visual: BRUTE_VISUAL
 var _infected_form_visual: INFECTED_FORM_VISUAL
@@ -144,12 +145,15 @@ func _setup_form_visual() -> void:
 		_attach_form_visual(_infected_form_visual)
 		return
 	if zombie_form.is_empty() and _uses_form_sprites(&"ordinary_zombie_sprites"):
-		ordinary_appearance = ORDINARY_VISUAL.ART.random_appearance()
+		if ordinary_appearance < 0:
+			ordinary_appearance = ORDINARY_VISUAL.ART.random_appearance()
 		_ordinary_visual = ORDINARY_VISUAL.new()
 		_ordinary_visual.name = "OrdinaryZombieVisual"
 		_ordinary_visual.appearance = ordinary_appearance
+		_ordinary_visual.starting_idle_direction = conversion_idle_direction
 		_attach_form_visual(_ordinary_visual)
 		_portrait_atlas = ORDINARY_VISUAL.ART.TURN[ORDINARY_VISUAL.ART.Appearance.PLAIN]
+		_portrait_region = Rect2(Vector2(ORDINARY_VISUAL.ART.CELL.x, 0), ORDINARY_VISUAL.ART.CELL)
 
 
 func _attach_form_visual(visual: Sprite2D) -> void:

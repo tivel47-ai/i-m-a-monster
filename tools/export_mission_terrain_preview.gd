@@ -4,7 +4,8 @@ const MISSION_PATH := "res://scenes/village_simulation_map.tscn"
 const TERRAIN_PATH := "res://assets/maps/mission_01_terrain.png"
 const MAP_PREVIEW_PATH := "res://assets/maps/mission_01_preview.png"
 const PREVIEW_SIZE := Vector2i(1536, 1024)
-const MAP_LAYERS := [&"Ground", &"Roads", &"Environment", &"NavigationRegion2D"]
+const TERRAIN_LAYERS := [&"Ground", &"TreeCanopies"]
+const MAP_LAYERS := TERRAIN_LAYERS + [&"Roads", &"Environment", &"NavigationRegion2D"]
 
 
 func _initialize() -> void:
@@ -39,7 +40,7 @@ func _export_preview() -> void:
 	viewport.canvas_transform = Transform2D(0.0, Vector2(PREVIEW_SIZE) / map_size, 0.0, Vector2.ZERO)
 
 	# A full preview renders the map as it looks at rest, without gameplay overlays.
-	var layers := MAP_LAYERS if full_map else [&"Ground"]
+	var layers := MAP_LAYERS if full_map else TERRAIN_LAYERS
 	for child in mission.get_children():
 		if child is CanvasItem and child.name not in layers:
 			child.hide()

@@ -4,6 +4,8 @@ extends SceneTree
 const MAIN = preload("res://scenes/main.tscn")
 const ZOMBIE = preload("res://scenes/zombie.tscn")
 const ORDINARY_ART = preload("res://assets/sprites/characters/ordinary_zombie/frames.gd")
+const CONVERSION = preload("res://scripts/peasant_conversion_visual.gd")
+const CONVERSION_TICKS := 140
 
 var app: Node
 var mission: Node2D
@@ -131,6 +133,7 @@ func run() -> void:
 	app.set_meta("progression_path", profile_path)
 	root.add_child(app)
 	await launch()
+	check_conversion_frames()
 	await outdoors_and_recovery()
 	await restart()
 	await interiors()
@@ -143,6 +146,38 @@ func run() -> void:
 		DirAccess.remove_absolute(profile_path)
 	print("Infection and mission lifecycle: ", checks - failures, "/", checks, " passed")
 	quit(0 if failures == 0 else 1)
+
+
+func check_conversion_frames() -> void:
+	var image := CONVERSION.TRANSITION_ATLAS.get_image()
+	var covered_cells: Dictionary = {}
+	var all_frames_fit := image.has_mipmaps()
+	var idle_matches := true
+	for faces_west in [false, true]:
+		for appearance in ORDINARY_ART.VIEWS.size():
+			var clip := CONVERSION.new()
+			clip.appearance = appearance
+			clip.faces_west = faces_west
+			var idle := preload("res://scripts/ordinary_zombie_visual.gd").new()
+			idle.appearance = appearance
+			idle._direction = clip.idle_direction()
+			idle._setup_sprite()
+			idle._show_idle()
+			for pose in range(1, CONVERSION.FRAME_COUNT - 1):
+				clip._show_frame(pose)
+				var rect := Rect2i(clip.region_rect)
+				var bounds := image.get_region(rect).get_used_rect()
+				covered_cells[rect.position] = true
+				all_frames_fit = all_frames_fit and bounds.has_area() and bounds.position.y >= 4 \
+					and bounds.end.y <= 119
+			clip._show_frame(CONVERSION.FRAME_COUNT - 1)
+			idle_matches = idle_matches and clip.texture == idle.texture \
+				and clip.region_rect == idle.region_rect and clip.flip_h == idle.flip_h
+			clip.free()
+			idle.free()
+	check(all_frames_fit and covered_cells.size() == 64,
+		"All 64 transition cells have mipmaps and fit the shared foot anchor")
+	check(idle_matches, "All eight endings use the exact first idle frame of the same appearance and direction")
 
 
 func outdoors_and_recovery() -> void:
@@ -210,12 +245,33 @@ func outdoors_and_recovery() -> void:
 	check(await until(func(): return is_instance_valid(peasant) and peasant.player_infection_timer.time_left < 0.2, 650),
 		"Pending infection persists until near the end of its ten-second timer")
 	check(mission.infected_residents == 0, "Pending infection adds no victory progress")
-	check(await until(func(): return mission.infected_residents == 1, 30)
+	check(await until(func(): return peasant.has_node("PeasantConversionVisual"), 30),
+		"Natural expiry starts the peasant conversion clip")
+	var clip := peasant.get_node_or_null("PeasantConversionVisual") as CONVERSION
+	if clip == null:
+		return
+	var appearance := clip.appearance
+	var facing := clip.idle_direction()
+	var anchor := peasant.global_position
+	mission._on_resident_converted(peasant)
+	check(mission.infected_residents == 0 and get_nodes_in_group("player_units").is_empty()
+		and not peasant.is_alive() and peasant.get_node("PeasantConversionVisual") == clip,
+		"Conversion is committed once while the body is inactive and the zombie has not spawned")
+	mission.toggle_tactical_pause()
+	var clip_time := clip._elapsed
+	for i in 12:
+		await frame()
+	check(clip._elapsed == clip_time and peasant.global_position == anchor,
+		"Tactical pause freezes conversion at the original foot position")
+	mission.toggle_tactical_pause()
+	check(await until(func(): return mission.infected_residents == 1, CONVERSION_TICKS)
 		and get_nodes_in_group("player_units").size() == 1 and camera.position == camera_before,
 		"Natural expiry spawns one player zombie without moving the camera")
 	settle_residents()
 	var zombie: Node2D = get_nodes_in_group("player_units")[0]
-	check(has_conversion_visual(zombie), "Outdoor ability conversion has a persistent appearance")
+	check(has_conversion_visual(zombie) and zombie.ordinary_appearance == appearance
+		and zombie.conversion_idle_direction == facing and zombie.global_position.distance_to(anchor) < 2.0,
+		"Outdoor conversion keeps the chosen appearance, matching direction and anchor")
 	zombie.set_physics_process(false)
 	zombie.set_selected(true)
 	var destination := Vector2(200, 900)
@@ -248,7 +304,7 @@ func outdoors_and_recovery() -> void:
 	combat_conversion.receive_zombie_attack(1.0, 1.0, zombie)
 	check(combat_conversion.infection_state == combat_conversion.InfectionState.TRANSFORMING
 		and not ability.infect(combat_conversion), "Existing successful combat infection excludes a duplicate player application")
-	check(await until(func(): return mission.infected_residents == 3, 135) and ability.recovery_progress == 0,
+	check(await until(func(): return mission.infected_residents == 3, 135 + CONVERSION_TICKS) and ability.recovery_progress == 0,
 		"Ordinary combat conversion retains its own timer and earns no charge progress")
 	check(get_nodes_in_group("player_units").all(has_conversion_visual),
 		"Normal and lethal combat conversions attach the same appearance system")
@@ -322,7 +378,9 @@ func interiors() -> void:
 	check(await until(func(): return walking.interior_building == null, 180)
 		and walking.has_player_infection(), "Indoor-to-outdoor transition retains the infection")
 	walking.take_damage(1000.0)
-	check(mission.infected_residents == 1 and building.monsters.is_empty(),
+	check(walking.has_node("PeasantConversionVisual")
+		and await until(func(): return mission.infected_residents == 1, CONVERSION_TICKS)
+		and building.monsters.is_empty(),
 		"Lethal damage after exiting converts at the outdoor location")
 	var outdoor: Node2D = get_nodes_in_group("player_units")[0]
 	outdoor.global_position = Vector2(170, 900)
@@ -331,11 +389,14 @@ func interiors() -> void:
 	building.barricade_hp = 25.0
 	building._refresh_entrance()
 	first.take_damage(1000.0)
+	check(first.has_node("PeasantConversionVisual") and building.monsters.is_empty()
+		and await until(func(): return not building.monsters.is_empty(), CONVERSION_TICKS),
+		"A peasant inside the house animates before the building receives the new zombie")
 	var first_inside: Node2D = building.monsters[0]
 	first_inside.current_health = 1000.0
 	first_inside.attack_damage = 0.0
 	first_inside.infection_chance = 0.0
-	check(await until(func(): return building.monsters.size() == 2, 650)
+	check(await until(func(): return building.monsters.size() == 2, 650 + CONVERSION_TICKS)
 		and mission.infected_residents == 3 and ability.recovery_progress == 0,
 		"Interior death and normal expiry create exactly two inside zombies, without recovery credit")
 	if building.monsters.size() != 2:
@@ -350,7 +411,7 @@ func interiors() -> void:
 		and mission._command_units() == [outdoor], "Global recipients and direct orders exclude interior zombies")
 	check(await until(func(): return guard.is_dead(), 360)
 		and ability.recovery_progress == 1, "Interior combat uses existing AI, and a non-converting interior kill counts")
-	check(await until(func(): return building.monsters.is_empty() and inside.can_receive_player_orders(), 480)
+	check(await until(func(): return building.monsters.is_empty() and inside.can_receive_player_orders(), 480 + CONVERSION_TICKS)
 		and building.barricade_hp == 0.0, "Both zombies destroy the barricade from inside and exit")
 	check(not inside.follows_horde_order and not inside.has_player_order and mission._command_units().has(inside),
 		"After clearing the exit with no global order, the converted zombie returns to autonomous AI")
@@ -370,8 +431,11 @@ func threshold_conversion() -> void:
 		check(false, "Resident reaches the threshold on their way out")
 		return
 	resident.take_damage(1000.0)
-	check(building.monsters.size() == 1 and building._crossing == null,
-		"Conversion at the threshold replaces the resident on the interior side and releases the crossing")
+	check(resident.has_node("PeasantConversionVisual") and building._crossing == null
+		and building.monsters.is_empty(),
+		"Conversion at the threshold plays on the interior side and releases the crossing at once")
+	check(await until(func(): return building.monsters.size() == 1, CONVERSION_TICKS),
+		"The building receives the zombie after the threshold clip")
 	var zombie: Node2D = building.monsters[0]
 	check(await until(func(): return zombie.can_receive_player_orders(), 480),
 		"Converted zombie can open a route out through the original blocked door")
@@ -387,15 +451,18 @@ func lifecycle() -> void:
 	zombie._die()
 	for i in 3:
 		ability.infect(actors[i])
+	actors[0].take_damage(1000.0)
 	check(ability.charges == 0 and get_nodes_in_group("player_units").is_empty(), "Mission permits zero units and no unused charges")
 	await restart()
 	check(not is_instance_valid(previous) and ability.charges == 3 and ability.recovery_progress == 0
 		and mission.infected_residents == 0 and get_nodes_in_group("player_units").is_empty(),
-		"Restart discards pending timers and resets charges, progress and army")
+		"Restart discards pending timers and a running conversion, and resets charges, progress and army")
 	for i in 3:
 		var resident: Node2D = residents("peasant")[0]
 		ability.infect(resident)
 		resident.take_damage(1000.0)
+	check(await until(func(): return mission.infected_residents == 3, CONVERSION_TICKS),
+		"Three parallel conversion clips each create exactly one zombie")
 	for unit in get_nodes_in_group("player_units"):
 		unit._die()
 	var alert = mission.get_node("VillageAlert")
@@ -428,6 +495,9 @@ func lifecycle() -> void:
 	check(mission.mission_state == mission.MissionState.ACTIVE and mission.infected_residents == 0,
 		"35 outcomes and one pending infection do not meet the objective")
 	pending.take_damage(1000.0)
+	check(mission.mission_state == mission.MissionState.ACTIVE,
+		"Victory progress waits for the conversion clip to complete")
+	await until(func(): return mission.infected_residents == 1, CONVERSION_TICKS)
 	check(mission.mission_state == mission.MissionState.WON and mission.infected_residents == 1
 		and app.screen == app.Screen.GAMEPLAY and not paused, "36th completed outcome secures victory during gameplay")
 	var remaining: float = still_infected.player_infection_timer.time_left
@@ -442,6 +512,7 @@ func lifecycle() -> void:
 	check(mission.tactical_pause and paused, "Tactical pause stays available after victory")
 	mission.toggle_tactical_pause()
 	still_infected.take_damage(1000.0)
+	await until(func(): return mission.infected_residents == 2, CONVERSION_TICKS)
 	app._pause()
 	app._finish_mission()
 	check(app.screen == app.Screen.RESULTS and "Победа" in app.result_text.text
