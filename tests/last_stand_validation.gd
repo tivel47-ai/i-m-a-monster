@@ -90,6 +90,8 @@ func run() -> void:
 	await setup()
 	await test_march_corner()
 	await setup()
+	await test_perimeter_and_short_garrison()
+	await setup()
 	await test_formation_ranks()
 	await setup()
 	await test_barricade_aggro()
@@ -107,9 +109,9 @@ func run() -> void:
 
 func test_construction() -> void:
 	var initial: int = last.residents.size()
-	var west: StaticBody2D = last.sections[0]
-	var south: StaticBody2D = last.sections[2]
-	check(initial == 44 and last.sections.size() == 5 and last.total_max_hp == 1200.0, "Mission 1 registers the original population and five required sections")
+	var west: StaticBody2D = last.get_node("Barricades/West")
+	var south: StaticBody2D = last.get_node("Barricades/South")
+	check(initial == 44 and last.sections.size() == 9 and last.total_max_hp == 1200.0, "Mission 1 registers the original population and nine sections with the same total HP")
 	check(west.collision_layer == 0 and west.hp == 0.0 and west.needs_work(), "An untouched section is constructible and collision-free")
 	var positions: Array[Vector2] = formation.build_slots(last.residents[0], formation.radius)
 	check(positions.size() >= initial and positions.all(func(point): return last.inside_defenses(point) and last.keeps_door_clear(point, last.defense_spacing * 0.9)), "The entire garrison fits on protected posts with a clear church entrance before construction")
@@ -213,16 +215,19 @@ func test_construction() -> void:
 
 func test_signal() -> void:
 	var church: InteractiveBuilding = last.church
-	var south: StaticBody2D = last.sections[2]
-	var east: StaticBody2D = last.sections[4]
-	south.build(240.0)
-	east.build(119.0)
+	var south: StaticBody2D = last.get_node("Barricades/South")
+	var east: StaticBody2D = last.get_node("Barricades/East")
+	var front_west: StaticBody2D = last.get_node("Barricades/FrontWest")
+	south.build(south.max_hp)
+	east.build(east.max_hp)
+	front_west.build(359.0 - south.hp - east.hp)
 	check(not last.signal_ready and last.wave == last.Wave.UNSENT, "359 of 1200 HP leaves the emergency request unavailable")
-	east.build(1.0)
+	front_west.build(1.0)
 	var priest: Node2D = mission.get_node("Villagers/Priest30")
 	check(last.signal_ready and last.operator == priest and last.wave == last.Wave.UNSENT, "30% aggregate HP latches and immediately assigns the living priest")
-	south.take_damage(240.0)
-	east.take_damage(120.0)
+	south.take_damage(south.max_hp)
+	east.take_damage(east.max_hp)
+	front_west.take_damage(front_west.max_hp)
 	check(last.signal_ready and last.operator == priest, "Later damage cannot reverse readiness")
 	var recipient: Node2D = last.residents[3]
 	priest.global_position = church.shelter_approach() + Vector2(12, 60)
@@ -271,7 +276,7 @@ func test_signal() -> void:
 
 
 func test_worker_ai() -> void:
-	var section: StaticBody2D = last.sections[1]
+	var section: StaticBody2D = last.get_node("Barricades/Southwest")
 	var worker: Node2D = last.residents[4]
 	var controller: RefCounted = formation.controller(worker)
 	var home: Vector2 = section.work_points[0]
@@ -464,6 +469,60 @@ func test_replacement_and_cancellation() -> void:
 	check(last.wave == last.Wave.CANCELLED and mission.reinforcement_units.is_empty(), "Elimination cancels an expired wave while deployment is still pending")
 
 
+func test_perimeter_and_short_garrison() -> void:
+	formation.set_physics_process(false)
+	activate_defense()
+	for section in last.sections:
+		section.build(section.max_hp)
+	var south: StaticBody2D = last.get_node("Barricades/South")
+	check(is_equal_approx(south.global_position.x, last.church.layout.exterior().x), "The south barricade is centered on the physical church door")
+	var monster := spawn_monster(south.global_position + Vector2(0, 40))
+	await frames(2)
+	var space := mission.get_world_2d().direct_space_state
+	for i in range(1, last.sections.size()):
+		var previous: StaticBody2D = last.sections[i - 1]
+		var next: StaticBody2D = last.sections[i]
+		var joint: Vector2 = Geometry2D.line_intersects_line(
+			previous.global_position, previous.global_transform.x, next.global_position, next.global_transform.x)
+		var travel: Vector2 = formation.center.direction_to(joint) * 24.0
+		var from := joint + travel
+		var to := joint - travel
+		var hit := space.intersect_ray(PhysicsRayQueryParameters2D.create(from, to, SECTION.MONSTER_OBSTACLE))
+		check(not hit.is_empty() and monster.test_move(Transform2D(0.0, from), to - from), "Join %d blocks both movement and melee traces" % i)
+	# Sample at the actual church wing corners, including a route parallel to the wall.
+	for sign_x: float in [-1.0, 1.0]:
+		var section: StaticBody2D = last.sections.front() if sign_x < 0.0 else last.sections.back()
+		var attachment := section.to_global(Vector2(-sign_x * section.length * 0.5, 0.0))
+		var blocked := true
+		for dy: float in [-4.0, 0.0, 4.0, 8.0, 12.0]:
+			var from := attachment + Vector2(sign_x * 20.0, dy)
+			blocked = blocked and monster.test_move(Transform2D(0.0, from), Vector2(-sign_x * 40.0, 0.0))
+		check(blocked, "The church wall and the end section prevent a flank bypass on side %d" % int(sign_x))
+	var from := south.global_position + Vector2(0, 40)
+	var travel := Vector2(0, -80)
+	check(monster.test_move(Transform2D(0.0, from), travel), "The intact front blocks a direct charge")
+	south.take_damage(south.max_hp)
+	await frames(2)
+	check(not monster.test_move(Transform2D(0.0, from), travel), "A destroyed section opens a real breach with adjacent sections intact")
+	monster.queue_free()
+	var assigned: Array[Node2D] = []
+	for actor in last.residents:
+		if formation.central_role(actor) or actor.has_mission_crossbow(): continue
+		assemble(actor)
+		actor.global_position = Vector2(1240, 547)
+		formation.controller(actor).next_position_retry = 0.0
+		assigned.append(actor)
+		if assigned.size() == last.sections.size(): break
+	formation.slots = formation.build_slots(assigned[0], formation.radius)
+	formation.assign_rank_posts()
+	var coverage := {}
+	for actor in assigned:
+		var post: Vector2 = formation.places.get(actor.get_instance_id(), Vector2.INF)
+		if post.is_finite() and formation._slot_ranks.get(post) == 0:
+			coverage[formation._slot_sections[post]] = true
+	check(coverage.size() == last.sections.size(), "Nine melee defenders arriving together on the west side cover every section of the front rank")
+
+
 func test_formation_ranks() -> void:
 	activate_defense()
 	for section in last.sections:
@@ -493,7 +552,7 @@ func test_formation_ranks() -> void:
 
 
 func test_barricade_aggro() -> void:
-	var west: StaticBody2D = last.sections[0]
+	var west: StaticBody2D = last.get_node("Barricades/West")
 	var resident: Node2D = last.residents[0]
 	for actor in last.residents:
 		actor.global_position = Vector2(2300, 800)
@@ -506,22 +565,25 @@ func test_barricade_aggro() -> void:
 	check(monster.aggro_target == resident and not resident.is_in_collision() and west.to_local(monster.global_position).y < 0.0, "The monster retains its target and stays outside until the breach")
 	check(await until(func(): return west.state == SECTION.State.DESTROYED and resident.is_encounter_owner(monster), 140), "After destroying the barricade the same monster reaches the same resident")
 
-func stage_ordinary_posts(count: int) -> Array[Node]:
+func stage_ordinary_posts(count: int, spread_front := false) -> Array[Node]:
 	for actor in last.residents:
 		actor.global_position = Vector2(2300, 800)
 	var actors: Array[Node] = last.residents.filter(func(actor): return not formation.central_role(actor))
 	var slots: Array[Vector2] = formation.build_slots(actors[0], formation.radius)
 	var ordinary_posts := slots.filter(func(point): return formation._slot_ranks.has(point))
+	if spread_front:
+		ordinary_posts = slots.filter(func(point): return formation._slot_ranks.get(point, -1) == 0)
 	for i in count:
 		var actor := actors[i] as Node2D
-		actor.global_position = ordinary_posts[i]
+		var index := floori((i + 0.5) * ordinary_posts.size() / count) if spread_front else i
+		actor.global_position = ordinary_posts[index]
 		formation.check_arrival(actor)
-		formation.places[actor.get_instance_id()] = ordinary_posts[i]
+		formation.places[actor.get_instance_id()] = ordinary_posts[index]
 	return actors
 
 func test_arrivals_at_barricade_line() -> void:
 	activate_defense()
-	var actors := stage_ordinary_posts(21)
+	var actors := stage_ordinary_posts(21, true)
 	var late := actors[21] as Node2D
 	late.global_position = Vector2(1417, 725)
 	last._check_assembly()
@@ -532,7 +594,7 @@ func test_arrivals_at_barricade_line() -> void:
 	last._check_assembly()
 	check(last.construction_enabled, "The newcomer unlocks barricade work at exactly half the village")
 	for actor in actors.slice(0, 22): actor.autonomous_movement_enabled = true
-	check(await until(func(): return last.sections.all(func(section): return section.hp > 0.0), 375), "Workers reach their assigned points and start all five sections with the front rank already present")
+	check(await until(func(): return last.sections.all(func(section): return section.hp > 0.0), 375), "Workers reach their assigned points and start all nine sections with the front rank already present")
 	var used := {}
 	for job in last.assignments.values():
 		var key := Vector2i(job.section.get_instance_id(), job.index)

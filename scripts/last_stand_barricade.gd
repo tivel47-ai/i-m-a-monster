@@ -7,6 +7,7 @@ enum State { NOT_STARTED, EXISTING, DESTROYED }
 enum Side { LEFT, LOWER, RIGHT }
 
 const MONSTER_OBSTACLE := 32
+const VISUAL_END_INSET := 3.5
 
 @export var side: Side
 @export_range(1.0, 1000.0) var max_hp := 240.0
@@ -24,7 +25,9 @@ var footprint := RectangleShape2D.new()
 func _ready() -> void:
 	collision_layer = 0
 	collision_mask = 0
-	footprint.size = Vector2(length, thickness)
+	# Collision overlaps at the joins so units and melee traces cannot slip
+	# through the visible seams while both sections stand.
+	footprint.size = Vector2(length + 2.0, thickness)
 	var collision := CollisionShape2D.new()
 	collision.shape = footprint
 	add_child(collision)
@@ -57,7 +60,7 @@ func needs_work() -> bool:
 
 
 func overlaps(point: Vector2, padding: float) -> bool:
-	var size := Vector2(length, thickness)
+	var size := footprint.size
 	return Rect2(-size * 0.5, size).grow(padding).has_point(to_local(point))
 
 
@@ -95,11 +98,20 @@ func take_damage(amount: float) -> void:
 func _draw() -> void:
 	if state != State.EXISTING:
 		return
-	var size := Vector2(length, thickness)
-	draw_rect(Rect2(-size * 0.5, size), Color("#4d3224"))
-	for x in range(0, ceili(length), 8):
-		draw_line(Vector2(x - length * 0.5, thickness * 0.5), Vector2(x - length * 0.5 + 3.0, -thickness * 0.5), Color("#9c7753"), 2.0)
-	var bar := Rect2(Vector2(-length * 0.5, thickness * 0.5 + 4.0), Vector2(length, 2.0))
+	var visible_length := length - VISUAL_END_INSET * 2.0
+	var left := -visible_length * 0.5
+	var bottom := thickness * 0.5
+	draw_rect(Rect2(left, -bottom + 1.0, visible_length, thickness - 2.0), Color("#392a21"))
+	var stakes := maxi(1, roundi(visible_length / 7.0))
+	for i in stakes:
+		var x := left + (i + 0.5) * visible_length / stakes
+		var tip := -bottom + float(i % 3)
+		draw_line(Vector2(x - 1.5, bottom - 1.0), Vector2(x + 1.0, tip), Color("#674733"), 4.0)
+		draw_line(Vector2(x - 2.5, bottom - 1.0), Vector2(x, tip), Color("#ad845a"), 1.0)
+	for fraction: float in [0.23, 0.77]:
+		var x := left + visible_length * fraction
+		draw_line(Vector2(x - 3.0, -bottom + 1.0), Vector2(x + 3.0, bottom - 1.0), Color("#97714f"), 2.5)
+	var bar := Rect2(Vector2(left, bottom + 4.0), Vector2(visible_length, 2.0))
 	draw_rect(bar, Color("#281a15"))
 	bar.size.x *= hp / max_hp
 	draw_rect(bar, Color("#b5a16a"))

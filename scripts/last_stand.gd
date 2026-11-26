@@ -115,15 +115,21 @@ func inside_defenses(point: Vector2, margin := 0.0) -> bool:
 
 
 func defense_side(point: Vector2) -> int:
+	var index := defense_section(point)
+	return sections[index].side if index >= 0 else SECTION.Side.LOWER
+
+
+func defense_section(point: Vector2) -> int:
 	var closest := INF
-	var side := 1
-	for section in sections:
+	var index := -1
+	for i in sections.size():
+		var section := sections[i]
 		var local: Vector2 = section.to_local(point)
 		var distance := local.distance_squared_to(Vector2(clampf(local.x, -section.length * 0.5, section.length * 0.5), 0))
 		if distance < closest:
 			closest = distance
-			side = section.side
-	return side
+			index = i
+	return index
 
 
 func defense_ranks(step: float) -> Array[PackedVector2Array]:

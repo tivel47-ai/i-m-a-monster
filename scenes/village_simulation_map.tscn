@@ -4726,39 +4726,76 @@ church_inspection_points = PackedVector2Array(1190, 529, 1290, 568, 1384, 621, 1
 [node name="Barricades" type="Node2D" parent="LastStand" unique_id=1542691470]
 z_as_relative = false
 
+[node name="ChurchWest" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1222, 438.5)
+rotation = -1.111459
+script = ExtResource("34_barricade")
+max_hp = 130.0
+length = 103.754518
+
 [node name="West" type="StaticBody2D" parent="LastStand/Barricades" unique_id=496356105]
-position = Vector2(1242, 553)
+position = Vector2(1199, 538.5)
 rotation = -1.5707963
 script = ExtResource("34_barricade")
-length = 84.0
+max_hp = 145.0
+length = 107.0
 
 [node name="Southwest" type="StaticBody2D" parent="LastStand/Barricades" unique_id=133001762]
-position = Vector2(1285, 635)
-rotation = -2.3561945
+position = Vector2(1228.5, 627.5)
+rotation = -2.2641476
 script = ExtResource("34_barricade")
-length = 70.0
+max_hp = 125.0
+length = 92.314679
 
-[node name="South" type="StaticBody2D" parent="LastStand/Barricades" unique_id=1449550970]
-position = Vector2(1417, 684)
+[node name="FrontWest" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1294, 689)
+rotation = -2.5161076
 script = ExtResource("34_barricade")
 side = 1
-length = 116.0
+max_hp = 120.0
+length = 88.814413
+
+[node name="South" type="StaticBody2D" parent="LastStand/Barricades" unique_id=1449550970]
+position = Vector2(1390, 715)
+script = ExtResource("34_barricade")
+side = 1
+max_hp = 160.0
+length = 120.0
+defender_side = 1
+
+[node name="FrontEast" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1486, 689)
+rotation = -0.625485
+script = ExtResource("34_barricade")
+side = 1
+max_hp = 120.0
+length = 88.814413
 defender_side = 1
 
 [node name="Southeast" type="StaticBody2D" parent="LastStand/Barricades" unique_id=2064235430]
-position = Vector2(1538, 635)
-rotation = -0.7853982
+position = Vector2(1551.5, 627.5)
+rotation = -0.877445
 script = ExtResource("34_barricade")
 side = 2
-length = 70.0
+max_hp = 125.0
+length = 92.314679
 defender_side = 1
 
 [node name="East" type="StaticBody2D" parent="LastStand/Barricades" unique_id=657419119]
-position = Vector2(1590, 550)
+position = Vector2(1581, 538.5)
 rotation = 1.5707963
 script = ExtResource("34_barricade")
 side = 2
-length = 84.0
+max_hp = 145.0
+length = 107.0
+
+[node name="ChurchEast" type="StaticBody2D" parent="LastStand/Barricades"]
+position = Vector2(1558, 438.5)
+rotation = 1.111459
+script = ExtResource("34_barricade")
+side = 2
+max_hp = 130.0
+length = 103.754518
 
 [node name="Reinforcements" type="Node2D" parent="LastStand" unique_id=75556817]
 script = ExtResource("35_reinforcements")

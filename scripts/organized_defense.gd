@@ -46,6 +46,7 @@ var _capacity_cache: Dictionary = {}
 var _protected_iteration := -1
 var _slot_sides: Dictionary = {}
 var _slot_ranks: Dictionary = {}
+var _slot_sections: Dictionary = {}
 var _monsters: Array[Node2D] = []
 var _monster_frame := -1
 var _flank_losses: Array[bool] = [false, false, false]
@@ -300,6 +301,7 @@ func build_slots(actor: Node2D, extent: float) -> Array[Vector2]:
 	if protected:
 		_slot_sides.clear()
 		_slot_ranks.clear()
+		_slot_sections.clear()
 		var ranks: Array[PackedVector2Array] = last_stand.defense_ranks(step)
 		for rank in ranks.size():
 			for point in ranks[rank]:
@@ -329,7 +331,10 @@ func build_slots(actor: Node2D, extent: float) -> Array[Vector2]:
 		var path := NavigationServer2D.map_get_path(nav, origin, point, true, actor.navigation_agent.navigation_layers)
 		if path.is_empty() or path[-1].distance_to(point) > 1.0: continue
 		result.append(point)
-		if protected: _slot_sides[point] = last_stand.defense_side(point)
+		if protected:
+			var section: int = last_stand.defense_section(point)
+			_slot_sections[point] = section
+			_slot_sides[point] = last_stand.sections[section].side
 	_capacity_cache[key] = result
 	return result
 
@@ -365,25 +370,38 @@ func assign_rank_posts() -> void:
 		waiting.erase(actor)
 	for rank in range(3):
 		var options: Array[Vector2] = []
+		var capacity: Dictionary = {}
+		var filled: Dictionary = {}
 		for point in slots:
-			if _slot_ranks.get(point, -1) == rank and not occupied.has(point):
+			if _slot_ranks.get(point, -1) != rank: continue
+			var section: int = _slot_sections[point]
+			capacity[section] = int(capacity.get(section, 0)) + 1
+			if occupied.has(point):
+				filled[section] = int(filled.get(section, 0)) + 1
+			else:
 				options.append(point)
 		while not options.is_empty() and not waiting.is_empty():
+			var lowest_fill := INF
 			var nearest := INF
 			var selected_actor := -1
 			var selected_post := -1
-			for i in waiting.size():
-				var actor := waiting[i]
-				var behavior := controller(actor)
-				for j in options.size():
+			for j in options.size():
+				var section: int = _slot_sections[options[j]]
+				var fill := float(filled.get(section, 0)) / int(capacity[section])
+				if fill > lowest_fill: continue
+				for i in waiting.size():
+					var actor := waiting[i]
 					var distance := actor.global_position.distance_squared_to(options[j])
-					if distance < nearest and not behavior.failed_point(options[j]):
+					if (fill < lowest_fill or distance < nearest) and not controller(actor).failed_point(options[j]):
+						lowest_fill = fill
 						nearest = distance
 						selected_actor = i
 						selected_post = j
 			if selected_actor < 0: break
 			var actor := waiting.pop_at(selected_actor) as Node2D
 			var point := options.pop_at(selected_post) as Vector2
+			var section: int = _slot_sections[point]
+			filled[section] = int(filled.get(section, 0)) + 1
 			places[actor.get_instance_id()] = point
 			assigned.append(actor)
 		if waiting.is_empty(): break
