@@ -86,7 +86,8 @@ func run() -> void:
 	await test_signal()
 	await test_wave_and_squad()
 	await setup()
-	await test_replacement_and_cancellation()
+	await test_replacement_signal()
+	await test_wave_after_victory()
 	await setup()
 	await test_march_corner()
 	await setup()
@@ -433,7 +434,7 @@ func test_wave_and_squad() -> void:
 	check(last.wave == last.Wave.ARRIVED and isolated.is_alive(), "The completed objective leaves arrived soldiers in the world")
 
 
-func test_replacement_and_cancellation() -> void:
+func test_replacement_signal() -> void:
 	activate_defense()
 	var priest: Node2D = mission.get_node("Villagers/Priest30")
 	var church: InteractiveBuilding = last.church
@@ -456,17 +457,71 @@ func test_replacement_and_cancellation() -> void:
 	last._update_signal(20.0)
 	await frames(1)
 	check(last.wave == last.Wave.TRAVELING and last.travel_remaining == 90.0 and defense.alert.level == defense.alert.Level.LAST_STAND, "The substitute starts the same travel time and Last Stand stage")
-	mission.mission_state = mission.MissionState.WON
-	last._physics_process(90.0)
-	check(last.wave == last.Wave.CANCELLED and mission.reinforcement_units.is_empty(), "Primary objective cancels before physical arrival")
-	mission.mission_state = mission.MissionState.ACTIVE
-	last.wave = last.Wave.TRAVELING
-	last.travel_remaining = 0.0
+
+
+func test_wave_after_victory() -> void:
+	var squad: Node = last.squad
+	var nav := mission.get_world_2d().navigation_map
+	var original_count: int = mission.total_residents
+	var required := ceili(float(original_count * mission.TARGET_PERCENT) / 100.0)
 	for actor in last.residents:
-		if is_instance_valid(actor) and actor.is_alive():
-			actor.infection_state = actor.InfectionState.DEAD
-	last._physics_process(0.016)
-	check(last.wave == last.Wave.CANCELLED and mission.reinforcement_units.is_empty(), "Elimination cancels an expired wave while deployment is still pending")
+		if last.living_resident(actor):
+			actor._die()
+		if mission.killed_residents >= required:
+			break
+	check(mission.can_finish_mission() and mission.mission_hud.victory_notice.visible,
+		"The normal mission objective awards victory while the wave is traveling")
+	var remaining: float = last.travel_remaining
+	last.set_physics_process(true)
+	await frames(4)
+	last.set_physics_process(false)
+	check(last.wave == last.Wave.TRAVELING and last.travel_remaining < remaining and last.travel_remaining > 0.0,
+		"The wave countdown continues during ordinary gameplay after victory")
+
+	# The largest wave raises the threshold above even the full original population.
+	squad.base_count = 13
+	squad.count_variation = 0
+	squad.rng.seed = 380
+	var sample: Array[StringName] = []
+	sample.resize(squad.base_count)
+	sample.fill(&"sword")
+	squad.guard_variants = sample
+	var blockers: Array[Node2D] = []
+	for entry in squad.entry_points:
+		var positions: PackedVector2Array = squad._spawn_positions(nav, squad.to_global(entry))
+		if not positions.is_empty():
+			blockers.append(spawn_monster(positions[0]))
+	check(blockers.size() == squad.entry_points.size() and not blockers.is_empty(),
+		"The test blocks every reinforcement entrance")
+	squad.guard_variants.clear()
+	await frames(2)
+	last._physics_process(last.travel_remaining - 0.01)
+	check(last.wave == last.Wave.TRAVELING and last.travel_remaining > 0.0 and mission.reinforcement_units.is_empty(),
+		"Victory does not make the wave deploy early")
+	last._physics_process(0.01)
+	check(last.wave == last.Wave.TRAVELING and last.travel_remaining <= 0.000001 and mission.reinforcement_units.is_empty(),
+		"An expired wave still waits for a free entrance after victory")
+
+	for actor in last.residents:
+		if last.living_resident(actor):
+			actor._die()
+	if blockers.is_empty():
+		return
+	blockers[-1].queue_free()
+	last.set_physics_process(true)
+	check(await until(func(): return last.wave == last.Wave.ARRIVED, 60),
+		"When a road opens the wave arrives even with all original residents dead")
+	var arrived: int = mission.reinforcement_units.size()
+	check(arrived == squad.base_count and arrived == squad.soldiers.size() and mission.total_residents == original_count + arrived,
+		"The single arriving wave is registered in the mission population")
+	var expanded_goal := ceili(float(mission.total_residents * mission.TARGET_PERCENT) / 100.0)
+	check(mission.killed_residents == original_count and mission.killed_residents < expanded_goal and mission.can_finish_mission(),
+		"Even below the expanded threshold, victory stays recorded and the mission can be finished")
+	await frames(60)
+	check(mission.mission_hud.objective_label.text.begins_with("Победа\nВсего жителей: %d" % mission.total_residents),
+		"The HUD shows the recorded victory and updated population after arrival")
+	check(last.wave == last.Wave.ARRIVED and mission.reinforcement_units.size() == arrived and not squad.try_arrive(),
+		"The post-victory wave cannot deploy again")
 
 
 func test_perimeter_and_short_garrison() -> void:

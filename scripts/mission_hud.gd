@@ -691,13 +691,15 @@ func _refresh_alert() -> void:
 
 
 func _refresh_objective() -> void:
+	if mission.can_finish_mission():
+		objective_label.text = "Победа\nВсего жителей: %d\nЗаражено: %d  Убито: %d" % [
+			mission.total_residents, mission.infected_residents, mission.killed_residents]
+		return
 	var counted: int = mission.infected_residents + mission.killed_residents
 	var required: int = ceili(float(mission.total_residents * mission.TARGET_PERCENT) / 100.0)
 	objective_label.text = "Цель: %d из %d жителей\nЗаражено: %d  Убито: %d\nПрогресс: %d / %d" % [
 		required, mission.total_residents, mission.infected_residents,
 		mission.killed_residents, counted, required]
-	if mission.can_finish_mission():
-		objective_label.text += "\nПобеда"
 
 
 func refresh_units() -> void:

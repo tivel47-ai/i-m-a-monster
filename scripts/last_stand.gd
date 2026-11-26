@@ -10,7 +10,7 @@ const PRIEST_SIGNAL_SECONDS := 10.0
 const RESIDENT_SIGNAL_SECONDS := 20.0
 const TRAVEL_SECONDS := 90.0
 
-enum Wave { UNSENT, TRAVELING, ARRIVED, CANCELLED }
+enum Wave { UNSENT, TRAVELING, ARRIVED }
 
 @export var worker_hp_per_second := 6.0
 @export var work_spacing := 24.0
@@ -268,13 +268,10 @@ func _physics_process(delta: float) -> void:
 	_update_bell_swing()
 	_update_signal(delta)
 	var arrival_due := false
-	if wave == Wave.TRAVELING:
-		if mission.primary_objective_completed() or not residents.any(living_resident):
-			wave = Wave.CANCELLED
-		elif signal_started_frame != Engine.get_physics_frames():
-			var was_traveling := travel_remaining > 0.000001
-			travel_remaining = maxf(travel_remaining - delta, 0.0)
-			arrival_due = travel_remaining <= 0.000001 and (was_traveling or defense.elapsed >= next_update)
+	if wave == Wave.TRAVELING and signal_started_frame != Engine.get_physics_frames():
+		var was_traveling := travel_remaining > 0.000001
+		travel_remaining = maxf(travel_remaining - delta, 0.0)
+		arrival_due = travel_remaining <= 0.000001 and (was_traveling or defense.elapsed >= next_update)
 	if arrival_due and squad.try_arrive():
 		wave = Wave.ARRIVED
 	if defense.elapsed < next_update:
