@@ -91,7 +91,6 @@ var aggro_destination_origin: Vector2
 var aggro_candidates: Array[Node2D] = []
 var melee_route: LOCAL_MELEE_ROUTE
 var unit_vision: UNIT_VISION
-var _form_visual: Sprite2D
 var crowd_rest_position: Vector2
 var crowd_is_displaced: bool = false
 var crowd_is_returning: bool = false
@@ -121,7 +120,7 @@ func _ready() -> void:
 	attack_timer.timeout.connect(_on_encounter_attack_timer_timeout)
 	add_child(attack_timer)
 	_setup_form_visual()
-	unit_vision = UNIT_VISION.attach(self, _form_visual, UNIT_VISION.ZOMBIE_RADIUS)
+	unit_vision = UNIT_VISION.attach(self, null, UNIT_VISION.ZOMBIE_RADIUS, true)
 	if unit_vision != null:
 		var aggro_shape: CollisionShape2D = $AggroArea/CollisionShape2D
 		var vision_circle := CircleShape2D.new()
@@ -154,7 +153,6 @@ func _setup_form_visual() -> void:
 
 
 func _attach_form_visual(visual: Sprite2D) -> void:
-	_form_visual = visual
 	add_child(visual)
 	zombie_visual.hide()
 	# Keep the starting pose even if the roster first sees this unit mid-animation.
@@ -188,8 +186,6 @@ func _uses_form_sprites(flag: StringName) -> bool:
 
 
 func play_attack_visual(world_point: Vector2) -> void:
-	if unit_vision != null and _form_visual == null:
-		unit_vision.face(world_point - global_position)
 	if _brute_visual != null:
 		# Every caller reports a resolved hit. Only the encounter timer offers a windup.
 		_brute_visual.play_attack(world_point - global_position, effective_attack_interval())

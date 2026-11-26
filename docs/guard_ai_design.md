@@ -52,7 +52,7 @@ The first large village has approximately 30 inhabitants: 19 peasants, 5 artisan
 
 A guard acts on personal observation, physically/audibly received reports, and plausible inference. There is no omniscient shared enemy tracker. Guards do not automatically know every zombie's position, distant combat outcomes, a lost target's current location, another guard's decisions, or the incident location merely because the village bell rang. Reports may be old, incomplete, uncertain, or inaccurate. Remembering a reference to an actor must not grant continuing access to hidden coordinates.
 
-В Миссии №1 личное восприятие стражи использует передний полукруг в 180° радиусом 250 игровых единиц. Здания и препятствия перекрывают линию видимости. Задержка распознавания и тактическая оценка сохраняются. Колокол сообщает об опасности, личное наблюдение и координаты врага требуют отдельных сведений.
+В Миссии №1 стража видит вперёд на 250 игровых единиц в полукруге 180°. При подозрении задний обзор составляет треть этой дальности, при тревоге — половину. В организованной обороне и последнем оплоте обзор круговой на 250 единиц. Здания и препятствия перекрывают линию видимости. Задержка распознавания и тактическая оценка сохраняются. Колокол сообщает об опасности, личное наблюдение и координаты врага требуют отдельных сведений.
 
 ### 2.2 B2 — Reasonable Defender
 
