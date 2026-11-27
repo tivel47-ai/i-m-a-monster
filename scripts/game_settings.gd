@@ -1,10 +1,22 @@
 extends RefCounted
 
+const AUDIO = preload("res://scripts/audio/audio_manager.gd")
+
 const PATH := "user://settings.cfg"
 const BUILDING_ASSAULT := "monster_building_assault"
 const CANCEL_HORDE_ORDER := "monster_cancel_horde_order"
 const CAMERA_ZOOM_IN := "camera_zoom_in"
 const CAMERA_ZOOM_OUT := "camera_zoom_out"
+const AUDIO_LABELS := {
+	&"Master": "Общая громкость",
+	&"Ambience": "Атмосфера",
+	&"Environment": "Окружение",
+	&"HumanVoices": "Голоса людей",
+	&"MonsterVoices": "Голоса монстров",
+	&"Footsteps": "Шаги",
+	&"Combat": "Бой",
+	&"Alerts": "Сигналы тревоги",
+}
 # Mouse buttons use negative IDs so existing physical key codes stay intact.
 const CAMERA_ZOOM := {
 	CAMERA_ZOOM_IN: {"title": "Приблизить камеру", "bindings": [KEY_EQUAL, KEY_KP_ADD, -MOUSE_BUTTON_WHEEL_UP]},
@@ -25,6 +37,13 @@ const DEFAULT_KEYS := {
 var keys: Dictionary = _default_keys()
 var fullscreen := false
 var camera_speed := 500.0
+var audio_levels := default_audio_levels()
+
+static func default_audio_levels() -> Dictionary:
+	var levels := {}
+	for bus in AUDIO_LABELS:
+		levels[bus] = 1.0
+	return levels
 
 static func _default_keys() -> Dictionary:
 	var defaults := DEFAULT_KEYS.duplicate()
@@ -34,14 +53,19 @@ static func _default_keys() -> Dictionary:
 		defaults[action] = CAMERA_ZOOM[action].bindings.duplicate()
 	return defaults
 
-func load_settings() -> void:
+func load_settings(path := PATH) -> void:
 	var config := ConfigFile.new()
-	if config.load(PATH) == OK:
+	audio_levels = default_audio_levels()
+	if config.load(path) == OK:
 		fullscreen = config.get_value("display", "fullscreen", false) == true
 		var speed = config.get_value("camera", "speed", 500.0)
 		if (speed is float or speed is int) and is_finite(float(speed)):
 			camera_speed = clampf(float(speed), 200.0, 900.0)
 		keys = _load_keys(config)
+		for bus in AUDIO_LABELS:
+			var value: Variant = config.get_value("audio", bus, 1.0)
+			if (value is float or value is int) and is_finite(float(value)):
+				audio_levels[bus] = clampf(float(value), 0.0, 1.0)
 	apply()
 
 static func _load_keys(config: ConfigFile) -> Dictionary:
@@ -84,8 +108,16 @@ static func can_bind_mouse(button: int) -> bool:
 
 func apply() -> void:
 	apply_display()
+	apply_audio()
 	for action in keys:
 		apply_key(action, keys[action])
+
+func apply_audio() -> void:
+	var _audio := AUDIO.service() as AUDIO
+	if _audio == null:
+		return
+	for bus in AUDIO_LABELS:
+		_audio.set_bus_volume(bus, audio_levels[bus])
 
 static func apply_key(action: String, binding: Variant) -> void:
 	if not InputMap.has_action(action):
@@ -106,10 +138,12 @@ func apply_display() -> void:
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
 
-func save_settings() -> Error:
+func save_settings(path := PATH) -> Error:
 	var config := ConfigFile.new()
 	config.set_value("display", "fullscreen", fullscreen)
 	config.set_value("camera", "speed", camera_speed)
 	for action in keys:
 		config.set_value("controls", action, keys[action])
-	return config.save(PATH)
+	for bus in AUDIO_LABELS:
+		config.set_value("audio", bus, audio_levels[bus])
+	return config.save(path)

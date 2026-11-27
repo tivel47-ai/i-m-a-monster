@@ -1,4 +1,5 @@
 extends CharacterBody2D
+const AUDIO = preload("res://scripts/audio/audio_manager.gd")
 const DEFENDER_PROJECTILE = preload("res://scripts/defender_projectile.gd")
 
 const LOCAL_MELEE_ROUTE = preload("res://scripts/local_melee_route.gd")
@@ -121,6 +122,7 @@ var immediate_combat_conversion := false
 var player_infection_timer: Timer
 var killed_by_player_monster := false
 var current_health: float
+var _audio_step_distance := 0.0
 var converted_color: Color
 var encounter_participants: Array[Node2D] = []
 var building_task: Node
@@ -147,6 +149,7 @@ var _balance_profile: Dictionary = {}
 @onready var encounter_attack_timer: Timer = Timer.new()
 @onready var death_marker_a: Line2D = $DeathMarkerA
 @onready var death_marker_b: Line2D = $DeathMarkerB
+@onready var _audio := AUDIO.service() as AUDIO
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 @onready var threat_detection = $ThreatDetection
 @onready var threat_reaction = $ThreatReaction
@@ -758,11 +761,33 @@ func _on_navigation_velocity_computed(safe_velocity: Vector2) -> void:
 		var mask := collision_mask
 		set_collision_mask_value(RESIDENT_BODY_LAYER, false)
 		velocity = _route_yield_velocity * barricade_speed_factor()
-		move_and_slide()
+		_move_with_audio_steps()
 		collision_mask = mask
 		return
 	velocity = safe_velocity * barricade_speed_factor()
+	_move_with_audio_steps()
+
+
+func _move_with_audio_steps() -> void:
+	var before := global_position
+	var speed := velocity.length()
 	move_and_slide()
+	if speed < 2.0 or is_instance_valid(interior_building) or (_audio == null or not _audio.owns(self)) \
+		or get_meta("village_role", &"peasant") not in [&"peasant", &"artisan"]:
+		_audio_step_distance = 0.0
+		return
+	var moved := global_position.distance_to(before)
+	if moved > speed * get_physics_process_delta_time() + 0.5:
+		_audio_step_distance = 0.0
+		return
+	_audio_step_distance += moved
+	var stride := lerpf(16.0, 24.0, smoothstep(45.0, 85.0, speed))
+	if _audio_step_distance < stride:
+		return
+	_audio_step_distance -= stride
+	var terrain = defense.get_parent().get_node_or_null("Ground") if is_instance_valid(defense) else null
+	if terrain != null and terrain.has_method("audio_surface") and terrain.audio_surface(global_position) == &"dirt":
+		_audio.play_at(&"movement.footstep.dirt.light", global_position, get_instance_id())
 
 
 func barricade_speed_factor() -> float:
@@ -846,12 +871,15 @@ func apply_player_infection(duration: float) -> bool:
 	return true
 
 
-func take_damage(amount: float, attacker: Node = null) -> void:
+func take_damage(amount: float, attacker: Node = null, organic_melee := false) -> void:
 	if not is_alive() or current_health <= 0.0 or amount <= 0.0:
 		return
 
 	threat_reaction.interrupt_warning()
 	current_health = maxf(current_health - amount, 0.0)
+	if organic_melee and _audio != null and _audio.owns(self) \
+		and get_meta("village_role", &"peasant") in [&"peasant", &"artisan", &"priest"]:
+		_audio.play_at(&"combat.impact.flesh", global_position, get_instance_id(), interior_building)
 	queue_redraw()
 	if current_health > 0.0:
 		_show_blood_hit(attacker, false)
@@ -911,7 +939,7 @@ func receive_zombie_attack(amount: float, chance: float, zombie: Node2D, splash 
 			converted_color = zombie_visual.color
 		_start_transformation(zombie, splash)
 
-	take_damage(amount, zombie)
+	take_damage(amount, zombie, not splash)
 
 
 func _start_transformation(zombie: Node2D = null, splash := false) -> void:
@@ -921,6 +949,8 @@ func _start_transformation(zombie: Node2D = null, splash := false) -> void:
 		return
 
 	infection_state = InfectionState.TRANSFORMING
+	if _audio != null and _audio.owns(self):
+		_audio.stop_source_event(&"human.civilian.fear", get_instance_id())
 	infection_source = InfectionSource.ZOMBIE_COMBAT
 	infected_by_player_zombie = is_instance_valid(zombie) and zombie.is_in_group("player_units")
 	local_warning.clear_report()
@@ -1063,7 +1093,7 @@ func _on_encounter_attack_timer_timeout() -> void:
 		_civilian_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	elif unit_vision != null:
 		unit_vision.face(participant.global_position - global_position)
-	participant.call("take_damage", attack_damage, participant.global_position - global_position)
+	participant.call("take_damage", attack_damage, participant.global_position - global_position, true)
 
 
 func _can_counterattack() -> bool:

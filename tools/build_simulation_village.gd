@@ -5,6 +5,7 @@ extends SceneTree
 const OUTPUT := "res://scenes/village_simulation_map.tscn"
 const NAVIGATION := "res://scenes/village_simulation_navigation.tres"
 const TERRAIN := preload("res://assets/maps/mission_01_terrain.png")
+const MISSION_AUDIO := preload("res://scripts/audio/mission_one_audio.gd")
 const SQUARE_ALARM_BELL := preload("res://scenes/square_alarm_bell.tscn")
 const GUARD_POST := preload("res://scenes/mission_one_guard_post.tscn")
 const TAVERN := preload("res://scenes/mission_one_tavern.tscn")
@@ -502,6 +503,7 @@ func build() -> void:
 		error = ResourceSaver.save(navigation, NAVIGATION)
 		navigation.take_over_path(NAVIGATION)
 	ground.set_script(preload("res://scripts/mission_terrain.gd"))
+	attach(village, MISSION_AUDIO.new(), "MissionAudio")
 	container(region, "CemeteryAndFences").set_script(preload("res://scripts/mission_one_boundary_art.gd"))
 	village.set_script(load("res://scripts/test_map.gd"))
 	village.unit_balance_v03 = true

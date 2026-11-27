@@ -1,5 +1,7 @@
 extends Node
 
+const AUDIO = preload("res://scripts/audio/audio_manager.gd")
+
 const CATALOG = preload("res://scripts/mission_catalog.gd")
 const SETTINGS = preload("res://scripts/game_settings.gd")
 const MISSION_PREVIEW = preload("res://scripts/mission_preview.gd")
@@ -24,6 +26,7 @@ var selected_mission := ""
 var selected_race := ""
 var mission: Node2D
 var settings = SETTINGS.new()
+@onready var _audio := AUDIO.service() as AUDIO
 var pages: Dictionary = {}
 var ui: Control
 var menu_background: TextureRect
@@ -53,6 +56,8 @@ var settings_capture := ""
 var settings_fullscreen: CheckButton
 var settings_speed: HSlider
 var settings_speed_label: Label
+var settings_audio_sliders: Dictionary[StringName, HSlider] = {}
+var settings_audio_values: Dictionary[StringName, Label] = {}
 var settings_return_screen: Screen = Screen.MAIN
 var mission_menu: MenuButton
 var mission_details: VBoxContainer
@@ -135,6 +140,7 @@ func _notification(what: int) -> void:
 func _show(next: Screen) -> void:
 	if screen == Screen.SETTINGS and next != Screen.SETTINGS:
 		_end_settings_capture()
+		settings.apply_audio()
 		settings_draft = null
 	if screen == Screen.MISSIONS and next != Screen.MISSIONS:
 		mission_menu.get_popup().hide()
@@ -520,6 +526,8 @@ func _build_settings_page() -> void:
 					settings_status.text = "Есть несохранённые изменения.")
 			"Управление":
 				_build_control_settings(box)
+			"Звук":
+				_build_audio_settings(box)
 			_:
 				_text(box, "Настройки появятся позже.")
 
@@ -540,6 +548,50 @@ func _build_settings_page() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
 	settings_apply_button = _button(footer, "Применить", _apply_settings)
+
+
+func _build_audio_settings(box: VBoxContainer) -> void:
+	for bus: StringName in SETTINGS.AUDIO_LABELS:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		box.add_child(row)
+		var label := _text(row, SETTINGS.AUDIO_LABELS[bus], DARK_THEME.BODY_SIZE)
+		label.custom_minimum_size.x = 152.0
+		var slider := HSlider.new()
+		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slider.custom_minimum_size.y = 34.0
+		slider.max_value = 1.0
+		slider.step = 0.01
+		slider.tooltip_text = SETTINGS.AUDIO_LABELS[bus]
+		row.add_child(slider)
+		var value := _text(row, "", DARK_THEME.BODY_SIZE)
+		value.custom_minimum_size.x = 45.0
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		settings_audio_sliders[bus] = slider
+		settings_audio_values[bus] = value
+		slider.value_changed.connect(_preview_audio_volume.bind(bus))
+	_button(box, "Громкость по умолчанию", _reset_audio_settings)
+
+
+func _preview_audio_volume(level: float, bus: StringName) -> void:
+	settings_draft.audio_levels[bus] = level
+	settings_audio_values[bus].text = "%d%%" % roundi(level * 100.0)
+	_audio.set_bus_volume(bus, level)
+	settings_status.text = "Есть несохранённые изменения."
+
+
+func _refresh_audio_controls() -> void:
+	for bus in settings_audio_sliders:
+		var level: float = settings_draft.audio_levels[bus]
+		settings_audio_sliders[bus].set_value_no_signal(level)
+		settings_audio_values[bus].text = "%d%%" % roundi(level * 100.0)
+
+
+func _reset_audio_settings() -> void:
+	settings_draft.audio_levels = SETTINGS.default_audio_levels()
+	settings_draft.apply_audio()
+	_refresh_audio_controls()
+	settings_status.text = "Есть несохранённые изменения."
 
 
 func _build_control_settings(box: VBoxContainer) -> void:
@@ -677,6 +729,7 @@ func _apply_settings() -> void:
 	settings.fullscreen = settings_draft.fullscreen
 	settings.camera_speed = settings_draft.camera_speed
 	settings.keys = settings_draft.keys.duplicate()
+	settings.audio_levels = settings_draft.audio_levels.duplicate()
 	settings.apply()
 	settings_status.text = "Настройки сохранены."
 
@@ -688,6 +741,8 @@ func _open_settings(origin: Screen) -> void:
 	settings_draft.fullscreen = settings.fullscreen
 	settings_draft.camera_speed = settings.camera_speed
 	settings_draft.keys = settings.keys.duplicate()
+	settings_draft.audio_levels = settings.audio_levels.duplicate()
+	_refresh_audio_controls()
 	settings_fullscreen.set_pressed_no_signal(settings_draft.fullscreen)
 	settings_speed.set_value_no_signal(settings_draft.camera_speed)
 	settings_speed_label.text = "Скорость камеры: %d ед./с" % int(settings_speed.value)

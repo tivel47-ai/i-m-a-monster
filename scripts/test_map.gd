@@ -1,5 +1,7 @@
 extends Node2D
 
+const AUDIO = preload("res://scripts/audio/audio_manager.gd")
+
 signal mission_finished(outcome: String, summary: Dictionary)
 signal pause_requested
 
@@ -80,6 +82,7 @@ var command_center := Vector2.ZERO
 var command_screen_position := Vector2.ZERO
 
 
+@onready var _audio := AUDIO.service() as AUDIO
 @onready var residents_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Residents
 @onready var infected_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Infected
 @onready var killed_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Killed
@@ -87,6 +90,7 @@ var command_screen_position := Vector2.ZERO
 @onready var progress_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Progress
 @onready var status_label: Label = $CanvasLayer/MissionPanel/MissionInfo/Status
 @onready var selection_rect: Panel = $CanvasLayer/SelectionRect
+@onready var mission_audio = get_node_or_null("MissionAudio")
 
 
 func configure_progression(profile: ZOMBIE_PROGRESSION) -> void:
@@ -181,6 +185,8 @@ func _ready() -> void:
 		var last_stand := get_node_or_null("LastStand")
 		if last_stand != null:
 			last_stand.initialize(self, defense)
+		if mission_audio != null:
+			mission_audio.initialize(self)
 	_refresh_mission_progress()
 	mission_hud = MISSION_HUD.new()
 	$CanvasLayer.add_child(mission_hud)
@@ -411,6 +417,8 @@ func toggle_tactical_pause() -> void:
 
 func set_menu_paused(active: bool) -> void:
 	menu_paused = active
+	if active:
+		mission_hud.close_audio_debug()
 	_update_pause_state()
 
 
@@ -420,6 +428,8 @@ func _update_pause_state() -> void:
 	$Camera2D.process_mode = controls_mode
 	mission_hud.process_mode = controls_mode
 	get_tree().paused = tactical_pause or menu_paused
+	if mission_audio != null:
+		_audio.set_simulation_paused(get_tree().paused)
 	mission_hud.refresh_metaprogression()
 	command_overlay.queue_redraw()
 
@@ -744,6 +754,8 @@ func can_finish_mission() -> bool:
 func finish_mission() -> void:
 	if not is_inside_tree() or mission_state != MissionState.WON:
 		return
+	if mission_audio != null:
+		mission_audio.shutdown()
 	mission_finished.emit("victory", {
 		"total": total_residents, "infected": infected_residents, "killed": killed_residents,
 	})

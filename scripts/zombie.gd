@@ -1,4 +1,5 @@
 extends CharacterBody2D
+const AUDIO = preload("res://scripts/audio/audio_manager.gd")
 const BARRICADE = preload("res://scripts/last_stand_barricade.gd")
 var barricade_attack_remaining := 0.0
 
@@ -100,6 +101,7 @@ var crowd_pusher: Node2D
 var crowd_default_navigation_radius: float
 var crowd_default_target_desired_distance: float
 
+@onready var _audio := AUDIO.service() as AUDIO
 @onready var zombie_visual: Polygon2D = $Polygon2D
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 @onready var death_marker_a: Line2D = $DeathMarkerA
@@ -344,7 +346,7 @@ func _draw() -> void:
 		)
 
 
-func take_damage(amount: float, direction := Vector2.ZERO) -> void:
+func take_damage(amount: float, direction := Vector2.ZERO, organic_melee := false) -> void:
 	if is_dead or amount <= 0.0:
 		return
 
@@ -352,6 +354,8 @@ func take_damage(amount: float, direction := Vector2.ZERO) -> void:
 	current_health = maxf(current_health - amount * (1.0 - damage_reduction), 0.0)
 	queue_redraw()
 	if current_health < previous_health:
+		if organic_melee and _audio != null and _audio.owns(self):
+			_audio.play_at(&"combat.impact.flesh", global_position, get_instance_id(), interior_building)
 		_show_slime_hit(direction, current_health == 0.0)
 	if current_health == 0.0:
 		_die()
@@ -604,8 +608,14 @@ func _on_encounter_attack_timer_timeout() -> void:
 	if is_brute:
 		_brute_hit(villager)
 	else:
-		play_attack_visual(villager.global_position)
+		present_melee_execution(villager.global_position)
 		villager.receive_zombie_attack(attack_damage, infection_chance, self)
+
+
+func present_melee_execution(world_point: Vector2) -> void:
+	play_attack_visual(world_point)
+	if zombie_form.is_empty() and not is_brute and _audio != null and _audio.owns(self):
+		_audio.play_attached(&"zombie.ordinary.attack", self, interior_building)
 
 
 func _brute_hit(primary: Node2D) -> void:
@@ -1221,7 +1231,7 @@ func _attack_barricade(section: StaticBody2D) -> void:
 	recovery_blocked_seconds = 0.0
 	if barricade_attack_remaining <= 0.0:
 		barricade_attack_remaining = effective_attack_interval()
-		play_attack_visual(section.global_position)
+		present_melee_execution(section.global_position)
 		section.take_damage(entrance_damage())
 
 

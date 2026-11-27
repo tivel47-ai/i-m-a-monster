@@ -74,6 +74,11 @@ var _motion_time := 0.0
 @onready var _tree_canopies: Node2D = $"../TreeCanopies"
 
 
+var _audio_dirt: Array[Dictionary] = []
+var _audio_river := PackedVector2Array()
+var _audio_bridge := PackedVector2Array()
+
+
 func _ready() -> void:
 	# The serialized texture is a terrain snapshot for the editor.
 	texture = null
@@ -108,6 +113,29 @@ func is_combat_fluid_meadow(world_point: Vector2) -> bool:
 		if surface.bounds.has_point(point) and Geometry2D.is_point_in_polygon(point, surface.points):
 			return false
 	return true
+
+
+func audio_surface(world_point: Vector2) -> StringName:
+	var point := to_local(world_point)
+	if Geometry2D.is_point_in_polygon(point, _audio_bridge):
+		return &"wood"
+	if Geometry2D.is_point_in_polygon(point, _audio_river):
+		return &"water"
+	for surface in _audio_dirt:
+		if surface.bounds.has_point(point) and Geometry2D.is_point_in_polygon(point, surface.points):
+			return &"dirt"
+	return &"grass"
+
+
+func audio_river_geometry() -> PackedVector2Array:
+	return global_transform * _audio_river
+
+
+func _add_audio_dirt(points: PackedVector2Array) -> void:
+	var bounds := Rect2(points[0], Vector2.ZERO)
+	for point in points:
+		bounds = bounds.expand(point)
+	_audio_dirt.append({"bounds": bounds, "points": points})
 
 
 func _process(delta: float) -> void:
@@ -215,6 +243,7 @@ func _add_roads(roads: Node2D, yard: Polygon2D, map_bounds: Rect2) -> void:
 	var contours: Array[PackedVector2Array] = [yard_outline]
 	var rutted_roads: Array[Polygon2D] = []
 	_exclude(yard_outline)
+	_add_audio_dirt(yard_outline)
 	yard.hide()
 
 	for road in roads.get_children():
@@ -222,7 +251,9 @@ func _add_roads(roads: Node2D, yard: Polygon2D, map_bounds: Rect2) -> void:
 			continue
 		var points := _outline(road)
 		_exclude(points)
-		contours.append(_extend_to_map_edge(points, map_bounds, Vector2.AXIS_X, 0.1))
+		var contour := _extend_to_map_edge(points, map_bounds, Vector2.AXIS_X, 0.1)
+		contours.append(contour)
+		_add_audio_dirt(contour)
 		if road.get_meta("road_width", 0.0) >= 36.0:
 			rutted_roads.append(road)
 	var mask := TERRAIN_DISTANCE.build(contours)
@@ -289,6 +320,7 @@ func _add_fields(environment: Node2D) -> void:
 		_feather(points, furrows, 7.0)
 		_fill(plot.name, points, furrows)
 		_exclude(points)
+		_add_audio_dirt(points)
 		plot.hide()
 
 
@@ -303,6 +335,7 @@ func _add_river(roads: Node2D, river: Node2D, map_bounds: Rect2) -> PackedVector
 
 	var water_outline := _outline(roads.get_node("RiverWater"), river_transform)
 	var shoreline := _extend_to_map_edge(water_outline, map_bounds, Vector2.AXIS_Y, 8.0)
+	_audio_river = shoreline
 	var mask := TERRAIN_DISTANCE.build([shoreline])
 	_water = _surface(Kind.WATER, WATER, Vector2(190, 180))
 	_fill_mask(&"RiverWater", mask, map_bounds, _water)
@@ -312,6 +345,7 @@ func _add_river(roads: Node2D, river: Node2D, map_bounds: Rect2) -> PackedVector
 	var timber := _surface(Kind.DECK, TIMBER, Vector2(80, 155))
 	timber.set_shader_parameter("pattern_origin", river_transform * deck.global_position)
 	var deck_outline := _outline(deck, river_transform)
+	_audio_bridge = deck_outline
 	_fill(&"BridgeDeck", deck_outline, timber)
 	_exclude(deck_outline)
 	var guardrail := _surface(Kind.RAIL, TIMBER, Vector2(110, 40))

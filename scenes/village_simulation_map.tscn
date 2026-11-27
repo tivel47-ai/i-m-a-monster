@@ -27,6 +27,7 @@
 [ext_resource type="Script" uid="uid://dj153o87slaw3" path="res://scripts/mission_one_boundary_art.gd" id="boundary_art"]
 [ext_resource type="PackedScene" path="res://scenes/mission_one_guard_post.tscn" id="guard_post_scene"]
 [ext_resource type="PackedScene" path="res://scenes/mission_one_tavern.tscn" id="tavern_scene"]
+[ext_resource type="Script" path="res://scripts/audio/mission_one_audio.gd" id="mission_audio"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_church_door"]
 shader = ExtResource("42_church_door_shader")
@@ -87,6 +88,9 @@ script = ExtResource("37_terrain_render")
 
 [node name="CombatFluids" type="Node" parent="." unique_id=1714279929]
 script = ExtResource("45_combat_fluids")
+
+[node name="MissionAudio" type="Node2D" parent="."]
+script = ExtResource("mission_audio")
 
 [node name="GroundVariation" type="Node2D" parent="." unique_id=2013575452]
 visible = false

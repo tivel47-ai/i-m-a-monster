@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 RaceCursor="*res://scripts/race_cursor.gd"
+AudioManager="*res://scripts/audio/audio_manager.gd"
 
 [display]
 

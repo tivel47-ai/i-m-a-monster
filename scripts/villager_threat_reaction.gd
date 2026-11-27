@@ -1,5 +1,7 @@
 extends Node2D
 
+const AUDIO = preload("res://scripts/audio/audio_manager.gd")
+
 signal warning_attempted(threat_position: Vector2)
 
 enum Reaction { NONE, FLEEING, SEEKING_SHELTER, WARNING, FROZEN, REPORTING }
@@ -60,6 +62,7 @@ var home_destination: Vector2 = Vector2.INF
 var home_retry_remaining: float = 0.0
 var reaction_random := RandomNumberGenerator.new()
 
+@onready var _audio := AUDIO.service() as AUDIO
 @onready var villager = get_parent()
 @onready var sensor = get_parent().get_node("ThreatDetection")
 
@@ -108,6 +111,8 @@ func recognize_threat(target: Node2D) -> void:
 	after_flight = Reaction.NONE
 	if selected == Reaction.FLEEING and _try_calm_home(): return
 	_enter_reaction(selected)
+	if _audio != null and _audio.owns(villager) and villager.get_meta("village_role", &"peasant") in [&"peasant", &"artisan"]:
+		_audio.play_attached(&"human.civilian.fear", villager, villager.interior_building)
 
 func _try_calm_home() -> bool:
 	if villager.defense == null: return false

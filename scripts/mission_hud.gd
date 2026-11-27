@@ -8,6 +8,7 @@ const INFECTION_ORB_SLUDGE = preload("res://assets/ui/zombie_style/infection_orb
 const DARK_THEME = preload("res://scripts/dark_fantasy_theme.gd")
 const ZOMBIE_THEME = preload("res://scripts/zombie_mission_hud_theme.gd")
 const CATALOG = preload("res://scripts/mission_catalog.gd")
+const AUDIO_DEBUG = preload("res://scripts/audio/audio_debug_panel.gd")
 const SETTINGS = preload("res://scripts/game_settings.gd")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const ZOMBIE = preload("res://scripts/zombie.gd")
@@ -52,6 +53,7 @@ var developer_panel: PanelContainer
 var developer_tool_label: Label
 var developer_ability_popup: PopupMenu
 var developer_vision_toggle: CheckButton
+var developer_audio_panel: AUDIO_DEBUG
 
 
 func _ready() -> void:
@@ -73,8 +75,9 @@ func _ready() -> void:
 		show_victory_notice()
 
 
-func _panel(left: float, top: float, right: float, bottom: float) -> PanelContainer:
-	var panel := PanelContainer.new()
+func _panel(left: float, top: float, right: float, bottom: float, panel: PanelContainer = null) -> PanelContainer:
+	if panel == null:
+		panel = PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.anchor_left = left
 	panel.anchor_top = top
@@ -573,10 +576,23 @@ func _build_developer_tools() -> void:
 		stages.select(current)
 		if current == alert.Level.LAST_STAND: stages.set_item_disabled(current, false))
 	box.add_child(stages)
+	if mission.mission_audio != null:
+		var audio_button := Button.new()
+		audio_button.text = "Диагностика звука"
+		box.add_child(audio_button)
+		developer_audio_panel = AUDIO_DEBUG.new()
+		_panel(0.35, 0.0, 0.75, 0.0, developer_audio_panel)
+		developer_audio_panel.offset_top = 115
+		developer_audio_panel.offset_bottom = 115
+		developer_audio_panel.hide()
+		developer_audio_panel.configure(mission.mission_audio, alert)
+		audio_button.pressed.connect(func():
+			developer_audio_panel.visible = not developer_audio_panel.visible)
 	developer_button.pressed.connect(func():
 		developer_panel.visible = not developer_panel.visible
 		if not developer_panel.visible:
 			developer_ability_popup.hide()
+			close_audio_debug()
 			_choose_developer_tool(""))
 
 
@@ -640,11 +656,17 @@ func set_developer_mode(enabled: bool) -> void:
 	developer_button.visible = enabled
 	developer_panel.visible = false
 	developer_ability_popup.hide()
+	close_audio_debug()
 	developer_vision_toggle.set_pressed_no_signal(mission.developer_vision)
 	if not enabled: _choose_developer_tool("")
 	if _zombie_skin:
 		mission.get_node("VillageAlert").set_debug_overlay_suppressed(not enabled)
 	refresh_metaprogression()
+
+
+func close_audio_debug() -> void:
+	if is_instance_valid(developer_audio_panel):
+		developer_audio_panel.hide()
 
 func _choose_developer_tool(kind: String) -> void:
 	if not kind.is_empty():

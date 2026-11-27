@@ -1,3 +1,8 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Local recordings pending confirmation of redistribution rights
+/assets/audio/_incoming/*
+!/assets/audio/_incoming/.gdignore
+/assets/audio/local/

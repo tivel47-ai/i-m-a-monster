@@ -1,6 +1,8 @@
 extends Node2D
 ## Mission-owned lifecycle. Timers run with the pausable physics simulation.
 
+signal beacon_ignited(source: Node2D)
+
 const SECTION = preload("res://scripts/last_stand_barricade.gd")
 const SQUAD = preload("res://scripts/reinforcement_squad.gd")
 const CHURCH_BELL_SECONDS := 10.0
@@ -476,6 +478,7 @@ func _update_signal(delta: float) -> void:
 	if beacon_fire != null:
 		beacon_fire.show()
 		beacon_fire.play(&"burn")
+		beacon_ignited.emit(beacon_fire)
 	wave = Wave.TRAVELING
 	travel_remaining = TRAVEL_SECONDS
 	signal_started_frame = Engine.get_physics_frames()
