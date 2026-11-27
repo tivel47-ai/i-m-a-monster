@@ -9,6 +9,7 @@ const GUARD_VISUAL = preload("res://scripts/guard_visual.gd")
 const CROSSBOW_VISUAL = preload("res://scripts/crossbow_guard_visual.gd")
 const CHURCH_CHARACTER_VISUAL = preload("res://scripts/church_character_visual.gd")
 const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
+const INFECTION_MARK_VISUAL = preload("res://scripts/infection_mark_visual.gd")
 const MISSION_BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
 const UNIT_VISION = preload("res://scripts/unit_vision.gd")
 var melee_route: LOCAL_MELEE_ROUTE
@@ -120,6 +121,7 @@ var infection_source := InfectionSource.NONE
 var infected_by_player_zombie := false
 var immediate_combat_conversion := false
 var player_infection_timer: Timer
+var _infection_mark: INFECTION_MARK_VISUAL
 var killed_by_player_monster := false
 var current_health: float
 var _audio_step_distance := 0.0
@@ -129,7 +131,9 @@ var building_task: Node
 var interior_building: Node:
 	set(value):
 		interior_building = value
-		if has_player_infection():
+		if is_instance_valid(_infection_mark):
+			_infection_mark.visible = not is_instance_valid(value)
+		elif has_player_infection():
 			queue_redraw()
 		for indicator in [threat_detection, threat_reaction, local_warning]:
 			if is_instance_valid(indicator):
@@ -869,7 +873,15 @@ func apply_player_infection(duration: float) -> bool:
 	player_infection_timer.timeout.connect(_complete_conversion)
 	add_child(player_infection_timer)
 	player_infection_timer.start(duration)
-	queue_redraw()
+	if _sprite_map(&"infection_mark_sprites") != null:
+		_infection_mark = INFECTION_MARK_VISUAL.new()
+		_infection_mark.name = "InfectionMark"
+		var health_y := HEALTH_BAR_Y + visual_ui_offset_y
+		_infection_mark.position.y = health_y - INFECTION_MARK_VISUAL.CENTER_ABOVE_HEALTH_BAR
+		_infection_mark.visible = not is_instance_valid(interior_building)
+		add_child(_infection_mark)
+	else:
+		queue_redraw()
 	return true
 
 
@@ -1132,6 +1144,10 @@ func _complete_conversion() -> void:
 	transformation_timer.stop()
 	if is_instance_valid(player_infection_timer):
 		player_infection_timer.stop()
+	if is_instance_valid(_infection_mark):
+		_infection_mark.hide()
+		_infection_mark.queue_free()
+		_infection_mark = null
 	local_warning.clear_report()
 	threat_reaction.cancel_response()
 	threat_detection.reset_awareness()
@@ -1165,7 +1181,7 @@ func _draw() -> void:
 		true
 	)
 	draw_rect(health_rect, Color(0.05, 0.05, 0.05), false, 0.65)
-	if has_player_infection() and not is_instance_valid(interior_building):
+	if has_player_infection() and _infection_mark == null and not is_instance_valid(interior_building):
 		var marker_y := health_y - (10.75 if _body_sprite != null else 4.75)
 		draw_colored_polygon(
 			PackedVector2Array([

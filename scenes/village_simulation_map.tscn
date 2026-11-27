@@ -70,6 +70,7 @@ metadata/brute_sprites = true
 metadata/infected_form_sprites = true
 metadata/peasant_sprites = true
 metadata/peasant_conversion_sprites = true
+metadata/infection_mark_sprites = true
 metadata/artisan_sprites = true
 metadata/guard_sprites = true
 metadata/church_character_sprites = true
