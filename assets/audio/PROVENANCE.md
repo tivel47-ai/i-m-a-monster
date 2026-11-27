@@ -1,6 +1,21 @@
 # Происхождение звуковых ресурсов
 
-Проверено 27.11.2026 для Миссии №1 игры I’m a Monster. В реестре ниже 46 WAV набора Living Village и отдельно существующая запись колокола. Обязательность атрибуции и условия распространения указаны в [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Игровые события, формат и технические замеры приведены в [манифесте](../../docs/audio_asset_manifest.md).
+По состоянию на 27.11.2026 в реестре четыре файла главного меню, 46 WAV набора Living Village для Миссии №1 и отдельно существующая запись колокола. Обязательность атрибуции и условия распространения указаны в [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Игровые события, формат и технические замеры приведены в [манифесте](../../docs/audio_asset_manifest.md).
+
+## Главное меню
+
+Одобрены полные версии тем A, B, C и один мягкий клик из `Main_Menu_Audio_Selection.zip`. SHA‑256 архива — `992e68b63eea2c649977ed70df2f4b285bb679cba887d8ea3593fedd74f60401`. Темы перенесены с одобренных стерео WAV 24 бит / 48 кГц в Ogg Vorbis 48 кГц через FFmpeg/libvorbis с качеством 7. Дорожки закодированы по всей длине без дополнительной нормализации. WAV клика скопирован из того же набора побайтно.
+
+| Игровой файл | Исходные записи | SHA‑256 игрового файла |
+|---|---|---|
+| `music/menu_theme_a_the_sleeping_evil.ogg` | VSCO 2 CE — виолончели, контрабас, альты. VCSL — орган, колокола. VocalSet — четыре гласных. | `e888f7ba0bf6f6489d8ec0fc8e687e890193f95513f753c37c48e5100dd3e26c` |
+| `music/menu_theme_b_the_last_prayer.ogg` | VSCO 2 CE — виолончели, альты. VCSL — орган, смычковый псалтерий. Meta Nylon Guitar — щипки пальцем и медиатором. VocalSet — три гласных. | `09038e0ba417148b15d51499de5e650a71fccdeb05cc0da4075b4fb9819ef250` |
+| `music/menu_theme_c_the_ancient_hunger.ogg` | VSCO 2 CE — виолончели, контрабас, альты, литавры. VCSL — орган, смычковый псалтерий. | `5d55a8db555152bef754b68a5c858ecf6aea5b33738d36ff68b30c55048d0c41` |
+| `ui/ui_click_soft.wav` | VCSL — [деревянный щелчок](https://github.com/sgossner/VCSL/blob/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Woodblock/wood_click3_vl1.wav) и [приглушённый рамочный барабан](https://github.com/sgossner/VCSL/blob/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Frame%20Drum/HDrumL_HitMuted_v2_rr1_Sum.wav). Записи понижены по высоте, отфильтрованы и сведены в моно. | `392bf1af2fccfe2e405ffbd8316267fe0e43d3bb9347138f63c6a1969b06489c` |
+
+- Инструментальные записи получены из [VSCO 2 Community Edition, 4403009](https://github.com/sgossner/VSCO-2-CE/tree/440300901dfe9275fd84e0b7763af1f8443ae62e), [Versilian Community Sample Library, c1ea7bc](https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e) и [Meta Nylon Guitar WAV, v1.0.0](https://github.com/facebookincubator/Meta-open-sound/releases/tag/meta-nylon-guitar-v1.0.0). Эти исходники выпущены под CC0 1.0.
+- Темы A и B используют `m2_long_straight_u.wav`, `m4_long_straight_o.wav` и `m8_long_straight_u.wav`, тема A также использует `f1_long_straight_u.wav`. Вокал получен из [закреплённой подвыборки исходных WAV](https://github.com/mblackman/vocalset-vowel-voicebanks/tree/c48ab544e94e9788fec11be52b365026bb4a017c/source/vocalset). [VocalSet 1.2, CC BY 4.0](https://doi.org/10.5281/zenodo.1442513)
+- Партитуры и код рендера подготовлены при помощи Codex. Записи аранжированы и обработаны локально с помощью Python, NumPy, SciPy и FFmpeg. Дорожки содержат детерминированно сгенерированные огибающие и реверберацию. Аудиогенеративная модель и синтез речи не применялись.
 
 ## Аудит Living Village
 

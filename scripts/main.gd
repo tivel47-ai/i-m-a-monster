@@ -1,6 +1,7 @@
 extends Node
 
 const AUDIO = preload("res://scripts/audio/audio_manager.gd")
+const MENU_AUDIO = preload("res://scripts/audio/menu_audio.gd")
 
 const CATALOG = preload("res://scripts/mission_catalog.gd")
 const SETTINGS = preload("res://scripts/game_settings.gd")
@@ -27,6 +28,7 @@ var selected_race := ""
 var mission: Node2D
 var settings = SETTINGS.new()
 @onready var _audio := AUDIO.service() as AUDIO
+@onready var _menu_audio: MENU_AUDIO = $MenuAudio
 var pages: Dictionary = {}
 var ui: Control
 var menu_background: TextureRect
@@ -150,6 +152,7 @@ func _show(next: Screen) -> void:
 			_roll_race_preview_appearances()
 		_update_preview()
 	screen = next
+	_sync_menu_music.call_deferred()
 	finish_mission_button.visible = screen == Screen.PAUSE and is_instance_valid(mission) and mission.can_finish_mission()
 	for key in pages:
 		pages[key].visible = key == screen
@@ -167,6 +170,9 @@ func _show(next: Screen) -> void:
 		elif screen == Screen.RACES and selected_race.is_empty():
 			preferred_button = race_back_button
 		_focus_page(screen, preferred_button)
+
+func _sync_menu_music() -> void:
+	_menu_audio.set_music_active(screen != Screen.GAMEPLAY and not is_instance_valid(mission))
 
 func _focus_page(page: Screen, preferred_button: Button) -> void:
 	# Wait for container layout before focus tries to reveal the first button.
@@ -188,6 +194,7 @@ func _button(parent: Node, title: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = title
 	button.custom_minimum_size = DARK_THEME.ACTION_BUTTON_SIZE
+	button.pressed.connect(_menu_audio.play_click)
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	return button
@@ -357,6 +364,7 @@ func _build_mission_page() -> void:
 	mission_menu.custom_minimum_size = Vector2(236, 48)
 	mission_menu.focus_mode = Control.FOCUS_ALL
 	mission_menu.flat = false
+	mission_menu.about_to_popup.connect(_menu_audio.play_click)
 	header.add_child(mission_menu)
 	_style_mission_button(mission_menu, true)
 	var popup := mission_menu.get_popup()
@@ -368,7 +376,9 @@ func _build_mission_page() -> void:
 		popup.set_item_metadata(popup.item_count - 1, id)
 	popup.about_to_popup.connect(func():
 		popup.set_deferred("size", Vector2i(ceili(mission_menu.size.x), 0)))
-	popup.index_pressed.connect(func(index: int): _select_mission(popup.get_item_metadata(index)))
+	popup.index_pressed.connect(func(index: int):
+		_menu_audio.play_click()
+		_select_mission(popup.get_item_metadata(index)))
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -520,6 +530,7 @@ func _build_settings_page() -> void:
 			"Графика":
 				settings_fullscreen = CheckButton.new()
 				settings_fullscreen.text = "Полноэкранный режим"
+				settings_fullscreen.pressed.connect(_menu_audio.play_click)
 				box.add_child(settings_fullscreen)
 				settings_fullscreen.toggled.connect(func(value: bool):
 					settings_draft.fullscreen = value
@@ -528,8 +539,8 @@ func _build_settings_page() -> void:
 				_build_control_settings(box)
 			"Звук":
 				_build_audio_settings(box)
-			_:
-				_text(box, "Настройки появятся позже.")
+			"Общее":
+				_build_audio_credits(box)
 
 	var feedback := HBoxContainer.new()
 	feedback.add_theme_constant_override("separation", 12)
@@ -548,6 +559,24 @@ func _build_settings_page() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
 	settings_apply_button = _button(footer, "Применить", _apply_settings)
+
+
+func _build_audio_credits(box: VBoxContainer) -> void:
+	_text(box, "Лицензии аудио", DARK_THEME.SECTION_SIZE, DARK_THEME.HEADING)
+	var credit := _text(box, "Темы «The Sleeping Evil» и «The Last Prayer» содержат записи VocalSet (2018). "
+		+ "Авторы — Julia Wilkins, Prem Seetharaman, Alison Wahl и Bryan Pardo. "
+		+ "Вокальные фрагменты обрезаны, изменены по высоте, сведены и отфильтрованы.")
+	credit.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	for data in [
+		["Источник VocalSet", "https://doi.org/10.5281/zenodo.1442513"],
+		["Лицензия CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/"],
+	]:
+		var link := LinkButton.new()
+		link.text = data[0]
+		link.uri = data[1]
+		link.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		link.add_theme_color_override("font_color", DARK_THEME.HEADING)
+		box.add_child(link)
 
 
 func _build_audio_settings(box: VBoxContainer) -> void:
@@ -759,6 +788,7 @@ func _build_progress_reset_dialog() -> void:
 	progress_reset_dialog.title = "Сбросить прогресс?"
 	progress_reset_dialog.theme = ui.theme
 	progress_reset_dialog.ok_button_text = "Отмена"
+	progress_reset_dialog.get_ok_button().pressed.connect(_menu_audio.play_click)
 	progress_reset_dialog.add_theme_constant_override("buttons_min_height", RESET_BUTTON_HEIGHT)
 	progress_reset_message = DARK_THEME.build_fixed_dialog(progress_reset_dialog, progress_reset_dialog.get_ok_button())
 	progress_reset_message.custom_minimum_size.x = RESET_MESSAGE_WIDTH
@@ -793,6 +823,7 @@ func _open_progress_reset() -> void:
 func _progress_reset_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed and progress_reset_dialog.visible:
+			_menu_audio.play_click()
 			progress_reset_elapsed = 0.0
 		else:
 			_cancel_progress_reset_hold()
@@ -925,6 +956,10 @@ func _build_development_page() -> void:
 	development = DEVELOPMENT.new()
 	development.exit_requested.connect(func(): _show(Screen.RACES))
 	ui.add_child(development)
+	development.back_button.pressed.connect(_menu_audio.play_click)
+	development.apply_button.pressed.connect(_menu_audio.play_click)
+	development.leave_dialog.get_ok_button().pressed.connect(_menu_audio.play_click)
+	development.leave_dialog.get_cancel_button().pressed.connect(_menu_audio.play_click)
 	development.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 12)
 	pages[Screen.DEVELOPMENT] = development
 

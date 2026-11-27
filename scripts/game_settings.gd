@@ -9,6 +9,8 @@ const CAMERA_ZOOM_IN := "camera_zoom_in"
 const CAMERA_ZOOM_OUT := "camera_zoom_out"
 const AUDIO_LABELS := {
 	&"Master": "Общая громкость",
+	&"Music": "Музыка",
+	&"UI": "Интерфейс",
 	&"Ambience": "Атмосфера",
 	&"Environment": "Окружение",
 	&"HumanVoices": "Голоса людей",

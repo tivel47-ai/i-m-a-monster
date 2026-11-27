@@ -1,6 +1,21 @@
 [gd_scene format=3 uid="uid://d2tjmymcwdf5p"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/audio/menu_audio.gd" id="2_menu_audio"]
+[ext_resource type="AudioStream" path="res://assets/audio/local/ui/ui_click_soft.wav" id="3_click"]
 
 [node name="Main" type="Node" unique_id=1414610238]
 script = ExtResource("1_main")
+
+[node name="MenuAudio" type="Node" parent="."]
+script = ExtResource("2_menu_audio")
+
+[node name="MusicA" type="AudioStreamPlayer" parent="MenuAudio"]
+bus = &"Music"
+
+[node name="MusicB" type="AudioStreamPlayer" parent="MenuAudio"]
+bus = &"Music"
+
+[node name="Click" type="AudioStreamPlayer" parent="MenuAudio"]
+stream = ExtResource("3_click")
+bus = &"UI"

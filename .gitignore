@@ -40,3 +40,13 @@
 !/assets/audio/local/units/zombies/ordinary/zombie_ordinary_idle_0[1-5].wav.import
 !/assets/audio/local/combat/impacts/combat_flesh_impact_0[1-6].wav
 !/assets/audio/local/combat/impacts/combat_flesh_impact_0[1-6].wav.import
+
+# Main menu audio. See assets/audio/PROVENANCE.md.
+!/assets/audio/local/music/menu_theme_a_the_sleeping_evil.ogg
+!/assets/audio/local/music/menu_theme_a_the_sleeping_evil.ogg.import
+!/assets/audio/local/music/menu_theme_b_the_last_prayer.ogg
+!/assets/audio/local/music/menu_theme_b_the_last_prayer.ogg.import
+!/assets/audio/local/music/menu_theme_c_the_ancient_hunger.ogg
+!/assets/audio/local/music/menu_theme_c_the_ancient_hunger.ogg.import
+!/assets/audio/local/ui/ui_click_soft.wav
+!/assets/audio/local/ui/ui_click_soft.wav.import
