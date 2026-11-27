@@ -6,6 +6,8 @@ const PROGRESSION = preload("res://scripts/zombie_progression.gd")
 const INFECTION = preload("res://scripts/zombie_infection.gd")
 const FOG = preload("res://scripts/zombie_development_fog.gdshader")
 const FRAME = preload("res://assets/ui/zombie_style/perk_frame.png")
+const RANK_RING_ART = preload("res://assets/ui/zombie_style/perk_rank_living_root.png")
+const RANK_RING_SHADER = preload("res://scripts/zombie_development_rank_ring.gdshader")
 const CORE_ART = preload("res://assets/ui/zombie_style/infection_core.png")
 const BRANCH_ART = preload("res://assets/ui/zombie_style/painted_root.png")
 const BRANCH_ART_B = preload("res://assets/ui/zombie_style/painted_root_b.png")
@@ -16,6 +18,11 @@ const CORE := Vector2(0.50, 0.474)
 # Attach inside the opaque bark, rather than stopping outside its ragged rim.
 # The upper node layer hides these short overlaps and protects every emblem.
 const NODE_RADIUS := 0.033
+# Keep the approved texture registration. Fit the ring closer to the bark.
+const RANK_RING_ART_CENTER := Vector2(614.25, 614.25)
+const RANK_RING_ART_SCALE := 0.612 / 494.0
+const RANK_RING_RADIUS_SCALE := 0.84
+const RANK_STEP_DURATION := 0.36
 const CORE_RADIUS := Vector2(0.115, 0.067)
 const GROWTH_DURATION := 0.85
 const VIEW_PADDING := Vector2(112.0, 112.0)
@@ -38,6 +45,8 @@ var branch_growth := PackedFloat32Array()
 var _view_center := Vector2(0.5, 0.5)
 var _target_reveal := 0.0
 var _target_growth := PackedFloat32Array()
+var _target_ranks := PackedInt32Array()
+var _displayed_ranks := PackedFloat32Array()
 var _outline_strength := PackedFloat32Array()
 var _revealed: Dictionary = {}
 var _view_states: Dictionary = {}
@@ -60,6 +69,7 @@ var _fog_front := PackedFloat32Array()
 var _initial_fog_radius := 0.0
 var _buttons: Dictionary[String, Button] = {}
 var _frames: Dictionary[String, TextureRect] = {}
+var _rank_rings: Dictionary[String, Sprite2D] = {}
 var _branches: Array[Dictionary] = []
 var _branch_meshes: Array[ArrayMesh] = []
 
@@ -70,6 +80,8 @@ func _ready() -> void:
 	node_ids.assign(definitions.keys())
 	branch_growth.resize(node_ids.size())
 	_target_growth.resize(node_ids.size())
+	_target_ranks.resize(node_ids.size())
+	_displayed_ranks.resize(node_ids.size())
 	_outline_strength.resize(node_ids.size())
 	_fog_front.resize(node_ids.size())
 	_build_connections()
@@ -267,6 +279,19 @@ func add_upgrade(id: String, button: Button) -> void:
 	focus.set_corner_radius_all(5)
 	button.add_theme_stylebox_override("focus", focus)
 	_node_layer.add_child(button)
+	if definitions[id].costs.size() > 1:
+		var ring := Sprite2D.new()
+		ring.texture = RANK_RING_ART
+		ring.offset = ring.texture.get_size() * 0.5 - RANK_RING_ART_CENTER
+		var ring_material := ShaderMaterial.new()
+		ring_material.shader = RANK_RING_SHADER
+		ring_material.set_shader_parameter("art_center_uv", RANK_RING_ART_CENTER / ring.texture.get_size())
+		ring_material.set_shader_parameter("art_scale", RANK_RING_ART_SCALE * ring.texture.get_width())
+		ring_material.set_shader_parameter("max_rank", float(definitions[id].costs.size()))
+		ring.material = ring_material
+		ring.hide()
+		_node_layer.add_child(ring)
+		_rank_rings[id] = ring
 	_layout()
 
 
@@ -275,7 +300,7 @@ func begin(build: Dictionary, _developer_mode: bool, animate_reveal: bool) -> vo
 	# set of discovery, tooltip or fog rules.
 	_target_reveal = 1.0 if build.initial_unlocked else 0.0
 	reveal_front = 0.0 if animate_reveal else _target_reveal
-	sync_ranks(build)
+	sync_ranks(build, false)
 	branch_growth = _target_growth.duplicate()
 	for index in node_ids.size():
 		_fog_front[index] = 1.0 if node_state(node_ids[index]) in [PerkView.AVAILABLE, PerkView.OWNED] else 0.0
@@ -285,7 +310,7 @@ func begin(build: Dictionary, _developer_mode: bool, animate_reveal: bool) -> vo
 	_update_growth_visuals()
 
 
-func sync_ranks(build: Dictionary) -> void:
+func sync_ranks(build: Dictionary, animate_ranks := true) -> void:
 	_target_reveal = 1.0 if build.initial_unlocked else 0.0
 	for index in node_ids.size():
 		var id: String = node_ids[index]
@@ -305,6 +330,10 @@ func sync_ranks(build: Dictionary) -> void:
 		var affordable: bool = rank < definitions[id].costs.size() and build.get("virus", 0) >= definitions[id].costs[rank]
 		_view_states[id] = PerkView.OWNED if rank > 0 else (PerkView.DISTANT if not _revealed[id]
 			else (PerkView.AVAILABLE if met and affordable else PerkView.BLOCKED))
+		if _rank_rings.has(id):
+			_target_ranks[index] = mini(rank, definitions[id].costs.size())
+			if not animate_ranks or rank == 0:
+				_set_displayed_rank(index, _target_ranks[index])
 	_update_growth_visuals()
 
 
@@ -342,6 +371,10 @@ func _layout() -> void:
 		_buttons[id].size = _frames[id].size
 		_buttons[id].position = _frames[id].position
 		_buttons[id].add_theme_constant_override("icon_max_width", roundi(diameter * 0.62))
+		if _rank_rings.has(id):
+			var ring := _rank_rings[id]
+			ring.position = center
+			ring.scale = Vector2.ONE * (diameter * RANK_RING_ART_SCALE * RANK_RING_RADIUS_SCALE)
 	_update_view()
 	_branch_layer.queue_redraw()
 
@@ -407,6 +440,7 @@ func _process(delta: float) -> void:
 		_update_growth_visuals()
 		if not was_visible and upgrades_visible():
 			initial_reveal_finished.emit()
+	_update_rank_rings(delta)
 	_update_pulses()
 	_material.set_shader_parameter("mist_time", _elapsed)
 	_fog_material.set_shader_parameter("mist_time", _elapsed)
@@ -417,6 +451,23 @@ func _has_visible_child_branch(index: int) -> bool:
 		if branch.from == node_ids[index] and branch_growth[branch.index] > 0.0:
 			return true
 	return false
+
+
+func _update_rank_rings(delta: float) -> void:
+	if not upgrades_visible():
+		return
+	for index in node_ids.size():
+		var target := _target_ranks[index]
+		var displayed := _displayed_ranks[index]
+		if displayed == target:
+			continue
+		_set_displayed_rank(index, move_toward(displayed, target, delta / RANK_STEP_DURATION))
+
+
+func _set_displayed_rank(index: int, rank: float) -> void:
+	_displayed_ranks[index] = rank
+	var ring_material := _rank_rings[node_ids[index]].material as ShaderMaterial
+	ring_material.set_shader_parameter("rank", rank)
 
 
 func _update_growth_visuals() -> void:
@@ -433,6 +484,8 @@ func _update_growth_visuals() -> void:
 		var silhouette := Color(0.14, 0.17, 0.13, alpha * smoothstep(0.0, 1.0, reveal_front))
 		_frames[id].modulate = silhouette.lerp(Color.WHITE, light)
 		_buttons[id].self_modulate = Color(1.0, 1.0, 1.0, light)
+		if _rank_rings.has(id):
+			_rank_rings[id].visible = upgrades_visible() and state == PerkView.OWNED
 	if is_instance_valid(_branch_layer):
 		_branch_layer.queue_redraw()
 	if is_instance_valid(_fog_material):
