@@ -17,7 +17,7 @@ const EVENTS := {
 		"loop": true, "db": -7, "fade": 0.65, "background": true},
 	&"ambience.tension.dark": {"bus": &"Ambience",
 		"file": "ambience/global/amb_dark_drone", "count": 1,
-		"loop": true, "db": -3, "fade": 2, "background": true},
+		"loop": true, "db": 9, "fade": 2, "background": true},
 	&"environment.animal.crow": {"bus": &"Environment",
 		"file": "environment/animals/env_crow", "count": 3,
 		"db": -8, "distance": 690, "priority": 22, "limit": 2, "interval": Vector2(25, 70), "detail": -4, "cooldown": 4},

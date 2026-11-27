@@ -7,6 +7,7 @@ const DOOR_HALF_DEPTH := WALL_WIDTH / 2.0
 const NAV_CLEARANCE := 14.0
 const PORTAL_OFFSET := 18.0
 const EXTERIOR_OFFSET := 32.0
+const ACTOR_FEET_Y := preload("res://scripts/peasant_visual.gd").FEET_Y
 
 var outline: PackedVector2Array
 var entrance: Vector2
@@ -19,8 +20,8 @@ var roof: Array[CanvasItem] = []
 var threshold: StaticBody2D
 var door_shape: CollisionShape2D
 var door_visual: Polygon2D
+var exterior_art: Node2D
 var exterior_door: ChurchDoorVisual
-var exterior_entrance_marker: Polygon2D
 var barricade_bar: Node2D
 var barricade_ratio := 0.0
 var map := RID()
@@ -29,7 +30,10 @@ var _fade_interior_with_roof := false
 var _original_door_intact := true
 var _interior_art: Node2D
 var _floor_visual: Polygon2D
+var _entrance_marker: Polygon2D
 var _combat_fluid_decals: Node2D
+var _airborne_effects: Node2D
+var _roof_alpha := 1.0
 
 
 func configure(body: StaticBody2D, door_hint: Vector2) -> bool:
@@ -218,6 +222,7 @@ func _surface(points: PackedVector2Array, color: Color) -> Polygon2D:
 
 func _create_presentation(body: StaticBody2D) -> void:
 	var footprint := body.get_node_or_null("Footprint") as Polygon2D
+	exterior_art = body.get_node_or_null("Exterior") as Node2D
 	exterior_door = body.get_node_or_null("Exterior/DoorPanel") as ChurchDoorVisual
 	_fade_interior_with_roof = body.get_meta(&"fade_interior_with_roof", false)
 	if _fade_interior_with_roof:
@@ -233,11 +238,10 @@ func _create_presentation(body: StaticBody2D) -> void:
 		footprint.z_index = 4
 	# Keep a visible entrance marker when the roof is opaque or the passage is open.
 	var step := entrance + outward * 6.0
-	var marker := _segment(step - across * half_width, step + across * half_width, Color("b8a17e"), 4.0)
-	marker.z_index = 3
+	_entrance_marker = _segment(step - across * half_width, step + across * half_width, Color("b8a17e"), 4.0)
+	_entrance_marker.z_index = 3
 	if exterior_door != null:
-		exterior_entrance_marker = marker
-		marker.modulate.a = 0.0
+		_entrance_marker.modulate.a = 0.0
 	barricade_bar = Node2D.new()
 	barricade_bar.name = "BarricadeHealth"
 	barricade_bar.z_index = 6
@@ -248,15 +252,64 @@ func _create_presentation(body: StaticBody2D) -> void:
 	barricade_bar.draw.connect(_draw_barricade_bar)
 
 
+func sort_exterior(body: StaticBody2D, mission: Node2D) -> void:
+	# Keep each piece with its building while letting it sort with residents and zombies.
+	var ancestor: Node2D = body
+	while ancestor != mission:
+		ancestor.y_sort_enabled = true
+		ancestor = ancestor.get_parent() as Node2D
+	var front_y := -INF
+	for vertex in outline:
+		front_y = maxf(front_y, body.to_global(vertex).y)
+	var facade := _exterior_pivot(body, &"FacadeDepth", front_y)
+	for part in roof:
+		if part.visible and not part.has_meta(&"ground_anchor"):
+			part.z_index = 0
+			part.reparent(facade)
+	for part: Node2D in body.find_children("*", "Node2D", true, false):
+		if not part.has_meta(&"ground_anchor"):
+			continue
+		var anchor: Vector2 = part.get_meta(&"ground_anchor")
+		var parent := part.get_parent() as Node2D
+		var world_y := parent.to_global(anchor).y
+		var pivot := _exterior_pivot(body, StringName(str(part.name) + "Depth"), world_y)
+		part.z_index = 0
+		part.reparent(pivot)
+	door_visual.z_index = 0
+	door_visual.reparent(_exterior_pivot(body, &"DoorDepth", to_global(entrance).y))
+	_entrance_marker.z_index = 0
+
+
+func _exterior_pivot(body: Node2D, title: StringName, ground_y: float) -> Node2D:
+	var pivot := Node2D.new()
+	pivot.name = title
+	pivot.z_index = 1
+	body.add_child(pivot, true)
+	pivot.global_position = Vector2(body.global_position.x, ground_y - ACTOR_FEET_Y)
+	return pivot
+
+
 func set_roof_alpha(alpha: float) -> void:
+	_roof_alpha = alpha
 	for part in roof:
 		part.modulate.a = alpha
-	if exterior_entrance_marker != null:
-		exterior_entrance_marker.modulate.a = 1.0 - alpha
+	if exterior_door != null:
+		_entrance_marker.modulate.a = 1.0 - alpha
 	if _fade_interior_with_roof:
 		_interior_art.modulate.a = 1.0 - alpha
 		if _original_door_intact:
 			door_visual.modulate.a = _interior_art.modulate.a
+	if _airborne_effects != null:
+		_airborne_effects.modulate.a = 1.0 - alpha
+
+
+func airborne_effect_layer() -> Node2D:
+	if _airborne_effects == null:
+		_airborne_effects = Node2D.new()
+		_airborne_effects.name = &"InteriorAirborneEffects"
+		_airborne_effects.modulate.a = 1.0 - _roof_alpha
+		add_child(_airborne_effects)
+	return _airborne_effects
 
 
 func combat_fluid_layer() -> Node2D:

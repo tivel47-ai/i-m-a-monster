@@ -75,8 +75,9 @@ func initialize(owner_map: Node2D, service: Node) -> void:
 		push_error("Last Stand requires a church, organized defense, and positive barricade capacity.")
 		set_physics_process(false)
 		return
-	church_bell = church.get_node_or_null("../Exterior/ChurchBell") as Sprite2D
-	beacon_fire = church.get_node_or_null("../Exterior/BeaconFire") as AnimatedSprite2D
+	if church.layout.exterior_art != null:
+		church_bell = church.layout.exterior_art.get_node_or_null("ChurchBell") as Sprite2D
+		beacon_fire = church.layout.exterior_art.get_node_or_null("BeaconFire") as AnimatedSprite2D
 	church.signal_operator_entered.connect(_on_operator_entered)
 	church.resident_sheltered.connect(_on_church_sheltered)
 	defense.alert.level_changed.connect(_on_alert_changed)

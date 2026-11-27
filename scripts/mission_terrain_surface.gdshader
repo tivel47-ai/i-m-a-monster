@@ -12,8 +12,6 @@ uniform vec2 edge_origin;
 uniform vec2 edge_size = vec2(1.0);
 uniform float edge_texel_size;
 uniform sampler2D local_soil_texture : source_color, filter_linear_mipmap, repeat_disable;
-uniform vec3 local_soil_tint = vec3(1.0);
-uniform sampler2D local_soil_edges : filter_linear, repeat_disable;
 uniform vec4 local_soil_bounds = vec4(0.0);
 
 varying vec2 world_position;
@@ -99,11 +97,8 @@ void fragment() {
 			if (local_soil_bounds.z > 0.0) {
 				vec2 soil_uv = (terrain_position - local_soil_bounds.xy) / local_soil_bounds.zw;
 				if (all(greaterThan(soil_uv, vec2(0.0))) && all(lessThan(soil_uv, vec2(1.0)))) {
-					float soil_distance = (texture(local_soil_edges, soil_uv).r * 255.0 - 128.0) * (edge_texel_size / 4.0);
-					float blend = smoothstep(-8.0, 12.0, soil_distance + (mottling - 0.5) * 11.0);
-					vec3 soil = texture(local_soil_texture, soil_uv, -0.5).rgb;
-					soil *= local_soil_tint * mix(0.86, 1.06, mottling);
-					albedo = mix(albedo, soil, blend);
+					vec4 soil = texture(local_soil_texture, soil_uv);
+					albedo = mix(albedo, soil.rgb, soil.a);
 				}
 			}
 		} else if (surface_kind == 2) {

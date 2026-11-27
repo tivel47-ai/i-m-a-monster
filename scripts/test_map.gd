@@ -201,6 +201,7 @@ func _setup_buildings() -> void:
 	var region := get_node_or_null("NavigationRegion2D")
 	if region == null or markers == null:
 		return
+	var sort_building_depth: bool = get_meta(&"building_depth_sort", false)
 	var test_homes := {"HouseNW": "ResidentialStreet", "HouseNE": "HomeNorthApproach",
 		"HouseSE": "HomeSouthApproach"}
 	var markers_by_building := {"Church": "Church", "GuardPost": "GuardYard", "Tavern": "Tavern",
@@ -226,6 +227,8 @@ func _setup_buildings() -> void:
 		building.name = "InteractiveBuilding"
 		body.add_child(building)
 		if building.configure(self, building_rules, body, hint):
+			if sort_building_depth:
+				building.layout.sort_exterior(body, self)
 			buildings.append(building)
 			if marker != null:
 				shelter_buildings[marker] = building

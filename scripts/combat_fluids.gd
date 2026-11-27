@@ -84,7 +84,11 @@ func hit(actor: Node2D, fluid: Fluid, direction: Vector2, lethal: bool, height: 
 	var texture: Texture2D = variants[_random.randi_range(0, variants.size() - 1)]
 	var sprite := _splash_sprite(texture, 0)
 	sprite.z_index = 3
-	add_child(sprite)
+	var building := actor.get("interior_building") as InteractiveBuilding
+	if is_instance_valid(building):
+		building.layout.airborne_effect_layer().add_child(sprite)
+	else:
+		add_child(sprite)
 	var flight := Flight.new()
 	flight.sprite = sprite
 	flight.feet = actor.global_position + Vector2(0.0, 5.5)

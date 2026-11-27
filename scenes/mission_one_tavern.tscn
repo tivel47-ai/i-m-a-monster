@@ -35,13 +35,14 @@ polygon = PackedVector2Array(-79, -108, 89, -108, 89, 49, 35, 49, 35, -2, -79, -
 visible = false
 position = Vector2(-50.5, -2)
 
-[node name="Exterior" type="Sprite2D" parent="."]
+[node name="Exterior" type="Polygon2D" parent="."]
 self_modulate = Color(0.89, 0.93, 0.96, 1)
 texture_filter = 4
 position = Vector2(-99, -132)
 scale = Vector2(0.165, 0.165)
 texture = ExtResource("1_exterior")
-centered = false
+polygon = PackedVector2Array(0, 0, 1254, 0, 1254, 1254, 1147, 1254, 1147, 518, 968, 312, 797, 519, 797, 1254, 0, 1254)
+metadata/ground_anchor = Vector2(-50.5, -2)
 
 [node name="DoorPanel" type="Polygon2D" parent="Exterior"]
 self_modulate = Color(0.89, 0.93, 0.96, 1)
@@ -66,6 +67,15 @@ position = Vector2(655, 91)
 scale = Vector2(0.70, 0.76)
 polygon = PackedVector2Array(-58, -223, 186, -223, 186, 7, -58, 7)
 
+[node name="EastWing" type="Polygon2D" parent="."]
+self_modulate = Color(0.89, 0.93, 0.96, 1)
+texture_filter = 4
+position = Vector2(-99, -132)
+scale = Vector2(0.165, 0.165)
+texture = ExtResource("1_exterior")
+polygon = PackedVector2Array(797, 519, 968, 312, 1147, 518, 1147, 1254, 797, 1254)
+metadata/ground_anchor = Vector2(61, 46)
+
 [node name="YardTable" type="StaticBody2D" parent="."]
 position = Vector2(4, 22)
 collision_mask = 0
@@ -82,3 +92,4 @@ self_modulate = Color(0.84, 0.9, 0.94, 1)
 texture_filter = 4
 scale = Vector2(0.035, 0.035)
 texture = ExtResource("2_table")
+metadata/ground_anchor = Vector2(0, 8)

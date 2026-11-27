@@ -432,7 +432,8 @@ func _die() -> void:
 	navigation_agent.navigation_layers = 0
 	navigation_agent.velocity = Vector2.ZERO
 	navigation_agent.avoidance_enabled = false
-	z_index = 0
+	if not _uses_form_sprites(&"building_depth_sort"):
+		z_index = 0
 	if _brute_visual != null:
 		_brute_visual.death_finished.connect(_leave_slime_pool, CONNECT_ONE_SHOT)
 		_brute_visual.play_death()

@@ -276,6 +276,7 @@ func build() -> void:
 	village.set_meta("local_melee_routing", true)
 	village.set_meta("guard_group_combat", true)
 	village.set_meta("directional_unit_vision", true)
+	village.set_meta("building_depth_sort", true)
 	village.set_meta("church_character_sprites", true)
 	village.set_meta("map_size", Vector2(3000,2000))
 	var ground := patch(village,"Ground",Vector2(1500,1000),Vector2(3000,2000),Color.WHITE)
@@ -415,7 +416,7 @@ func build() -> void:
 		attach(details, tavern_nodes["label"], "TavernLabel")
 	else:
 		label_at(details, "TavernLabel", "Таверна", tavern.to_global(Vector2(-69, -129)))
-	label_at(details,"GuardLabel","Пост стражи",guard_post.to_global(Vector2(-61, 143)))
+	label_at(details,"GuardLabel","Пост стражи",guard_post.to_global(Vector2(-61, 175)))
 	if tavern_nodes.has("marker"):
 		attach(points, tavern_nodes["marker"], "Tavern")
 	else:
@@ -641,19 +642,19 @@ func build_tavern_approach(tavern: StaticBody2D) -> void:
 
 func build_guard_post_approach() -> void:
 	var yard := PackedVector2Array([
-		Vector2(-81, 30), Vector2(99, 30), Vector2(107, 58), Vector2(111, 95),
-		Vector2(39, 100), Vector2(19, 116), Vector2(-54, 116), Vector2(-85, 101),
-		Vector2(-79, 69),
+		Vector2(-88, 28), Vector2(96, 28), Vector2(106, 69), Vector2(115, 130),
+		Vector2(32, 136), Vector2(28, 149), Vector2(12, 157), Vector2(-28, 156),
+		Vector2(-47, 141), Vector2(-85, 135), Vector2(-85, 109), Vector2(-79, 70),
 	])
 	polygon(roads, "GuardYardGround", guard_post.global_transform * yard, Color("76674f"))
 	var door := guard_post.get_node("Door") as Polygon2D
 	road("GuardDoorPath", [
 		door.to_global(Vector2(0, 2)),
-		guard_post.to_global(Vector2(1, 75)),
-		guard_post.to_global(Vector2(-7, 111)),
-		guard_post.to_global(Vector2(-44, 137)),
-		guard_post.to_global(Vector2(-90, 139)),
-		guard_post.to_global(Vector2(-165, 127)),
+		guard_post.to_global(Vector2(1, 85)),
+		guard_post.to_global(Vector2(1, 137)),
+		guard_post.to_global(Vector2(-16, 159)),
+		guard_post.to_global(Vector2(-65, 163)),
+		guard_post.to_global(Vector2(-165, 136)),
 		nearest_street(guard_post.to_global(Vector2(-245, 104))),
 	], 26, PATH, true, str(village.get_path_to(guard_post)))
 
@@ -873,7 +874,7 @@ func populate() -> void:
 	canopies.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var residents := container(village,"Villagers")
 	residents.y_sort_enabled = true
-	var sentry_spawn := guard_post.to_global(Vector2(-65, 137))
+	var sentry_spawn := guard_post.to_global(Vector2(-65, 163))
 	var spawn_points := [Vector2(590,580),Vector2(790,760),Vector2(440,930),Vector2(1180,1180),Vector2(1040,555),Vector2(1860,805),Vector2(1875,1740),Vector2(790,1220),Vector2(1980,1190),Vector2(1190,1010),Vector2(1230,1550),Vector2(750,1710),Vector2(260,1510),Vector2(940,1540),Vector2(950,1850),Vector2(550,1430),Vector2(800,1750),Vector2(1510,955),Vector2(1410,940),Vector2(2230,805),Vector2(2420,910),Vector2(2180,1190),Vector2(2435,1180),Vector2(2130,860),sentry_spawn,Vector2(2300,1380),Vector2(2060,1320),Vector2(1900,550),Vector2(1630,960),Vector2(1420,557)]
 	var peasant_jobs := ["Garden0","FieldsWest","FieldsEast","Barn","Vegetables","Well","SouthRoad","Barn","Garden7","Garden0","Garden7","FarmLane","FieldsWest","FieldsEast","FieldsSouth","Barn","Vegetables","Square","Bell"]
 	var peasant_districts := ["northwest","northwest","northwest","farm","northwest","center","south","farm","artisan","northwest","south","farm","farm","farm","farm","farm","farm","center","center"]

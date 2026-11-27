@@ -221,6 +221,8 @@ func try_fire_defense_bolt(enemy: Node2D) -> bool:
 	var interval := defense_ranged_interval if defense_ranged_interval >= 0.0 else attack_interval
 	ranged_ready_at = defense.elapsed + maxf(interval, 0.01)
 	var battlefield: Node2D = defense.get_parent()
+	if is_instance_valid(interior_building) and battlefield.get_meta(&"building_depth_sort", false):
+		battlefield = interior_building.layout.airborne_effect_layer()
 	var bolt := DEFENDER_PROJECTILE.new()
 	bolt.position = battlefield.to_local(global_position)
 	bolt.direction = offset.normalized()
@@ -978,7 +980,8 @@ func _die(attacker: Node = null) -> void:
 	current_health = 0.0
 	transformation_timer.stop()
 	_end_encounter()
-	z_index = 0
+	if _sprite_map(&"building_depth_sort") == null:
+		z_index = 0
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
