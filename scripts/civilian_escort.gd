@@ -2,6 +2,7 @@ extends Node
 ## Civilian alarm behavior with a persistent refuge or gathering destination.
 enum Mode { INDEPENDENT, FOLLOWING, FLEEING, REUNION }
 const REPORTER = preload("res://scripts/civilian_reporter.gd")
+const WEAPONS = preload("res://scripts/civilian_weapon_catalog.gd")
 @export var report_to_guard_enabled: bool = true
 @export var reporting_seconds: float = 45.0
 @export var reporting_search_distance: float = 900.0
@@ -31,6 +32,11 @@ var leader: Node
 var mode: Mode = Mode.INDEPENDENT
 var armed: bool = false
 var weapon: StringName = &""
+var weapon_source: WEAPONS.Source = WEAPONS.Source.NONE
+var catalog: WEAPONS
+var weapon_profile: Dictionary:
+	get:
+		return catalog.weapons.get(weapon, {}) if catalog != null and armed else {}
 var equipment_rolls: int = 0
 var last_leader_point: Vector2 = Vector2.INF
 var last_contact: float = -1.0
@@ -55,11 +61,22 @@ var reported_danger: Dictionary = {}
 var leader_lost: bool = false
 var reporter: RefCounted
 var rng = RandomNumberGenerator.new()
+var weapon_rng := RandomNumberGenerator.new()
+var _initiative_origin := Vector2.INF
+var _initiative_until := 0.0
+var _assessment_target: Node2D
+var _assessment_until := 0.0
+var _assessment := false
+var _ranged_goal := Vector2.INF
+var _ranged_target: Node2D
+var _next_ranged_plan := 0.0
 @onready var actor = get_parent()
 
 func _ready() -> void:
 	movement_speed = actor.tactical_move_speed(movement_speed)
+	catalog = actor.defense.get_parent().get("civilian_weapon_catalog")
 	rng.randomize()
+	weapon_rng.randomize()
 	reporter = REPORTER.new(self)
 	actor.defense.alert.level_changed.connect(_alert_changed)
 
@@ -71,6 +88,8 @@ func can_recruit() -> bool:
 	return role() in ["peasant", "artisan"] and actor.is_available_for_infection()
 
 func arm(at_church: bool = false) -> void:
+	if catalog != null:
+		return
 	var eligible_arrival = at_church and role() in ["peasant", "artisan"] and actor.is_alive() and actor.infection_state != actor.InfectionState.TRANSFORMING
 	if (not can_recruit() and not eligible_arrival) or armed: return
 	armed = true
@@ -79,6 +98,42 @@ func arm(at_church: bool = false) -> void:
 	weapon = weapons[rng.randi_range(0, weapons.size() - 1)]
 	actor.set_meta("civilian_weapon", weapon)
 	actor.apply_armed_combat_profile()
+
+
+func arm_on_arrival() -> void:
+	if catalog != null:
+		arm_from(WEAPONS.Source.CHURCH)
+	else:
+		arm(true)
+
+
+func arm_from(source: WEAPONS.Source) -> bool:
+	if (source == WEAPONS.Source.NONE or catalog == null or not actor.defense.get_parent().civilian_weapons_valid or not actor.can_process()
+		or armed or not actor.is_alive() or actor.infection_state == actor.InfectionState.TRANSFORMING):
+		return false
+	var selected := catalog.choose(role(), weapon_rng)
+	if selected.is_empty():
+		return false
+	armed = true
+	weapon = selected
+	weapon_source = source
+	equipment_rolls += 1
+	actor.set_meta("civilian_weapon", weapon)
+	actor.apply_civilian_weapon(weapon_profile)
+	return true
+
+
+func clear_equipment() -> void:
+	if catalog == null or not armed:
+		return
+	armed = false
+	weapon = &""
+	weapon_source = WEAPONS.Source.NONE
+	_ranged_target = null
+	_ranged_goal = Vector2.INF
+	_assessment_target = null
+	actor.remove_meta("civilian_weapon")
+	actor.clear_civilian_weapon()
 
 func invite(guard: Node, investigation: bool = false, eyewitness: bool = false) -> bool:
 	var now: float = actor.defense.elapsed
@@ -105,8 +160,11 @@ func invite(guard: Node, investigation: bool = false, eyewitness: bool = false) 
 	last_leader_point = guard.actor.global_position
 	last_contact = now
 	separated_at = -1.0
-	equipment_rolls += 1
-	if rng.randf() < arming_probability: arm()
+	if catalog != null:
+		arm_from(WEAPONS.Source.RECRUITMENT)
+	else:
+		equipment_rolls += 1
+		if rng.randf() < arming_probability: arm()
 	actor.threat_reaction.cancel_response()
 	actor._stop_movement()
 	return true
@@ -285,6 +343,168 @@ func panic_occurs(resistance: float) -> bool:
 	var calming: float = actor.defense.calming(actor)
 	return rng.randf() > 1.0 - (1.0 - clampf(resistance, 0.0, 1.0)) * (1.0 - calming)
 
+
+func _allied_combatants(radius: float) -> Array[Node2D]:
+	var allies: Array[Node2D] = []
+	for ally in actor.defense.nearby(actor, radius):
+		if ((ally.guard_ai != null or ally.priest_guard != null or ally.is_in_collision()
+			or (ally.escort != null and ally.escort.armed)) and ally.is_alive()
+			and (ally.attack_damage > 0.0 or ally.defense_ranged_weapon)
+			and not is_instance_valid(ally.interior_building) and actor.defense.visible(actor, ally, radius)):
+			allies.append(ally)
+	return allies
+
+
+func can_resist(enemy: Node2D) -> bool:
+	if catalog == null or not armed or not actor.threat_detection._is_visible_target(enemy):
+		return false
+	var now: float = actor.defense.elapsed
+	if _assessment_target == enemy and now < _assessment_until:
+		return _assessment
+	_assessment_target = enemy
+	_assessment_until = now + catalog.maneuver_interval
+	var own_power: float = actor.attack_damage / actor.attack_interval
+	if actor.has_civilian_ranged_weapon() and actor.global_position.distance_to(enemy.global_position) > actor.melee_reach():
+		own_power = actor.defense_ranged_damage / actor.defense_ranged_interval * (1.0 - weapon_profile.error)
+	var health: float = clampf(actor.current_health / actor.max_health, 0.0, 1.0)
+	var morale: float = 1.0 if steadfast() else maxf(courage, actor.defense.calming(actor))
+	var support := own_power * health * (0.5 + morale)
+	for ally in _allied_combatants(catalog.initiative_radius):
+		support += ally.attack_damage / maxf(ally.attack_interval, 0.01) * catalog.support_weight
+	var opposition := 0.0
+	var worst_hit := 0.0
+	for threat in actor.threat_reaction._visible_threats():
+		if threat == enemy or actor.global_position.distance_to(threat.global_position) <= catalog.initiative_radius:
+			opposition += threat.attack_damage / maxf(threat.effective_attack_interval(), 0.01)
+			worst_hit = maxf(worst_hit, threat.attack_damage)
+	_assessment = actor.current_health > worst_hit and support >= opposition
+	return _assessment
+
+
+func can_start_local_defense(enemy: Node2D) -> bool:
+	return (catalog != null and armed and mode == Mode.INDEPENDENT
+		and not actor.threat_reaction.episode_active and not actor.threat_reaction.seeking_home
+		and not actor.local_warning.has_report() and not reporter.has_live_report()
+		and not rare_bell_pending and not is_instance_valid(actor.building_task)
+		and actor.global_position.distance_to(enemy.global_position) <= catalog.initiative_radius
+		and can_resist(enemy))
+
+
+func update_local_defense(delta: float) -> bool:
+	if catalog == null or not armed:
+		return false
+	var enemy: Node2D = actor.get_recognized_threat()
+	if (not is_instance_valid(enemy) or not can_start_local_defense(enemy)
+		or (_initiative_origin.is_finite() and enemy.global_position.distance_to(_initiative_origin) > catalog.initiative_radius)):
+		_initiative_origin = Vector2.INF
+		return false
+	if not _initiative_origin.is_finite():
+		_initiative_origin = actor.global_position
+		# Reevaluate through the normal survival response if fighting stalls.
+		_initiative_until = actor.defense.elapsed + separation_seconds
+	if actor.defense.elapsed >= _initiative_until:
+		return false
+	if actor.has_civilian_ranged_weapon():
+		var within_leash := func(point: Vector2): return point.distance_to(_initiative_origin) <= catalog.initiative_radius
+		return support_ranged(enemy, delta, within_leash)
+	return support_melee(enemy, delta, _initiative_origin, catalog.initiative_radius)
+
+
+func support_melee(enemy: Node2D, delta: float, anchor: Vector2, leash: float) -> bool:
+	if actor.try_melee_contact(enemy):
+		actor._stop_movement()
+		return true
+	if actor._uses_local_melee_route(enemy):
+		return actor._advance_melee_route(enemy, movement_speed, delta, anchor, leash)
+	var approach: Vector2 = actor.defense.combat_approach(actor, enemy, goal)
+	return (approach.is_finite() and approach.distance_to(anchor) <= leash
+		and move_to(approach, delta) != actor.NavigationResult.FAILED)
+
+
+func support_ranged(enemy: Node2D, delta: float, allowed: Callable, protector: Node2D = null) -> bool:
+	if not actor.has_civilian_ranged_weapon() or not actor.threat_detection._is_visible_target(enemy):
+		return false
+	var now: float = actor.defense.elapsed
+	var distance: float = actor.global_position.distance_to(enemy.global_position)
+	var range_limit: float = actor.defense_weapon_range
+	var retreat := distance < catalog.retreat_fraction * range_limit
+	if _ranged_target != enemy:
+		_ranged_target = enemy
+		_ranged_goal = Vector2.INF
+	var manageable := can_resist(enemy)
+	if _ranged_goal.is_finite() and (not allowed.call(_ranged_goal) or (
+		retreat and _ranged_goal.distance_to(enemy.global_position) <= distance + actor.arrival_tolerance)):
+		_ranged_goal = Vector2.INF
+	var valid_station: bool = allowed.call(actor.global_position)
+	if now >= _next_ranged_plan and not _ranged_goal.is_finite():
+		_next_ranged_plan = now + catalog.maneuver_interval
+		if retreat or (manageable and (distance > range_limit or not valid_station)):
+			_ranged_goal = _ranged_position(enemy, allowed, protector, retreat)
+		elif manageable:
+			_ranged_goal = _ranged_position(enemy, allowed, protector, false, true)
+	if _ranged_goal.is_finite():
+		if not retreat and not manageable:
+			_ranged_goal = Vector2.INF
+			return false
+		if move_to(_ranged_goal, delta) == actor.NavigationResult.MOVING:
+			return true
+		_ranged_goal = Vector2.INF
+	if retreat and distance <= actor.melee_reach():
+		return actor.try_melee_contact(enemy)
+	if not manageable or distance > range_limit or not valid_station:
+		return false
+	if actor.has_destination or not actor.velocity.is_zero_approx():
+		actor._stop_movement()
+	return actor.try_fire_defense_bolt(enemy)
+
+
+func _ranged_position(enemy: Node2D, allowed: Callable, protector: Node2D, retreat: bool, cover_only := false) -> Vector2:
+	var origin: Vector2 = actor.global_position
+	var threat := enemy.global_position
+	var direction := threat.direction_to(origin)
+	var range_limit: float = actor.defense_weapon_range
+	var preferred := range_limit * catalog.preferred_fraction
+	var candidates := PackedVector2Array()
+	if is_instance_valid(protector) and actor.defense.visible(actor, protector, catalog.initiative_radius):
+		candidates.append(protector.global_position + threat.direction_to(protector.global_position) * follow_distance)
+	for ally in _allied_combatants(catalog.initiative_radius):
+		if not ally.defense_ranged_weapon:
+			candidates.append(ally.global_position + threat.direction_to(ally.global_position) * catalog.cover_offset)
+	var cover_count := candidates.size()
+	if cover_only:
+		for point in candidates:
+			if origin.distance_to(point) <= actor.arrival_tolerance * 2.0:
+				return Vector2.INF
+	var distance := origin.distance_to(threat)
+	var short_retreat := distance + catalog.cover_offset
+	if not cover_only:
+		for angle in [0.0, PI / 4, -PI / 4, PI / 2, -PI / 2]:
+			if retreat:
+				candidates.append(threat + direction.rotated(angle) * short_retreat)
+			candidates.append(threat + direction.rotated(angle) * preferred)
+	var best := Vector2.INF
+	var best_score := INF
+	var nav: RID = actor.navigation_agent.get_navigation_map()
+	for i in candidates.size():
+		var point := NavigationServer2D.map_get_closest_point(nav, candidates[i])
+		var gap := point.distance_to(threat)
+		if (point.distance_to(candidates[i]) > actor.arrival_tolerance or not allowed.call(point)
+			or origin.distance_to(point) <= actor.arrival_tolerance or gap > range_limit
+			or (retreat and gap <= distance + actor.arrival_tolerance)
+			or not actor.defense._melee_line_clear(actor, point, threat)):
+			continue
+		var cost: float = actor.threat_reaction._safe_route_length(point, false, true)
+		if not is_finite(cost):
+			continue
+		var score := cost + absf(gap - preferred) * 0.5
+		if i < cover_count:
+			score -= catalog.cover_offset
+		if score < best_score:
+			best = point
+			best_score = score
+	return best
+
+
 func update_combat() -> void:
 	cancel_rare_bell()
 	# The zombie explicitly releases its primary opponent on death. Additional
@@ -293,7 +513,7 @@ func update_combat() -> void:
 		if not is_instance_valid(enemy) or (actor.defense.visible(actor, enemy, contact_radius) and not enemy.is_alive()):
 			actor.leave_encounter(enemy)
 	if not actor.is_in_collision(): return
-	if not is_instance_valid(leader) or actor.defense.elapsed < next_decision: return
+	if (not is_instance_valid(leader) and (catalog == null or not armed)) or actor.defense.elapsed < next_decision: return
 	next_decision = actor.defense.elapsed + decision_interval
 	var enemies: Array[Node2D] = []
 	var incoming := 0.0
@@ -301,7 +521,7 @@ func update_combat() -> void:
 		if actor.threat_detection._is_visible_target(enemy):
 			enemies.append(enemy)
 			incoming = maxf(incoming, enemy.attack_damage)
-	var support: int = leader.known_support() if actor.defense.visible(actor, leader.actor, contact_radius) else 1
+	var support: int = leader.known_support() if is_instance_valid(leader) and actor.defense.visible(actor, leader.actor, contact_radius) else 1
 	if not enemies.is_empty() and (enemies.size() > support or actor.current_health <= incoming) and panic_occurs(courage * panic_courage_factor):
 		actor.cancel_encounter()
 		panic(enemies[0])
@@ -349,27 +569,26 @@ func update_escort(delta: float) -> bool:
 					panic()
 					return false
 				var enemy: Node2D = actor.get_recognized_threat()
-				if visible_leader and enemy.global_position.distance_to(last_leader_point) < contact_radius * 0.5 and actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
-					enemy.engage_defender(actor)
+				if (visible_leader and not actor.has_civilian_ranged_weapon()
+					and enemy.global_position.distance_to(last_leader_point) < contact_radius * 0.5 and actor.try_melee_contact(enemy)):
 					return true
 			var supported_enemy: Node2D = actor.get_recognized_threat()
 			# Join the guard's engagement before melee contact; unarmed assistance stays close.
 			var assistance_radius: float = contact_radius * 0.5 if armed else follow_distance
 			if visible_leader and leader.state == leader.State.COMBAT and not leader.dangerous() and is_instance_valid(supported_enemy) and actor.threat_detection._is_visible_target(supported_enemy) and supported_enemy.global_position.distance_to(last_leader_point) <= assistance_radius:
-				if actor.global_position.distance_to(supported_enemy.global_position) <= supported_enemy.INFECTION_DISTANCE:
-					supported_enemy.engage_defender(actor)
+				if actor.has_civilian_ranged_weapon():
+					var near_leader := func(point: Vector2): return point.distance_to(last_leader_point) <= assistance_radius
+					if support_ranged(supported_enemy, delta, near_leader, leader.actor): return true
+				elif support_melee(supported_enemy, delta, last_leader_point, assistance_radius + actor.melee_reach()):
 					return true
-				if actor._uses_local_melee_route(supported_enemy):
-					if not actor._advance_melee_route(supported_enemy, movement_speed, delta, last_leader_point, assistance_radius + supported_enemy.INFECTION_DISTANCE):
-						actor._stop_movement()
-					return true
-				var approach: Vector2 = actor.defense.combat_approach(actor, supported_enemy)
-				if approach.is_finite():
-					move_to(approach, delta)
+				elif not actor.has_civilian_ranged_weapon() and actor._uses_local_melee_route(supported_enemy):
+					actor._stop_movement()
 					return true
 			actor.threat_reaction.cancel_response()
 			if last_leader_point.is_finite():
 				var forward: Vector2 = leader.actor.velocity.normalized() if visible_leader and leader.actor.velocity.length() > 1.0 else Vector2.ZERO
+				if forward.is_zero_approx() and visible_leader and actor.has_civilian_ranged_weapon() and is_instance_valid(supported_enemy):
+					forward = last_leader_point.direction_to(supported_enemy.global_position)
 				var trailing: Vector2 = last_leader_point - forward * follow_distance
 				if not forward.is_zero_approx():
 					var side: float = -1.0 if leader.followers.find(self) % 2 == 0 else 1.0
@@ -393,6 +612,7 @@ func update_escort(delta: float) -> bool:
 				if invite(other.guard_ai): return true
 	if update_rare_bell(delta): return true
 	if reporter.update(delta): return true
+	if update_local_defense(delta): return true
 	if role() != "priest" and actor.threat_reaction.episode_active: return false
 	if actor.defense.alert.level < actor.defense.alert.Level.ALARM:
 		if role() != "priest": return false

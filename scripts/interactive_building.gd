@@ -1,6 +1,9 @@
 class_name InteractiveBuilding
 extends Node2D
 
+const WEAPONS = preload("res://scripts/civilian_weapon_catalog.gd")
+const ARMAMENT_SHELTERS := ["small", "large", "square", "L", "farmhouse", "blacksmith", "workshop"]
+
 const ARRIVAL := 1.5
 const REPATH_SECONDS := 0.35
 const SIGNAL_DOOR_MULTIPLIER := 5.0
@@ -27,6 +30,7 @@ var recovery_remaining := 0.0
 var battle_active := false
 var restoration_allowed := false
 var residents: Array[Node2D] = []
+var _shelter_was_blocked := false
 var monsters: Array[Node2D] = []
 var attackers: Dictionary = {}
 var shelter_queue: Array[Node2D] = []
@@ -300,7 +304,7 @@ func _prune_encounters() -> void:
 	for resident in residents:
 		for zombie in resident.encounter_participants.duplicate():
 			if not is_instance_valid(zombie) or not zombie.is_alive() or zombie.interior_building != self or (
-				resident.global_position.distance_to(zombie.global_position) > zombie.INFECTION_DISTANCE
+				resident.global_position.distance_to(zombie.global_position) > maxf(zombie.INFECTION_DISTANCE, resident.melee_reach())
 				or not _line_clear(resident, zombie)):
 				resident.leave_encounter(zombie)
 
@@ -510,6 +514,7 @@ func _advance_crossing(delta: float) -> void:
 				seal_entrance()
 				signal_operator_entered.emit(actor)
 			else:
+				_arm_sheltered_resident(actor)
 				resident_sheltered.emit(actor, after_sighting)
 	elif _crossing_stalled >= 0.6 and zombie:
 		_blocked_lane[actor] = {"side": _crossing_lane, "until": _elapsed + 2.0}
@@ -558,7 +563,21 @@ func _refresh_entrance() -> void:
 		color = Color("a08858") if reinforcement_hp > 0.0 else Color("88694b")
 	elif reinforcement > 0.0:
 		color = color.lerp(Color("ad9066"), reinforcement)
-	layout.set_blocked(_blocked(), color, door_hp > 0.0)
+	var blocked := _blocked()
+	layout.set_blocked(blocked, color, door_hp > 0.0)
+	if blocked and not _shelter_was_blocked:
+		for resident in residents:
+			_arm_sheltered_resident(resident)
+	_shelter_was_blocked = blocked
+
+
+func _arm_sheltered_resident(resident: Node2D) -> void:
+	if (mission.get("civilian_weapon_catalog") == null or not _blocked()
+		or get_parent().get_meta("building_type", "") not in ARMAMENT_SHELTERS):
+		return
+	# This list receives human occupants only through completed shelter crossings.
+	if is_instance_valid(resident) and resident.interior_building == self and residents.has(resident) and resident.escort != null:
+		resident.escort.arm_from(WEAPONS.Source.SHELTER)
 	if signal_sealed:
 		layout.set_barricade_health(door_hp, signal_door_max_hp)
 	elif reinforcement_hp > 0.0:
@@ -815,18 +834,20 @@ func _update_battle(delta: float) -> void:
 	for resident in residents:
 		if not resident.is_available_for_infection() or resident.priest_routine != null:
 			_melee_positions.erase(resident)
+			resident.close_civilian_melee_gap(delta)
 			continue
 		var target: Node2D = _nearest_reachable(resident, monsters)
 		if target == null:
 			_melee_positions.erase(resident)
 			continue
-		if resident.defense_ranged_weapon and (resident.guard_ai != null or resident.priest_guard != null) and resident.global_position.distance_to(target.global_position) <= resident.defense_weapon_range and _line_clear(resident, target):
+		if resident.defense_ranged_weapon and (resident.guard_ai != null or resident.priest_guard != null or resident.has_civilian_ranged_weapon()) and resident.global_position.distance_to(target.global_position) <= resident.defense_weapon_range and _line_clear(resident, target) and (
+			not resident.has_civilian_ranged_weapon() or resident.global_position.distance_to(target.global_position) > target.INFECTION_DISTANCE):
 			_melee_positions.erase(resident)
 			if resident.has_destination or not resident.velocity.is_zero_approx():
 				resident._stop_movement()
 			else:
 				resident.try_fire_defense_bolt(target)
-		elif not target.engage_defender(resident):
+		elif not resident.try_melee_contact(target):
 			_advance_to_melee(resident, target, delta)
 		else:
 			_melee_positions.erase(resident)
@@ -901,7 +922,7 @@ func _distance_from_blocked_allies(point: Vector2, allies: Array[Node2D]) -> flo
 
 func _advance_to_melee(actor: CharacterBody2D, target: Node2D, delta: float) -> bool:
 	var zombie := actor.is_in_group("player_units")
-	var reach: float = actor.INFECTION_DISTANCE if zombie else target.INFECTION_DISTANCE
+	var reach: float = actor.INFECTION_DISTANCE if zombie else actor.melee_reach()
 	var speed: float = actor.movement_speed() if zombie else actor.tactical_move_speed(actor.move_speed)
 	var previous: Vector2 = _melee_positions.get(actor, Vector2.INF)
 	var stalled := _stalled(actor)

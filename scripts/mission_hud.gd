@@ -54,6 +54,10 @@ var developer_tool_label: Label
 var developer_ability_popup: PopupMenu
 var developer_vision_toggle: CheckButton
 var developer_audio_panel: AUDIO_DEBUG
+var _armament_panel: PanelContainer
+var _armament_summary: Label
+var _armament_detail: Label
+var _armament_inspected: WeakRef
 
 
 func _ready() -> void:
@@ -576,6 +580,8 @@ func _build_developer_tools() -> void:
 		stages.select(current)
 		if current == alert.Level.LAST_STAND: stages.set_item_disabled(current, false))
 	box.add_child(stages)
+	if mission.civilian_weapons_valid:
+		_build_armament_diagnostics(box)
 	if mission.mission_audio != null:
 		var audio_button := Button.new()
 		audio_button.text = "Диагностика звука"
@@ -587,13 +593,106 @@ func _build_developer_tools() -> void:
 		developer_audio_panel.hide()
 		developer_audio_panel.configure(mission.mission_audio, alert)
 		audio_button.pressed.connect(func():
-			developer_audio_panel.visible = not developer_audio_panel.visible)
+			developer_audio_panel.visible = not developer_audio_panel.visible
+			if developer_audio_panel.visible and is_instance_valid(_armament_panel): _armament_panel.hide())
 	developer_button.pressed.connect(func():
 		developer_panel.visible = not developer_panel.visible
 		if not developer_panel.visible:
 			developer_ability_popup.hide()
 			close_audio_debug()
+			if is_instance_valid(_armament_panel): _armament_panel.hide()
 			_choose_developer_tool(""))
+
+
+func _build_armament_diagnostics(tools: VBoxContainer) -> void:
+	var button := Button.new()
+	button.text = "Вооружение гражданских"
+	tools.add_child(button)
+	_armament_panel = _panel(0.41, 0.0, 0.75, 0.0)
+	_armament_panel.offset_top = 115
+	_armament_panel.offset_bottom = 115
+	_armament_panel.hide()
+	var content := VBoxContainer.new()
+	_armament_panel.add_child(content)
+	_label(content, "Вооружение гражданских", 17)
+	_armament_summary = _label(content, "", 13)
+	_label(content, "Наведите курсор на жителя для осмотра.", 13)
+	_armament_detail = _label(content, "", 13)
+	for child in content.get_children():
+		if child is Label:
+			child.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.pressed.connect(func():
+		_armament_panel.visible = not _armament_panel.visible
+		if _armament_panel.visible:
+			close_audio_debug()
+			_refresh_armament_diagnostics())
+
+
+func civilian_armament_snapshot() -> Dictionary:
+	var snapshot := {"living": 0, "armed": 0, "melee": 0, "ranged": 0, "weapons": {}}
+	if not mission.civilian_weapons_valid:
+		return snapshot
+	for id in mission.civilian_weapon_catalog.weapons:
+		snapshot.weapons[id] = 0
+	for resident in mission.villagers:
+		if not _living_civilian(resident):
+			continue
+		snapshot.living += 1
+		if resident.escort.armed:
+			snapshot.armed += 1
+			snapshot.weapons[resident.escort.weapon] += 1
+			if resident.has_civilian_ranged_weapon():
+				snapshot.ranged += 1
+			else:
+				snapshot.melee += 1
+	return snapshot
+
+
+func _living_civilian(resident: Variant) -> bool:
+	return (is_instance_valid(resident) and not resident.is_queued_for_deletion()
+		and resident.is_alive() and resident.escort != null
+		and resident.escort.role() in ["peasant", "artisan"])
+
+
+func _refresh_armament_diagnostics() -> void:
+	var snapshot := civilian_armament_snapshot()
+	var unarmed: int = snapshot.living - snapshot.armed
+	var percent := 100.0 / float(snapshot.living) if snapshot.living > 0 else 0.0
+	var lines := PackedStringArray([
+		"Живые %d · вооружены %d (%.1f%%) · без оружия %d (%.1f%%)" %
+			[snapshot.living, snapshot.armed, snapshot.armed * percent, unarmed, unarmed * percent],
+		"Ближний бой %d · дальний бой %d" % [snapshot.melee, snapshot.ranged],
+	])
+	for id in snapshot.weapons:
+		lines.append("%s — %d" % [mission.civilian_weapon_catalog.weapons[id].label, snapshot.weapons[id]])
+	_armament_summary.text = "\n".join(lines)
+	if not is_pointer_over_ui(get_viewport().get_mouse_position()):
+		var point: Vector2 = mission.get_global_mouse_position()
+		for resident in mission.villagers:
+			if (_living_civilian(resident) and resident.contains_visual_point(point)
+				and (not is_instance_valid(resident.interior_building) or resident.interior_building._roof_target == 0.0)):
+				_armament_inspected = weakref(resident)
+				break
+	var selected: Variant = _armament_inspected.get_ref() if _armament_inspected != null else null
+	_armament_detail.text = _civilian_armament_details(selected) if _living_civilian(selected) else "Житель не выбран"
+
+
+func _civilian_armament_details(resident: Node2D) -> String:
+	var profile: Dictionary = resident.escort.weapon_profile
+	var category := "Дальний бой" if resident.has_civilian_ranged_weapon() else "Ближний бой"
+	var state: String = "%s · %s" % [profile.label, category] if resident.escort.armed else "Без оружия"
+	var source: String = mission.civilian_weapon_catalog.SOURCES[resident.escort.weapon_source]
+	var lines := PackedStringArray([
+		"№%d · Люди · %s" % [resident.get_instance_id(), CATALOG.HUMAN_TYPES[resident.escort.role()]],
+		"%s · %s" % [state, source],
+		"Здоровье %.1f / %.1f" % [resident.current_health, resident.max_health],
+		"Ближний бой · %.2f урона · %.3f с · %.2f ед." % [resident.attack_damage, resident.attack_interval, resident.melee_reach()],
+	])
+	if resident.has_civilian_ranged_weapon():
+		lines.append("Дальний бой · %.1f урона · %.2f с · %.1f ед." %
+			[resident.defense_ranged_damage, resident.defense_ranged_interval, resident.defense_weapon_range])
+		lines.append("Точность прицеливания %.0f%%" % ((1.0 - profile.error) * 100.0))
+	return "\n".join(lines)
 
 
 func _developer_menu(parent: VBoxContainer, title: String) -> PopupMenu:
@@ -657,6 +756,7 @@ func set_developer_mode(enabled: bool) -> void:
 	developer_panel.visible = false
 	developer_ability_popup.hide()
 	close_audio_debug()
+	if is_instance_valid(_armament_panel): _armament_panel.hide()
 	developer_vision_toggle.set_pressed_no_signal(mission.developer_vision)
 	if not enabled: _choose_developer_tool("")
 	if _zombie_skin:
@@ -703,6 +803,8 @@ func _refresh() -> void:
 	_refresh_objective()
 	_refresh_alert()
 	refresh_units()
+	if mission.developer_mode and is_instance_valid(_armament_panel) and _armament_panel.visible:
+		_refresh_armament_diagnostics()
 
 
 func _refresh_alert() -> void:

@@ -593,7 +593,7 @@ func _on_encounter_attack_timer_timeout() -> void:
 		return
 	if not aggro_target.call("is_encounter_owner", self):
 		return
-	var check_melee_reach := is_brute or _is_mission_runner() or is_instance_valid(interior_building)
+	var check_melee_reach: bool = is_brute or _is_mission_runner() or is_instance_valid(interior_building) or aggro_target.has_civilian_melee_weapon()
 	if not _barricade_on_approach(aggro_target).is_empty() or (
 		check_melee_reach and (
 			global_position.distance_to(aggro_target.global_position) > INFECTION_DISTANCE

@@ -24,9 +24,12 @@ const VILLAGER_SCENE: PackedScene = preload("res://scenes/villager.tscn")
 const PRIEST_GUARD_SCENE: PackedScene = preload("res://scenes/priest_guard.tscn")
 const GUARD_PATROL = preload("res://scripts/guard_patrol.gd")
 const UNIT_BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
+const CIVILIAN_WEAPON_CATALOG = preload("res://scripts/civilian_weapon_catalog.gd")
 const PRIEST_ROUTINE = preload("res://scripts/priest_routine.gd")
 const PRIEST_GUARD_ROUTES = preload("res://scripts/priest_guard_routes.gd")
 @export var unit_balance_v03 := false
+@export var civilian_weapon_catalog: CIVILIAN_WEAPON_CATALOG
+var civilian_weapons_valid := false
 @export var zombie_infection_enabled := false
 @export var dark_fantasy_hud := false
 @export var monster_roster_enabled := false
@@ -138,6 +141,11 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
+	if civilian_weapon_catalog != null:
+		var error := civilian_weapon_catalog.validation_error() if unit_balance_v03 else "Требуется баланс Миссии №1."
+		civilian_weapons_valid = error.is_empty()
+		if not civilian_weapons_valid:
+			push_error("Вооружение гражданских: " + error)
 	developer_mode = bool(get_meta("developer_mode", false))
 	var race_id: String = get_meta("race_id", standalone_race_id)
 	if race_id == "zombie":

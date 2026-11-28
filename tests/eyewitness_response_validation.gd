@@ -17,7 +17,7 @@ func prepare() -> Node2D:
 	source.threat_reaction.reporting_share_of_escape = 1.0
 	source.threat_reaction.reaction_random.seed = 501
 	civilians[0].courage = 1
-	civilians[0].arming_probability = 1
+	civilians[0].weapon_rng.seed = 501
 	guards[0].actor.position = Vector2(1340, 1000)
 	enable(guards[0])
 	enemies[0].position = Vector2(1580, 1000)
@@ -66,7 +66,6 @@ func run() -> void:
 	for i in range(3):
 		enemies[i].position = Vector2(1580, 980+i*20)
 		enemies[i].infection_chance = 0
-	civilians[0].arming_probability = 0
 	var escalated := false
 	for tick in range(3600):
 		await frames(1)

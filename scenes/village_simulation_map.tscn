@@ -28,6 +28,7 @@
 [ext_resource type="PackedScene" path="res://scenes/mission_one_guard_post.tscn" id="guard_post_scene"]
 [ext_resource type="Script" uid="uid://6blmtlsn3n5k" path="res://scripts/audio/mission_one_audio.gd" id="mission_audio"]
 [ext_resource type="PackedScene" path="res://scenes/mission_one_tavern.tscn" id="tavern_scene"]
+[ext_resource type="Resource" path="res://scenes/civilian_weapons.tres" id="civilian_weapons"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_church_door"]
 shader = ExtResource("42_church_door_shader")
@@ -58,6 +59,7 @@ border_color = Color(0.45, 0.85, 1, 0.95)
 y_sort_enabled = true
 script = ExtResource("1_4nt34")
 unit_balance_v03 = true
+civilian_weapon_catalog = ExtResource("civilian_weapons")
 zombie_infection_enabled = true
 dark_fantasy_hud = true
 monster_roster_enabled = true

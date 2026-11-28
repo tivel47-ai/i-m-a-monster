@@ -183,9 +183,9 @@ func reachable(actor: Node2D, point: Vector2) -> bool:
 
 
 func combat_approach(actor: Node2D, enemy: Node2D, previous_goal := Vector2.INF) -> Vector2:
-	if not enemy.is_assaulting_building():
+	if not enemy.is_assaulting_building() and not actor.has_civilian_melee_weapon():
 		return enemy.global_position
-	var reach: float = maxf(enemy.INFECTION_DISTANCE - actor.arrival_tolerance - 0.5, 1.0)
+	var reach: float = maxf(actor.melee_reach() - actor.arrival_tolerance - 0.5, 1.0)
 	if previous_goal.is_finite() and previous_goal.distance_to(enemy.global_position) <= reach:
 		if _melee_line_clear(actor, previous_goal, enemy.global_position):
 			return previous_goal
@@ -312,4 +312,4 @@ func mobilize_civilians() -> void:
 	if organized == null or not organized.active(): return
 	for actor in get_parent().villagers:
 		if is_instance_valid(actor) and organized.members.has(actor.get_instance_id()) and actor.escort != null and actor.is_available_for_infection() and actor.escort.can_recruit():
-			actor.escort.arm()
+			actor.escort.arm_on_arrival()

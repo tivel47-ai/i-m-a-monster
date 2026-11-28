@@ -97,15 +97,12 @@ func run() -> void:
 	civilian.actor.position = guards[0].actor.position + Vector2(0,30)
 	civilian.courage = 1.0
 	civilian.rng.seed = 9047
-	var armed_count := 0
-	for i in range(600):
-		civilian.next_invitation = 0
-		civilian.armed = false
-		civilian.invite(guards[0])
-		if civilian.armed: armed_count += 1
-		civilian.release("independent sampling fixture")
-	check(armed_count > 300 and armed_count < 420 and civilian.equipment_rolls == 600, "WORLD: Seeded independent recruitment decisions sample the 60 percent probability without group quotas")
-	print("ARMING SAMPLE: ",armed_count," / 600")
+	check(civilian.invite(guards[0]) and civilian.armed, "WORLD: An accepted local recruit receives equipment")
+	var weapon: StringName = civilian.weapon
+	civilian.release("recruitment fixture")
+	civilian.next_invitation = 0
+	check(civilian.invite(guards[0]) and civilian.weapon == weapon and civilian.equipment_rolls == 1,
+		"WORLD: A genuine rejoin preserves the first weapon")
 	await fixture()
 	physical_alarm()
 	for i in range(guards.size()):

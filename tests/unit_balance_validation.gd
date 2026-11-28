@@ -3,6 +3,7 @@ extends SceneTree
 const MISSION = preload("res://tests/fixtures/mission_one_with_zombies.tscn")
 const LEGACY_ZOMBIE = preload("res://scenes/zombie.tscn")
 const PROGRESSION = preload("res://scripts/zombie_progression.gd")
+const WEAPONS = preload("res://scripts/civilian_weapon_catalog.gd")
 const ARENA := Vector2(350, 1000)
 const STEP := 1.0 / 60.0
 const ZOMBIES := {
@@ -110,7 +111,8 @@ func run() -> void:
 		await duel("zombie", place_human(role, ARENA), role)
 	for role in ["peasant", "artisan"]:
 		var fighter := place_human(role, ARENA)
-		fighter.escort.arm()
+		choose_torch(fighter)
+		fighter.escort.arm_from(WEAPONS.Source.RECRUITMENT)
 		await duel("zombie", fighter, "armed " + role)
 	await duel("zombie", place_human("guard", ARENA), "guard versus two zombies", 2)
 	await duel("carrier", place_human("peasant", ARENA), "peasant")
@@ -167,6 +169,15 @@ func human_profile(actor: Node2D, role: String) -> void:
 				and actor.guard_ai.crossbow != null, "Crossbow has separate ranged profile and directional vision")
 
 
+func choose_torch(actor: Node2D) -> void:
+	var random := RandomNumberGenerator.new()
+	for value in range(1000):
+		random.seed = value
+		if actor.escort.catalog.choose(actor.escort.role(), random) == &"torch":
+			actor.escort.weapon_rng.seed = value
+			return
+
+
 func arming_and_priest() -> void:
 	var formation = mission.get_node("VillageDefense").organized
 	var alert = formation.service.alert
@@ -174,14 +185,14 @@ func arming_and_priest() -> void:
 	var peasant := place_human("peasant", ARENA)
 	var guard := place_human("guard", ARENA + Vector2(20, 0))
 	peasant.current_health = 29.0
-	peasant.escort.arming_probability = 1.0
+	choose_torch(peasant)
 	check(peasant.escort.invite(guard.guard_ai, false, true), "Eyewitness recruitment succeeds")
 	check(peasant.escort.armed and peasant.attack_damage == 15.0 and peasant.attack_interval == 1.2
 		and is_equal_approx(peasant.encounter_attack_timer.wait_time, 1.2) and peasant.current_health == 29.0
 		and peasant.max_health == 75.0 and peasant.escort.leader == guard.guard_ai, "Recruitment arms without healing")
 	check(is_equal_approx(guard.guard_ai.movement_speed(), 54.0), "Guard escort still limits movement to the follower's pace")
 	var weapon: StringName = peasant.escort.weapon
-	peasant.escort.arm(true)
+	peasant.escort.arm_from(WEAPONS.Source.CHURCH)
 	check(peasant.escort.weapon == weapon and peasant.attack_damage == 15.0, "Arming twice keeps the weapon and fixed combat profile")
 	peasant.queue_free()
 	guard.queue_free()
@@ -191,6 +202,7 @@ func arming_and_priest() -> void:
 	var zombie := place_zombie("zombie")
 	craftsman.global_position = formation.center
 	craftsman.current_health = 43.0
+	choose_torch(craftsman)
 	craftsman.infection_source = craftsman.InfectionSource.ZOMBIE_COMBAT
 	check(craftsman.begin_encounter(Color.GREEN, zombie), "Craftsman is already in an encounter on arrival")
 	craftsman.encounter_attack_timer.start(0.8)
@@ -198,10 +210,10 @@ func arming_and_priest() -> void:
 	formation.check_arrival(craftsman)
 	check(formation.arrived(craftsman) and craftsman.escort.armed and craftsman.attack_damage == 18.0
 		and craftsman.attack_interval == 1.3 and is_equal_approx(craftsman.encounter_attack_timer.wait_time, 1.3)
-		and is_equal_approx(craftsman.encounter_attack_timer.time_left, 0.7)
+		and is_equal_approx(craftsman.encounter_attack_timer.time_left, 0.8)
 		and craftsman.current_health == 43.0 and craftsman.max_health == 90.0 and craftsman.is_in_collision()
 		and craftsman.infection_source == craftsman.InfectionSource.ZOMBIE_COMBAT,
-		"Church arrival arms in combat, preserves state, and carries elapsed time into the shorter cycle")
+		"Church arrival arms in combat and preserves the active attack deadline and resident state")
 	craftsman.queue_free()
 	alert.set_debug_level(alert.Level.NORMAL)
 	var priest: Node2D = mission.get_node("Villagers/Priest30")
@@ -278,7 +290,8 @@ func brute_splash() -> void:
 	primary.global_position = Vector2(422, 900)
 	secondary.global_position = Vector2(422, 910)
 	secondary.autonomous_movement_enabled = false
-	secondary.escort.arm()
+	choose_torch(secondary)
+	secondary.escort.arm_from(WEAPONS.Source.RECRUITMENT)
 	var brute := place_zombie("brute", Vector2(410, 900))
 	brute.global_position = Vector2(410, 900)
 	brute.infection_chance = 0.0

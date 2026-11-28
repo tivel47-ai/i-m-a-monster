@@ -508,6 +508,7 @@ func build() -> void:
 	container(region, "CemeteryAndFences").set_script(preload("res://scripts/mission_one_boundary_art.gd"))
 	village.set_script(load("res://scripts/test_map.gd"))
 	village.unit_balance_v03 = true
+	village.civilian_weapon_catalog = preload("res://scenes/civilian_weapons.tres")
 	village.zombie_infection_enabled = true
 	village.dark_fantasy_hud = true
 	village.monster_roster_enabled = true

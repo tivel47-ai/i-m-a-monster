@@ -235,7 +235,7 @@ func choose_target(defending: bool) -> Node2D:
 	return best
 
 func ranged() -> bool:
-	return actor.defense_ranged_weapon and (actor.guard_ai != null or actor.priest_guard != null)
+	return actor.defense_ranged_weapon and (actor.guard_ai != null or actor.priest_guard != null or actor.has_civilian_ranged_weapon())
 
 func shoot(enemy: Node2D) -> bool:
 	if not ranged() or not actor.threat_detection._is_visible_target(enemy): return false
@@ -303,7 +303,7 @@ func approach_point(enemy: Node2D) -> Vector2:
 			return Vector2.INF
 		return approach
 	var direction := enemy.global_position.direction_to(actor.global_position)
-	var reach: float = enemy.INFECTION_DISTANCE - actor.arrival_tolerance - 1.0
+	var reach: float = actor.melee_reach() - actor.arrival_tolerance - 1.0
 	var best := Vector2.INF
 	var best_score := INF
 	for angle in [0.0, -PI / 3, PI / 3, -2 * PI / 3, 2 * PI / 3]:
@@ -322,13 +322,22 @@ func approach_point(enemy: Node2D) -> Vector2:
 func engage(enemy: Node2D, delta: float) -> bool:
 	target = enemy
 	mode = "assist" if help_sector >= 0 else "combat"
+	if actor.has_civilian_ranged_weapon() and formation.arrived(actor):
+		var post := home()
+		if not post.is_finite() or not crossbow_in_sector(actor.global_position, post):
+			return false
+		var allowed := crossbow_in_sector.bind(post)
+		return actor.escort.support_ranged(enemy, delta, allowed)
 	if shoot(enemy): return true
 	if ranged() and formation.arrived(actor):
 		target = null
 		halt() # A moving target cannot pull a ranged defender out of its position.
 		return false
-	if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE:
-		enemy.engage_defender(actor)
+	var civilian_melee: bool = actor.has_civilian_melee_weapon()
+	var in_contact: bool = (actor.try_melee_contact(enemy) if civilian_melee
+		else actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE)
+	if in_contact:
+		if not civilian_melee: enemy.engage_defender(actor)
 		halt()
 	elif actor._uses_local_melee_route(enemy):
 		var defending: bool = formation.arrived(actor)
@@ -338,7 +347,7 @@ func engage(enemy: Node2D, delta: float) -> bool:
 			return false
 	else:
 		var approach := goal
-		if not approach.is_finite() or approach.distance_to(enemy.global_position) > enemy.INFECTION_DISTANCE - actor.arrival_tolerance:
+		if not approach.is_finite() or approach.distance_to(enemy.global_position) > actor.melee_reach() - actor.arrival_tolerance:
 			approach = approach_point(enemy)
 		if move_to(approach, delta, formation.arrived(actor)) == actor.NavigationResult.FAILED:
 			failed[enemy.global_position] = now() + formation.decision_interval
@@ -595,6 +604,8 @@ func fortified_target_in_range(enemy: Variant, post: Vector2) -> bool:
 	if actor.unit_vision != null and not actor.unit_vision.contains(enemy.global_position): return false
 	if formation.sector(enemy.global_position) != formation.sector(post): return false
 	if ranged():
+		if actor.has_civilian_ranged_weapon():
+			return crossbow_in_sector(actor.global_position, post) and actor.global_position.distance_to(enemy.global_position) <= actor.defense_weapon_range
 		var crossbow = actor.guard_ai.crossbow if actor.guard_ai != null else null
 		var at_post = actor.global_position.distance_to(post) <= actor.arrival_tolerance
 		return ((at_post or (crossbow != null and crossbow.hold_position.is_finite()))
@@ -625,14 +636,14 @@ func update_fortified(delta: float) -> bool:
 		next_decision = now() + formation.decision_interval
 		sample_fortified_threats()
 	for enemy in actor.encounter_participants.duplicate():
-		if not is_instance_valid(enemy) or not enemy.is_alive() or not formation.service.visible(actor, enemy, enemy.INFECTION_DISTANCE + actor.arrival_tolerance):
+		if not is_instance_valid(enemy) or not enemy.is_alive() or not formation.service.visible(actor, enemy, maxf(enemy.INFECTION_DISTANCE, actor.melee_reach()) + actor.arrival_tolerance):
 			actor.leave_encounter(enemy)
-	if not actor.is_in_collision() and actor.priest_routine == null and actor.threat_detection.detection_enabled:
+	if not actor.is_in_collision() and actor.priest_routine == null and actor.threat_detection.detection_enabled and not actor.has_civilian_ranged_weapon():
 		for enemy in formation.exterior_monsters():
 			if (is_instance_valid(enemy)
 				and actor.global_position.distance_squared_to(enemy.global_position) <= enemy.INFECTION_DISTANCE * enemy.INFECTION_DISTANCE
 				and (actor.unit_vision == null or actor.threat_detection._is_visible_target(enemy))
-				and enemy.engage_defender(actor)):
+				and actor.try_melee_contact(enemy)):
 				break
 	if actor.is_in_collision():
 		if actor.guard_ai != null and actor.guard_ai.crossbow != null:
@@ -667,6 +678,9 @@ func update_fortified(delta: float) -> bool:
 			if transfer_sector < 0 and defend_crossbow_post(post, delta, decision): return true
 		else:
 			if decision: target = choose_fortified_target(post)
+			if actor.has_civilian_ranged_weapon() and transfer_sector < 0 and (
+				not is_instance_valid(target) or actor.global_position.distance_to(target.global_position) > formation.intercept_distance):
+				if formation.service.last_stand.update_work(self, delta): return true
 			if fortified_target_in_range(target, post) and engage(target, delta): return true
 		target = null
 		if decision and transfer_sector < 0 and formation._reinforcement_flank >= 0 and actor.global_position.distance_to(post) <= actor.arrival_tolerance:
@@ -691,13 +705,13 @@ func update(delta: float) -> bool:
 	enemies = enemies.filter(func(enemy): return is_instance_valid(enemy) and actor.threat_detection._is_visible_target(enemy))
 	allies = allies.filter(func(ally): return formation.eligible(ally) and formation.service.visible(actor, ally, actor.threat_detection.detection_radius))
 	for enemy in actor.encounter_participants.duplicate():
-		if not is_instance_valid(enemy) or not enemy.is_alive() or not formation.service.visible(actor, enemy, enemy.INFECTION_DISTANCE + actor.arrival_tolerance): actor.leave_encounter(enemy)
+		if not is_instance_valid(enemy) or not enemy.is_alive() or not formation.service.visible(actor, enemy, maxf(enemy.INFECTION_DISTANCE, actor.melee_reach()) + actor.arrival_tolerance): actor.leave_encounter(enemy)
 	# Contact is immediate evidence even before the recognition delay elapses.
 	if actor.get_tree().get_first_node_in_group("player_units") != null:
 		for enemy in actor.threat_detection.nearby_threats():
 			if actor.global_position.distance_to(enemy.global_position) <= enemy.INFECTION_DISTANCE and actor.threat_detection._is_visible_target(enemy):
 				immediate_until = now() + formation.decision_interval * 2.0
-				if actor.priest_routine == null: enemy.engage_defender(actor)
+				if actor.priest_routine == null and not actor.has_civilian_ranged_weapon(): actor.try_melee_contact(enemy)
 	if actor.is_in_collision():
 		if actor.guard_ai != null and actor.guard_ai.crossbow != null:
 			actor.guard_ai.crossbow.note_contact(now())

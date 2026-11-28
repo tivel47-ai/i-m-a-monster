@@ -226,12 +226,10 @@ func companion_tests() -> void:
 	var two = civilians[1]
 	var three = civilians[2]
 	for civilian in [one,two,three]: civilian.courage = 1.0
-	one.arming_probability = 1.0 # deterministic coverage of both equipment branches
-	two.arming_probability = 0.0
 	check(one.invite(a) and two.invite(a) and not three.invite(a), "24: Active invitations never exceed two followers")
 	check(not one.invite(b) and one.leader == a and not b.followers.has(one), "25: One civilian has at most one leader")
-	check(one.armed and not two.armed and one.equipment_rolls == 1 and two.equipment_rolls == 1, "27/28: Armed and unarmed followers are valid; one equipment decision per recruitment")
-	check(is_equal_approx(three.arming_probability, 0.60), "27: Production recruitment arming default is the confirmed 60 percent")
+	check(one.armed and two.armed and one.equipment_rolls == 1 and two.equipment_rolls == 1, "27/28: Accepted recruits are equipped immediately and once")
+	check(not three.armed, "27: Capacity rejection grants no weapon")
 	var rolls: int = one.equipment_rolls
 	for i in range(20): one.invite(a)
 	check(one.equipment_rolls == rolls, "27: Repeated invitations do not reroll equipment")

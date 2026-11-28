@@ -169,7 +169,7 @@ func check_arrival(actor: Node2D) -> void:
 	if fortified:
 		controller(actor).next_position_retry = service.elapsed + decision_interval * float(id % 23) / 23.0
 	if actor.escort != null:
-		actor.escort.arm(true)
+		actor.escort.arm_on_arrival()
 		if is_instance_valid(actor.escort.leader): actor.escort.release("physical church arrival")
 	_next_refresh = 0.0
 
@@ -345,14 +345,16 @@ func central_slot(point: Vector2) -> bool:
 func assign_rank_posts() -> void:
 	var waiting: Array[Node2D] = []
 	for actor in residents:
+		if not eligible(actor): continue
 		if arrived(actor) and not central_role(actor) and not places.has(actor.get_instance_id()) and actor.is_available_for_infection() and not is_instance_valid(actor.building_task) and not is_instance_valid(actor.interior_building) and controller(actor).next_position_retry <= service.elapsed:
 			waiting.append(actor)
 	if waiting.is_empty(): return
 	var occupied: Array = places.values()
 	var assigned: Array[Node2D] = []
 	# Reserve existing rear positions for arriving ranged specialists.
-	for actor: Node2D in waiting.duplicate():
-		if not actor.has_mission_crossbow(): continue
+	var ranged_waiting := waiting.filter(func(actor): return ranged_post_priority(actor) == 2)
+	ranged_waiting.append_array(waiting.filter(func(actor): return ranged_post_priority(actor) == 1))
+	for actor: Node2D in ranged_waiting:
 		var nearest := INF
 		var selected := Vector2.INF
 		var behavior := controller(actor)
@@ -415,7 +417,7 @@ func assign_rank_posts() -> void:
 			var second_id := second.get_instance_id()
 			var a: Vector2 = places[first_id]
 			var b: Vector2 = places[second_id]
-			if first.has_mission_crossbow() != second.has_mission_crossbow() and ((_slot_ranks[a] == 0) != (_slot_ranks[b] == 0)):
+			if ranged_post_priority(first) != ranged_post_priority(second) and _slot_ranks[a] != _slot_ranks[b]:
 				continue
 			var current := first.global_position.distance_squared_to(a) + second.global_position.distance_squared_to(b)
 			var swapped := first.global_position.distance_squared_to(b) + second.global_position.distance_squared_to(a)
@@ -485,6 +487,11 @@ func reinforcement_target(actor: Node2D) -> int:
 			break
 	return target if intact or idle else -1
 
+func ranged_post_priority(actor: Node2D) -> int:
+	if actor.has_mission_crossbow(): return 2
+	return 1 if actor.has_civilian_ranged_weapon() else 0
+
+
 func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = INF, rebalance: bool = false, allow_transfer: bool = false, reinforce: int = -1) -> Vector2:
 	var id := actor.get_instance_id()
 	var previous: Vector2 = places.get(id, Vector2.INF)
@@ -514,7 +521,7 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 					if side != reinforce: continue
 				elif absi(side - own) != 1 or counts[own] <= counts[side]: continue
 			elif reinforce >= 0: continue
-			elif actor.has_mission_crossbow() or front_rank(point, side) <= front_rank(previous, own) + 1.0: continue
+			elif ranged_post_priority(actor) > 0 or front_rank(point, side) <= front_rank(previous, own) + 1.0: continue
 		var free := true
 		for other in places:
 			if other != id and places[other].distance_to(point) < step * 0.9:
@@ -535,11 +542,11 @@ func position_for(actor: Node2D, anchor: Vector2 = Vector2.INF, limit: float = I
 			value += point.distance_to(preferred) * 4.0
 		elif protected:
 			var rank: int = _slot_ranks[point]
-			var preference: int = 2 - rank if actor.has_mission_crossbow() else rank
+			var preference: int = 2 - rank if ranged_post_priority(actor) > 0 else rank
 			value += preference * service.last_stand.defense_bounds.size.length() * 2.0
 		else:
 			var depth := front_rank(point, side)
-			value += counts[side] * spacing * 4.0 + (depth if actor.has_mission_crossbow() else -depth)
+			value += counts[side] * spacing * 4.0 + (depth if ranged_post_priority(actor) > 0 else -depth)
 			if reinforce >= 0 and side == reinforce: value -= spacing * 100.0
 		if value < best_score:
 			if not service.reachable(actor, point): continue

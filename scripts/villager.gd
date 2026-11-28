@@ -12,6 +12,8 @@ const COMBAT_FLUIDS = preload("res://scripts/combat_fluids.gd")
 const INFECTION_MARK_VISUAL = preload("res://scripts/infection_mark_visual.gd")
 const MISSION_BALANCE = preload("res://scripts/mission_one_unit_balance.gd")
 const UNIT_VISION = preload("res://scripts/unit_vision.gd")
+const ZOMBIE = preload("res://scripts/zombie.gd")
+const UI_FONT = preload("res://assets/ui/fonts/game_ui_font.tres")
 var melee_route: LOCAL_MELEE_ROUTE
 var unit_vision: UNIT_VISION
 var _body_sprite: Sprite2D
@@ -34,6 +36,9 @@ signal died(villager: Node)
 signal threat_recognized(zombie: Node2D)
 signal warning_attempted(villager: Node2D, threat_position: Vector2)
 signal encounter_started(zombie: Node2D)
+signal civilian_weapon_changed(weapon: StringName)
+signal civilian_melee_executed(target: Node2D)
+signal civilian_projectile_released(projectile: Node2D)
 
 enum InfectionState {
 	AVAILABLE,
@@ -67,6 +72,8 @@ enum InfectionSource { NONE, ZOMBIE_COMBAT, PLAYER_ABILITY }
 @export var defense_weapon_range: float = 150.0
 @export var defense_projectile_speed: float = 280.0
 var ranged_ready_at: float = 0.0
+var _civilian_weapon_marker: Label
+var _civilian_melee_only: Array[Node2D] = []
 
 @export_group("Peaceful activities")
 @export_enum("Villager", "Peasant", "Craftsman") var civilian_profile: String = "Villager"
@@ -206,6 +213,109 @@ func has_mission_crossbow() -> bool:
 	return guard_variant == MISSION_BALANCE.CROSSBOW and _balance_profile.has("ranged_damage")
 
 
+func has_civilian_ranged_weapon() -> bool:
+	return escort != null and escort.armed and escort.weapon_profile.get("ranged", false)
+
+
+func has_civilian_melee_weapon() -> bool:
+	return escort != null and escort.armed and escort.weapon_profile.has("melee")
+
+
+func melee_reach() -> float:
+	var modifiers: Vector3 = escort.weapon_profile.get("melee", Vector3.ONE) if escort != null else Vector3.ONE
+	return ZOMBIE.INFECTION_DISTANCE * modifiers.z
+
+
+func try_melee_contact(enemy: Node2D) -> bool:
+	if not has_civilian_melee_weapon():
+		return enemy.engage_defender(self)
+	var separation := global_position.distance_to(enemy.global_position)
+	if separation > melee_reach() or not civilian_attack_line_clear(enemy):
+		return false
+	if separation <= ZOMBIE.INFECTION_DISTANCE:
+		return enemy.engage_defender(self)
+	# A long weapon can make contact before the monster can bite back.
+	return begin_encounter(Color.WHITE, enemy, true)
+
+
+func civilian_attack_line_clear(enemy: Node2D) -> bool:
+	if interior_building != enemy.interior_building:
+		return false
+	var ray := PhysicsRayQueryParameters2D.create(global_position, enemy.global_position,
+		DEFENDER_PROJECTILE.CIVILIAN_BLOCKERS)
+	return get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
+
+
+func close_civilian_melee_gap(delta: float) -> void:
+	if (not autonomous_movement_enabled or infection_state != InfectionState.IN_COLLISION
+		or not has_civilian_melee_weapon() or melee_reach() >= ZOMBIE.INFECTION_DISTANCE):
+		return
+	var approach := Vector2.ZERO
+	var nearest := ZOMBIE.INFECTION_DISTANCE
+	for enemy in encounter_participants:
+		if not is_instance_valid(enemy) or not enemy.is_alive() or not civilian_attack_line_clear(enemy):
+			continue
+		var offset := enemy.global_position - global_position
+		var distance := offset.length()
+		if distance <= melee_reach():
+			return
+		if distance <= nearest:
+			nearest = distance
+			approach = offset.normalized() * minf(distance - melee_reach() + 0.5, tactical_move_speed(move_speed) * delta)
+	if approach.is_zero_approx():
+		return
+	var formation: Node = defense.organized
+	if is_instance_valid(formation) and formation.active() and formation.arrived(self):
+		var post: Vector2 = formation.places.get(get_instance_id(), global_position)
+		var point := global_position + approach
+		if not formation.inside(point) or formation.sector(point) != formation.sector(post):
+			return
+	move_and_collide(approach)
+
+
+func apply_civilian_weapon(profile: Dictionary) -> void:
+	if profile.get("ranged", false):
+		defense_ranged_weapon = true
+		defense_ranged_damage = profile.damage
+		defense_ranged_interval = profile.interval
+		defense_weapon_range = profile.reach
+		defense_projectile_speed = profile.speed
+		if not encounter_attack_timer.is_stopped():
+			ranged_ready_at = maxf(ranged_ready_at, defense.elapsed + encounter_attack_timer.time_left)
+	else:
+		var modifiers: Vector3 = profile.melee
+		attack_damage = _balance_profile.armed_damage * modifiers.x
+		attack_interval = _balance_profile.armed_interval * modifiers.y
+		# Updating wait_time only changes the following cycle, not the active one.
+		encounter_attack_timer.wait_time = attack_interval
+	_civilian_weapon_marker = Label.new()
+	_civilian_weapon_marker.name = "CivilianWeaponMarker"
+	_civilian_weapon_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_civilian_weapon_marker.text = profile.get("marker", profile.label)
+	_civilian_weapon_marker.add_theme_font_override("font", UI_FONT)
+	_civilian_weapon_marker.add_theme_font_size_override("font_size", 9)
+	_civilian_weapon_marker.add_theme_constant_override("outline_size", 3)
+	_civilian_weapon_marker.add_theme_color_override("font_color",
+		Color("b9deeb") if has_civilian_ranged_weapon() else Color("eecf85"))
+	add_child(_civilian_weapon_marker)
+	_civilian_weapon_marker.position = Vector2(
+		-_civilian_weapon_marker.get_minimum_size().x * 0.5,
+		HEALTH_BAR_Y + visual_ui_offset_y - 12.0)
+	civilian_weapon_changed.emit(escort.weapon)
+
+
+func clear_civilian_weapon() -> void:
+	defense_ranged_weapon = false
+	attack_damage = _balance_profile.damage
+	attack_interval = _balance_profile.interval
+	encounter_attack_timer.wait_time = attack_interval
+	if is_instance_valid(_civilian_weapon_marker):
+		_civilian_weapon_marker.hide()
+		_civilian_weapon_marker.queue_free()
+		_civilian_weapon_marker = null
+	civilian_weapon_changed.emit(&"")
+
+
 func try_fire_defense_bolt(enemy: Node2D) -> bool:
 	if not defense_ranged_weapon or not is_instance_valid(defense) or not can_process():
 		return false
@@ -215,6 +325,9 @@ func try_fire_defense_bolt(enemy: Node2D) -> bool:
 		return false
 	var offset := enemy.global_position - global_position
 	if offset.length_squared() > defense_weapon_range * defense_weapon_range or offset.is_zero_approx():
+		return false
+	var civilian_shot := has_civilian_ranged_weapon()
+	if civilian_shot and not civilian_attack_line_clear(enemy):
 		return false
 	if unit_vision != null:
 		unit_vision.face_at_rest(offset)
@@ -234,11 +347,18 @@ func try_fire_defense_bolt(enemy: Node2D) -> bool:
 	bolt.speed = defense_projectile_speed
 	bolt.remaining = defense_weapon_range
 	bolt.interior_building = interior_building
+	if civilian_shot:
+		var shape := enemy.get_node("CollisionShape2D") as CollisionShape2D
+		var radius := shape.shape.get_rect().size.length() * 0.5 * maxf(absf(shape.global_scale.x), absf(shape.global_scale.y))
+		bolt.weapon = escort.weapon
+		bolt.direction = escort.catalog.shot_direction(offset, radius, escort.weapon_profile, escort.weapon_rng)
 	if _crossbow_visual != null:
 		_crossbow_visual.play_shot(offset, defense.elapsed)
 		bolt.display_origin_offset = _crossbow_visual.bolt_display_offset()
 		bolt.display_convergence_distance = maxf(offset.length(), 1.0)
 	battlefield.add_child(bolt)
+	if civilian_shot:
+		civilian_projectile_released.emit(bolt)
 	return true
 
 
@@ -379,6 +499,13 @@ func clear_bell_pose() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if has_civilian_melee_weapon():
+		for enemy in encounter_participants.duplicate():
+			if (not is_instance_valid(enemy) or not enemy.is_alive()
+				or global_position.distance_to(enemy.global_position) > maxf(
+					melee_reach(), 0.0 if _civilian_melee_only.has(enemy) else ZOMBIE.INFECTION_DISTANCE)
+				or not civilian_attack_line_clear(enemy)):
+				leave_encounter(enemy)
 	if is_instance_valid(building_task):
 		return
 	if is_instance_valid(defense) and defense.operating_bell(self):
@@ -389,6 +516,8 @@ func _physics_process(delta: float) -> void:
 		and is_available_for_infection()):
 		_stop_movement()
 		return
+	if has_civilian_melee_weapon():
+		close_civilian_melee_gap(delta)
 	if defense != null and priest_guard != null and autonomous_movement_enabled:
 		if priest_guard.update_ai(delta): return
 	if defense != null and guard_ai != null and autonomous_movement_enabled:
@@ -429,13 +558,13 @@ func _physics_process(delta: float) -> void:
 
 
 func _uses_local_melee_route(enemy: Node2D) -> bool:
-	return melee_route != null and melee_route.applies(self, enemy, enemy.INFECTION_DISTANCE)
+	return melee_route != null and melee_route.applies(self, enemy, melee_reach())
 
 
 func _advance_melee_route(
 	enemy: Node2D, speed: float, delta: float, home := Vector2.INF, leash := INF
 ) -> bool:
-	melee_route.update(self, enemy, enemy.INFECTION_DISTANCE, home, leash)
+	melee_route.update(self, enemy, melee_reach(), home, leash)
 	if melee_route.path.is_empty():
 		return false
 	if has_destination:
@@ -812,7 +941,8 @@ func get_recognized_threat() -> Node2D:
 
 func _on_threat_recognized(zombie: Node2D) -> void:
 	if is_available_for_infection():
-		if not has_tactical_controller(): threat_reaction.recognize_threat(zombie)
+		if not has_tactical_controller() and (escort == null or not escort.can_start_local_defense(zombie)):
+			threat_reaction.recognize_threat(zombie)
 		threat_recognized.emit(zombie)
 
 
@@ -992,6 +1122,8 @@ func _die(attacker: Node = null) -> void:
 	current_health = 0.0
 	transformation_timer.stop()
 	_end_encounter()
+	if escort != null:
+		escort.clear_equipment()
 	if _sprite_map(&"building_depth_sort") == null:
 		z_index = 0
 	collision_layer = 0
@@ -1020,7 +1152,7 @@ func _die(attacker: Node = null) -> void:
 	died.emit(self)
 
 
-func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
+func begin_encounter(result_color: Color, zombie: Node2D, civilian_only := false) -> bool:
 	if (
 		not is_alive()
 		or current_health <= 0.0
@@ -1049,15 +1181,19 @@ func begin_encounter(result_color: Color, zombie: Node2D) -> bool:
 		converted_color = result_color
 	if not encounter_participants.has(zombie):
 		encounter_participants.append(zombie)
+		if civilian_only:
+			_civilian_melee_only.append(zombie)
 		if _can_counterattack() and encounter_attack_timer.is_stopped():
 			encounter_attack_timer.start()
+	if not civilian_only:
+		_civilian_melee_only.erase(zombie)
 	if starting_encounter:
 		encounter_started.emit(zombie)
 	return true
 
 
 func is_encounter_owner(zombie: Node2D) -> bool:
-	return encounter_participants.has(zombie)
+	return encounter_participants.has(zombie) and not _civilian_melee_only.has(zombie)
 
 
 func cancel_encounter() -> void:
@@ -1069,11 +1205,14 @@ func leave_encounter(zombie: Variant) -> void:
 	if is_instance_valid(zombie):
 		if not encounter_participants.has(zombie): return
 		encounter_participants.erase(zombie)
-		if zombie.has_method("on_encounter_ended"): zombie.call("on_encounter_ended", self)
+		var civilian_only := _civilian_melee_only.has(zombie)
+		_civilian_melee_only.erase(zombie)
+		if not civilian_only and zombie.has_method("on_encounter_ended"): zombie.call("on_encounter_ended", self)
 	else:
 		# A despawned opponent cannot be passed to a typed Array.has/erase.
 		for index in range(encounter_participants.size() - 1, -1, -1):
 			if not is_instance_valid(encounter_participants[index]): encounter_participants.remove_at(index)
+		_civilian_melee_only = _civilian_melee_only.filter(func(enemy): return is_instance_valid(enemy))
 	if encounter_participants.is_empty():
 		encounter_attack_timer.stop()
 	if encounter_participants.is_empty() and infection_state == InfectionState.IN_COLLISION:
@@ -1093,8 +1232,15 @@ func _end_encounter() -> void:
 func _on_encounter_attack_timer_timeout() -> void:
 	var participant := _encounter_attack_target()
 	if participant == null:
-		encounter_attack_timer.stop()
+		if not has_civilian_melee_weapon() or encounter_participants.is_empty():
+			encounter_attack_timer.stop()
 		return
+	if has_civilian_ranged_weapon() and defense.elapsed < ranged_ready_at:
+		encounter_attack_timer.start(maxf(ranged_ready_at - defense.elapsed, 0.01))
+		encounter_attack_timer.wait_time = attack_interval
+		return
+	if escort != null and escort.catalog != null:
+		ranged_ready_at = defense.elapsed + attack_interval
 	if _church_visual != null:
 		_church_visual.play_impact(participant.global_position - global_position, encounter_attack_timer.wait_time)
 	elif _guard_visual != null:
@@ -1109,6 +1255,8 @@ func _on_encounter_attack_timer_timeout() -> void:
 	elif unit_vision != null:
 		unit_vision.face(participant.global_position - global_position)
 	participant.call("take_damage", attack_damage, participant.global_position - global_position, true)
+	if has_civilian_melee_weapon() or has_civilian_ranged_weapon():
+		civilian_melee_executed.emit(participant)
 
 
 func _can_counterattack() -> bool:
@@ -1125,7 +1273,10 @@ func _encounter_attack_target() -> Node2D:
 			and participant.has_method("take_damage")
 			and participant.call("is_alive")
 		):
-			if is_instance_valid(interior_building) and (global_position.distance_to(participant.global_position) > participant.INFECTION_DISTANCE or not participant._has_line_of_sight(self)):
+			var equipped := has_civilian_melee_weapon() or has_civilian_ranged_weapon()
+			if equipped and (global_position.distance_to(participant.global_position) > melee_reach() or not civilian_attack_line_clear(participant)):
+				continue
+			if is_instance_valid(interior_building) and not equipped and (global_position.distance_to(participant.global_position) > melee_reach() or not participant._has_line_of_sight(self)):
 				continue
 			return participant
 	return null
@@ -1154,6 +1305,8 @@ func _complete_conversion() -> void:
 	_stop_movement()
 	navigation_agent.avoidance_enabled = false
 	_end_encounter()
+	if escort != null:
+		escort.clear_equipment()
 	collision_layer = 0
 	collision_mask = 0
 	$CollisionShape2D.set_deferred("disabled", true)
