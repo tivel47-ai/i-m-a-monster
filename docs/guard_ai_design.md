@@ -34,7 +34,7 @@ The first large village has approximately 30 inhabitants: 19 peasants, 5 artisan
 | Bounded relevant tasks, interruption and contextual priorities | Confirmed; prototype integrated | §6 |
 | Existing peaceful routes and post relief | Confirmed foundation; implemented | §3, §13 |
 | ALARM territorial patrol and active civilian recruitment | Confirmed; prototype integrated | §3, §8 |
-| Civilian equipment, 60% arming, role-weighted weapons | Confirmed; prototype integrated | §9 |
+| Вооружение гражданских | Реализовано 60% при вступлении. Утверждена замена на 100% для Миссии №1. | §9 |
 | Individual follower behavior, cohesion and recovery | Confirmed; prototype integrated | §8, §10 |
 | Provenance, one retransmission, assistance and local acknowledgements | Confirmed; guard relay protocol integrated; civilian legacy delivery retained | §7, §13 |
 | Peer patrol cooperation and genuinely agreed dynamic waypoints | Confirmed; prototype integrated | §11 |
@@ -210,24 +210,11 @@ A guard's presence increases courage/willingness to resist without removing temp
 
 **Церковный колокол в Миссии №1.** Если «Тревогу» первым поднял священник из церкви, обычные стражники идут обследовать наружные подходы к ней. По пути они приглашают подходящих видимых гражданских по обычным правилам, до двух в группу. Стражник выбирает до трёх ближайших доступных точек осмотра, оставляет проём свободным и после осмотра возвращается к задачам текущего уровня со своими спутниками. Ближний бой и тактический отход имеют приоритет. Звон указывает цель осмотра. Координаты монстров по-прежнему требуют местного наблюдения или сообщения. При организованной обороне приоритет переходит к сбору гарнизона.
 
-## 9. Civilian equipment and adjacent combat constraints — CONFIRMED DESIGN
+## 9. Вооружение гражданских и участие в бою
 
-At ALARM, each civilian recruitment has a **60% probability of arming**, with **40% remaining unarmed companions**. This is an individual recruitment decision, not a guaranteed distribution within each two-follower group. The same recruitment must not reroll equipment every frame. Unarmed followers may still attempt limited assistance/self-defense.
+**Текущий прототип.** Успешное вступление (в том числе при допустимом расследовании до ALARM) запускает одну попытку мгновенной выдачи с вероятностью 60% по умолчанию. Житель может остаться безоружным и сохраняет ограниченную самозащиту. Инструмент выбирается по роли. При физическом прибытии в действующую область церковной обороны оружие выдаётся подходящему безоружному гражданскому сразу. Священник остаётся безоружным. Параметры стражников и гражданских описаны в [Unit Balance v0.3](game_design.md#unit-balance-v03).
 
-При ORGANIZED_DEFENSE ранее безоружные живые необращённые крестьяне и ремесленники получают подручное оружие сразу по физическом прибытии в ограниченную область у церкви, а не при смене уровня по всей карте. Они сразу вступают в оборону и не становятся профессиональной стражей. Условие активации — §3; полные правила — [ORGANIZED_DEFENSE](organized_defense.md).
-
-For the first prototype, equipment acquisition is **instant**; do not require trips to stores, houses or workshops. Random weapon selection is weighted by civilian role: peasants favor pitchforks, axes, clubs, torches and agricultural implements; artisans favor hammers, axes, clubs and profession-related tools. Simple differences in damage, attack speed and reach are allowed by the selected high-level weapon system; special effects are outside the first prototype. No values or formulas are established here.
-
-The priest remains unarmed. Guards already have guard equipment in the intended design, with melee and eventually ranged weapon types; this is not a claim that role-specific equipment is implemented in the inspected prototype.
-
-Accepted directional combat expectations, not numeric specifications:
-
-- A healthy guard generally has the advantage over one ordinary zombie; multiple zombies can threaten a lone guard.
-- An ordinary zombie has a slight advantage over a lone armed peasant.
-- Unarmed civilians are substantially more vulnerable.
-- Armed artisans are broadly comparable to armed peasants, with differences largely due to equipment.
-
-Do not infer damage tables, HP thresholds, weapon values or combat formulas from these intentions.
+**Утверждено, запланировано для Миссии №1.** После успешного вступления в группу каждый подходящий безоружный гражданский мгновенно получает оружие. Прежняя вероятность выдачи 60% заменена решением о 100%. Приглашение, согласие и фактическое членство регулируются действующим ИИ. Повторное вступление, смена лидера и распад группы сохраняют полученное оружие. Запертое укрытие и физическое прибытие в церковную оборону служат дополнительными источниками. Вооружённые спутники получат местную инициативу и упрощённую дальнюю тактику с сохранением индивидуального отхода и паники. [Спецификация и будущая приёмка](civilian_armament.md).
 
 ## 10. Cohesion, separation, and follower recovery — CONFIRMED DESIGN
 
@@ -308,7 +295,7 @@ After separation each patrol reevaluates its relevant tasks and territorial duti
 | `scripts/village_alert.gd` | Подтверждение у стражи сразу включает SUSPICION, колокол включает ALARM, отдельная шкала включает ORGANIZED_DEFENSE | Глобальное затухание отключено. Совместимые поля сохранены. Реестр тел и решения дедуплицируются на миссию. Первичные прохождения пользователем подтверждены. Специальные поведенческие сценарии описаны ниже. |
 | `scripts/villager_local_warning.gd`, `villager_threat_detection.gd`, `villager_threat_reaction.gd` | Прежние гражданские реакции сохранены; зрение использует локальный физический запрос. Предупреждение гражданского даёт GuardAI происхождение настоящего наблюдения. Стража использует одну наследованную ретрансляцию, запросы помощи и местные подтверждения ответа | Гражданские получатели сохраняют прежнюю однопереходную реакцию. Подтверждение ответа не является наблюдением и не ретранслируется. Соглашение патрулей не обходит предел ретрансляции. |
 | `scripts/civilian_escort.gd` | Приглашение/отказ, два спутника, один лидер, индивидуальная навигация, паника/условное возвращение, резервирование места, распад связи и местный поиск замены лидера, местная деятельность и личная память опасных мест при ALARM | У места сбора без лидера не возникает организованное ополчение. Нет удалённого знания смерти лидера. |
-| Оружие спутников | Одно решение 60% при вступлении, мгновенный выбор инструмента по роли, `armed` и метаданные `civilian_weapon`; вооружение по физическому прибытию при ORGANIZED_DEFENSE; совместимый hook ограничен прибывшими | В Миссии №1 вооружённое состояние задаёт урон и интервал в зависимости от профессии. Все подручные инструменты профессии используют [общий профиль](game_design.md#unit-balance-v03). |
+| Оружие спутников | Текущий код: решение 60% при вступлении, мгновенный выбор по роли, `armed` и метаданные `civilian_weapon`. Вызов мобилизации ограничен физически прибывшими. | Сейчас действует [общий профиль](game_design.md#unit-balance-v03) на профессию. Для Миссии №1 утверждены [гарантированная выдача и профили оружия](civilian_armament.md). |
 | Временные союзы | Местное предложение/принятие общей динамической точки, проверка маршрута каждого патруля/спутника, задача GROUP_PATROL, прерывание, ограниченное ожидание и отдельное окончание связи, запрет повтора по прежнему основанию | Один союз пары патрулей на стражника; центрального командира нет. Точка имеет допустимый радиус встречи для двух физических тел. Многосторонние союзы и специализированное фланкирование остаются расширениями. |
 | `scripts/villager.gd`, `scripts/zombie.gd` | Подключение перед мирным циклом; существующие взаимные боевые таймеры; соседние защитники участвуют своими атаками; ушедшие/удалённые противники очищаются из контакта стражи | Боевые характеристики/заражение не перебалансированы; нет нового инвентаря, спецэффектов и строя. |
 | Священник | Мирный PriestRoutine, физическая попытка поднять тревогу при серьёзной лично замеченной угрозе и локальный сбор в ALARM | Внешняя оборона направляет безоружного священника к церкви. Его мораль действует в отдельном радиусе и прекращается при гибели или обращении. Оборона продолжается. |
@@ -326,10 +313,10 @@ Do not invent answers to these questions:
 - Numerical waiting, search, task expiry, commitment and cooldown durations; reaction tuning specific to future guards.
 - Exact perception/communication/cohesion radii, pursuit limits, search-area sizes and movement distances.
 - Exact bounded task-list capacity and retention/eviction tuning; 3–5 was illustrative.
-- Numerical damage, HP, attack rates, formulas, weapon weights/balance and окончательный баланс дальнего оружия.
+- Исходные HP, урон и интервалы приведены в [Unit Balance v0.3](game_design.md#unit-balance-v03). Веса, множители и дальние профили утверждены в [спецификации вооружения](civilian_armament.md#боевые-профили). Настройки оценки угроз и окончательный баланс остаются открытыми.
 - Advanced civilian mobilization and fortification; later monster races and advanced evolutions.
 
-Implementation/tuning details still to specify include the precise incident-reconciliation heuristic, task credibility representation, waypoint agreement/tie-break protocol, when temporarily reserved follower membership finally expires, and how a later genuinely new recruitment is distinguished from continuation for equipment decisions. The confirmed constraints above remain binding; these details must not introduce infinite hearsay, fresh timestamps for old evidence, automatic alliance renewal, or repeated per-frame equipment rerolls.
+Открытые технические настройки включают согласование происшествий, представление достоверности задачи, согласование точек встречи и срок резервирования членства. Сохраняются ограничения на пересказы, давность наблюдения и возобновление союзов. При выдаче оружия повторное вступление сохраняет первый выбор по §9.
 
 Use explicitly unset configurable parameters for future tuning (for example search duration, follower wait duration, allied-patrol wait duration, task expiry, pursuit limits, and task capacity). These names are illustrative placeholders, not existing Inspector exports or selected values. Apart from confirmed counts/probabilities and approximate search-point guidance, this record establishes no new numbers.
 
@@ -354,8 +341,8 @@ These rows preserve the original design acceptance criteria. Automated contract 
 | 13 | Assistance call with new enemies/escalation/location | Update actual evidence and reevaluate urgency contextually. |
 | 14 | Two guards hear same call | A responder may locally acknowledge response; peers consider it without global knowledge or assuming victory. |
 | 15 | Bell versus helping an ally | Decide from urgency, distance, access, risk, companions and delay consequences; neither choice universally wins. |
-| 16 | ALARM recruit receives armed outcome | Local invitation accepted, capacity respected, individual 60% arming decision made once for recruitment; instant role-weighted equipment. |
-| 17 | ALARM recruit receives unarmed outcome | Valid 40% outcome; remains useful companion with limited self-defense; no frame rerolls or forced within-group ratio. |
+| 16 | Вступление в ALARM и мгновенная выдача | Проверка текущего прототипа с вероятностью 60%. Для следующей реализации утверждена гарантированная выдача по §9. |
+| 17 | Успешное вступление без выдачи | Исторический исход 40% текущего прототипа. Для подходящего безоружного спутника заменён утверждённой выдачей по §9. |
 | 18 | Ordinary follower straggles | Guard normally waits bounded time; other follower stays, straggler catches up by accessible path; danger can interrupt. |
 | 19 | Follower independently panics | No mandatory chase by leader; conditional possible reunion/reservation, eventual genuine separation frees slot. |
 | 20 | Help request while follower missing | Bring all current members; wait within bounded rule and possibly refuse help instead of deliberately abandoning active follower. Immediate survival remains allowed. |
@@ -391,7 +378,7 @@ This table preserves the original documentation-task audit. References to unexec
 | 9 — Patrol by level | Routes, vigilance, flexible territorial ALARM, no invented organized-defense patrol (§3) |
 | 10 — Recruitment | Individual civilian safety preferences, leaderless gathering behavior, active invitations, refusal and two-follower cap (§8) |
 | 11 — Followers | Flexible support/combat, own survival/navigation, no distant hunts, courage and plausible reassignment (§8, §10) |
-| 12 — Arming | 60%/40%, full eligible defense arming, instant acquisition, role-weighted weapons, priest unarmed, directional balance only (§9) |
+| 12 — Вооружение | Исторический контракт 60%/40% и мгновенная выдача при физическом прибытии. Утверждённая замена и числовые профили приведены в §9 и [спецификации](civilian_armament.md). |
 | 13 — Cohesion | Bounded waiting, independent flight, reserved membership, living/dead leader recovery, no abandonment for assistance (§10) |
 | 14 — Communication | Provenance, one retransmission, requests, incident reconciliation, unchanged repeats and local acknowledgement (§7) |
 | 15 — Cooperation | Peer equality, actual dynamic-point agreement, bounded waits, interruptions, outcome distinctions, separation/territory/no automatic re-merge (§11) |
@@ -417,7 +404,7 @@ This table preserves the original documentation-task audit. References to unexec
 
 Добавлены `tests/guard_ai_validation.gd` (контракты состояний, памяти, сообщений, групп и соглашений с привязкой к 52 пунктам задания) и `tests/guard_ai_world_validation.gd` (физическое расследование, подход/взаимодействие с колоколом, взаимный урон, непрозрачная стена, движение двух патрулей к согласованной точке, реальное боевое прерывание союза, 600 независимых решений вооружения и 180 игровых секунд ALARM всех 30 NPC). Часть контрактов непосредственно вызывает API; WORLD-сценарии проверяют подключение к реальным движению/бою. Это не ручная приёмка каждой комбинации условий.
 
-Окончательные результаты и журналы, временные defaults и инструкция наблюдения — TDD §9.12. Не объявляются готовыми полный Priest AI, мораль, переход/командование ORGANIZED_DEFENSE, отбой ALARM, окончательные оружейные различия и числовой баланс. Долгое интерактивное прохождение с произвольной плотностью толпы ещё требует приёмки.
+Результаты, журналы и настройки первоначального прогона — TDD §9.12. Этот прогон покрывает раннюю стражу с её действовавшими на тот момент ограничениями. Оружейные профили и новые источники выдачи будут проверены по [сценариям вооружения](civilian_armament.md#будущая-приёмка). Долгое интерактивное прохождение с произвольной плотностью толпы ещё требует приёмки.
 
 Актуальное уточнение реализации и проверок: [TDD §9.14](technical_design.md#914-сбор-спутников-после-колокола-распространённое-подозрение-и-жизнь-мест-сбора).
 
